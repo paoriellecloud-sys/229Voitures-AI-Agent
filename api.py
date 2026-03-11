@@ -50,6 +50,11 @@ def startup():
     create_user_preferences_table()
     create_recommendation_history_table()
 
+    # Create demo user if it doesn't exist
+    if not get_user_by_username("demo229"):
+        hashed_password = get_password_hash("demo229voitures")
+        create_user("demo229", hashed_password)
+
 
 # =============================
 # AUTH
@@ -181,7 +186,7 @@ def ai_vehicle_expert(data: dict, current_user: dict = Depends(get_current_user)
 
 
 # =============================
-# 🤖 AGENT CHAT SIMPLE
+# AGENT CHAT SIMPLE
 # =============================
 
 class ChatRequest(BaseModel):
@@ -191,47 +196,48 @@ class ChatRequest(BaseModel):
 @app.post("/agent/chat")
 def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
-    Chat simple avec Gemini.
-    Exemple: {"message": "Quelle est la meilleure Toyota Corolla 2022?"}
+    Simple chat with Gemini.
+    Example: {"message": "Quelle est la meilleure Toyota Corolla 2022?"}
     """
     response = auto_chat(request.message)
     return {"response": response}
 
 
 # =============================
-# 🌐 AGENT CHAT + RECHERCHE WEB
+# AGENT CHAT WITH WEB SEARCH
 # =============================
 
 @app.post("/agent/chat_web")
 def chat_agent_web(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
-    Chat avec Gemini + Google Search en temps réel.
-    Exemple: {"message": "Trouve-moi une Toyota Corolla 2023 moins de 25000$ au Québec"}
+    Chat with Gemini + real-time Google Search.
+    Example: {"message": "Trouve-moi une Toyota Corolla 2023 moins de 25000$ au Québec"}
     """
     response = auto_chat_web(request.message)
     return {"response": response}
 
 
 # =============================
-# 🔗 ANALYSER UN LIEN
+# ANALYZE A URL
 # =============================
 
 class UrlRequest(BaseModel):
     url: str
+    context: str = ""
 
 
 @app.post("/agent/analyze_url")
 def analyze_url(request: UrlRequest, current_user: dict = Depends(get_current_user)):
     """
-    Analyse une annonce AutoTrader ou Kijiji via son URL.
-    Exemple: {"url": "https://www.autotrader.ca/a/toyota/corolla/..."}
+    Analyzes a car listing from its URL.
+    Example: {"url": "https://www.autotrader.ca/a/toyota/corolla/..."}
     """
     result = analyze_listing(request.url)
     return result
 
 
 # =============================
-# ⚖️ COMPARER 2 ANNONCES
+# COMPARE 2 LISTINGS
 # =============================
 
 class CompareRequest(BaseModel):
@@ -242,8 +248,8 @@ class CompareRequest(BaseModel):
 @app.post("/agent/compare_urls")
 def compare_urls(request: CompareRequest, current_user: dict = Depends(get_current_user)):
     """
-    Compare 2 annonces automobiles et recommande la meilleure.
-    Exemple: {"url1": "https://autotrader.ca/...", "url2": "https://kijiji.ca/..."}
+    Compares 2 car listings and recommends the best one.
+    Example: {"url1": "https://autotrader.ca/...", "url2": "https://kijiji.ca/..."}
     """
     result = compare_listings(request.url1, request.url2)
     return result
@@ -252,17 +258,16 @@ def compare_urls(request: CompareRequest, current_user: dict = Depends(get_curre
 class VinRequest(BaseModel):
     vin: str
 
+
 @app.post("/agent/check_vin")
-def check_vin(
-    request: VinRequest,
-    current_user: dict = Depends(get_current_user)
-):
+def check_vin(request: VinRequest, current_user: dict = Depends(get_current_user)):
     """
-    CarFax gratuit — rapport complet via VIN.
-    Exemple: {"vin": "2T1BURHE0JC043821"}
+    Free CarFax — full report via VIN.
+    Example: {"vin": "2T1BURHE0JC043821"}
     """
     result = get_vehicle_report(request.vin)
     return result
+
 
 # =============================
 # DEBUG ROUTES
