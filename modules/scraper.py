@@ -10,8 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
-GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -27,47 +26,51 @@ Keep suggestions short and actionable. Respond in French.
 
 
 # =============================
-# GOOGLE CUSTOM SEARCH
+# SERPAPI SEARCH
 # =============================
 
-def google_search(query: str, count: int = 2) -> list:
+def serpapi_search(query: str, count: int = 2) -> list:
     """
-    Uses Google Custom Search API to find real listing URLs.
+    Uses SerpAPI to find real listing URLs from Google Search results.
     Returns a list of results with title, url, and snippet.
     """
-    if not GOOGLE_SEARCH_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
+    if not SERPAPI_KEY:
         return []
 
     try:
         params = {
-            "key": GOOGLE_SEARCH_API_KEY,
-            "cx": GOOGLE_SEARCH_ENGINE_ID,
+            "api_key": SERPAPI_KEY,
+            "engine": "google",
             "q": query,
-            "num": min(count * 2, 10),  # fetch extra in case some are irrelevant
-            "gl": "ca",  # Canada
-            "hl": "fr",  # French
+            "gl": "ca",
+            "hl": "fr",
+            "num": min(count * 2, 10),
         }
 
         response = requests.get(
-            "https://www.googleapis.com/customsearch/v1",
+            "https://serpapi.com/search",
             params=params,
-            timeout=10
+            timeout=15
         )
         response.raise_for_status()
         data = response.json()
 
         results = []
-        for item in data.get("items", []):
+        for item in data.get("organic_results", []):
+            url = item.get("link", "")
+            # Filter out irrelevant results
+            if any(skip in url for skip in ["youtube.com", "facebook.com", "instagram.com", "twitter.com"]):
+                continue
             results.append({
                 "title": item.get("title", ""),
-                "url": item.get("link", ""),
+                "url": url,
                 "snippet": item.get("snippet", "")
             })
 
         return results[:count]
 
     except Exception as e:
-        print(f"Google Search error: {str(e)}")
+        print(f"SerpAPI error: {str(e)}")
         return []
 
 
@@ -133,7 +136,7 @@ def extract_page_text(url: str, retries: int = 3) -> str:
 
 def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
     """
-    Step 1 — Google Custom Search API finds real listing URLs
+    Step 1 — SerpAPI finds real listing URLs from Google
     Step 2 — Scrape each URL found
     Step 3 — Analyze with verified data
     """
@@ -143,8 +146,8 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
     if site:
         search_query += f" site:{site}"
 
-    # Step 1 — Find real URLs via Google Custom Search API
-    search_results = google_search(search_query, count)
+    # Step 1 — Find real URLs via SerpAPI
+    search_results = serpapi_search(search_query, count)
 
     # Step 2 — Scrape each URL
     scraped_listings = []
@@ -185,7 +188,7 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
         {PROACTIVE_INSTRUCTIONS}
         """
     else:
-        # Fallback — Google Search found nothing, use Gemini web search
+        # Fallback — SerpAPI found nothing, use Gemini web search
         analysis_prompt = f"""
         The user asked: "{query}"
 
