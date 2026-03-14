@@ -22,7 +22,7 @@ USER_AGENTS = [
 PROACTIVE_INSTRUCTIONS = """
 After your analysis, always suggest 2-3 concrete next actions the user can take.
 Examples:
-- "Je vous suggère de demander un rapport CarFax pour ce véhicule"
+- "Demandez un rapport CarFax pour ce véhicule"
 - "Négociez le prix — ce modèle se vend en moyenne X$ moins cher en ce moment"
 - "Comparez avec cette annonce similaire sur Kijiji ou AutoTrader"
 Keep suggestions short and actionable.
@@ -51,7 +51,6 @@ def extract_page_text(url: str, retries: int = 3) -> str:
             }
 
             session = requests.Session()
-            # First visit homepage to get cookies (helps avoid bot detection)
             base_url = "/".join(url.split("/")[:3])
             session.get(base_url, headers=headers, timeout=8)
             time.sleep(random.uniform(0.5, 1.5))
@@ -61,11 +60,9 @@ def extract_page_text(url: str, retries: int = 3) -> str:
 
             soup = BeautifulSoup(response.text, "html.parser")
 
-            # Remove noise
             for tag in soup(["script", "style", "nav", "footer", "header", "iframe", "noscript"]):
                 tag.decompose()
 
-            # Try to find main content area first
             main = (
                 soup.find("main") or
                 soup.find("article") or
@@ -74,12 +71,8 @@ def extract_page_text(url: str, retries: int = 3) -> str:
             )
 
             text = main.get_text(separator="\n", strip=True) if main else soup.get_text(separator="\n", strip=True)
-
-            # Clean up excessive blank lines
             lines = [line for line in text.splitlines() if line.strip()]
-            text = "\n".join(lines)
-
-            return text[:4000]
+            return "\n".join(lines)[:4000]
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 403:
@@ -88,14 +81,125 @@ def extract_page_text(url: str, retries: int = 3) -> str:
             return f"HTTP error: {str(e)}"
         except Exception as e:
             if attempt == retries - 1:
-                return f"Unable to read page after {retries} attempts: {str(e)}"
+                return f"Unable to read page: {str(e)}"
             time.sleep(random.uniform(1, 2))
 
-    return "Page blocked all attempts — site may require JavaScript or login."
+    return "Page blocked all attempts."
 
 
 # =============================
-# ANALYZE A LISTING
+# SEARCH + SCRAPE + ANALYZE
+# =============================
+
+def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
+    """
+    Step 1 — Ask Gemini to find real listing URLs via Google Search.
+    Step 2 — Scrape each URL found.
+    Step 3 — Analyze and compare with verified data.
+
+    Works for ANY dealer site without needing a URL upfront.
+    """
+
+    # Build search query
+    site_filter = f"site:{site}" if site else "site:autotrader.ca OR site:kijiji.ca OR site:forceoccasion.ca OR site:carpages.ca"
+    search_query = f"{query} Canada {site_filter}"
+
+    # Step 1 — Find real URLs via Google Search
+    url_prompt = f"""
+    Search Google for: {search_query}
+
+    Return ONLY a JSON array of the {count} best matching listing URLs found.
+    Format: ["url1", "url2"]
+    No explanation, no markdown, just the JSON array.
+    If you cannot find real URLs, return an empty array: []
+    """
+
+    url_response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=url_prompt,
+        config=types.GenerateContentConfig(
+            tools=[types.Tool(google_search=types.GoogleSearch())]
+        )
+    )
+
+    # Parse URLs from response
+    import json
+    import re
+    urls = []
+    try:
+        raw = url_response.text.strip()
+        match = re.search(r'\[.*?\]', raw, re.DOTALL)
+        if match:
+            urls = json.loads(match.group())
+    except Exception:
+        urls = []
+
+    # Step 2 — Scrape each URL found
+    scraped_listings = []
+    for url in urls[:count]:
+        text = extract_page_text(url)
+        scraped_listings.append({
+            "url": url,
+            "content": text,
+            "scraped": "error" not in text.lower() and "blocked" not in text.lower()
+        })
+
+    # Step 3 — Analyze with real scraped data
+    if scraped_listings and any(l["scraped"] for l in scraped_listings):
+        listings_text = ""
+        for i, listing in enumerate(scraped_listings, 1):
+            status = "✅ scraped" if listing["scraped"] else "⚠️ blocked"
+            listings_text += f"\nLISTING {i} ({status}) — {listing['url']}:\n{listing['content'][:1500]}\n"
+
+        analysis_prompt = f"""
+        The user asked: "{query}"
+
+        Here is the real scraped content from {len(scraped_listings)} listings found online:
+        {listings_text}
+
+        Provide a concise analysis in French (max 6 sentences total):
+        - For each listing: vehicle name, price, mileage, direct URL
+        - Which is the best deal and why
+        - Final recommendation
+
+        IMPORTANT: Only use data from the scraped content above. Do not invent data.
+        Always include the exact URL for each listing so the user can click directly.
+
+        {PROACTIVE_INSTRUCTIONS}
+        """
+    else:
+        # Fallback — no scraping succeeded, use Google Search knowledge only
+        analysis_prompt = f"""
+        The user asked: "{query}"
+
+        I could not scrape listings directly. Use your Google Search knowledge to find
+        relevant vehicles matching this request in Canada.
+
+        Be honest that these results come from search and may not be current inventory.
+        Provide max 4 sentences in French.
+        Suggest the user verify directly on the dealer site.
+
+        {PROACTIVE_INSTRUCTIONS}
+        """
+
+    final_response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=analysis_prompt,
+        config=types.GenerateContentConfig(
+            tools=[types.Tool(google_search=types.GoogleSearch())]
+        )
+    )
+
+    return {
+        "query": query,
+        "urls_found": [l["url"] for l in scraped_listings],
+        "scraped_count": sum(1 for l in scraped_listings if l["scraped"]),
+        "analysis": final_response.text
+    }
+
+
+# =============================
+# ANALYZE A SINGLE URL
 # =============================
 
 def analyze_listing(url: str) -> dict:
@@ -107,29 +211,23 @@ def analyze_listing(url: str) -> dict:
     blocked = "blocked" in page_text.lower() or "unable to read" in page_text.lower() or "error" in page_text.lower()
 
     if blocked:
-        # Fallback: let Gemini use Google Search instead
         prompt = f"""
         I could not scrape this URL directly: {url}
-        Use Google Search to find information about this listing or similar vehicles from this dealer.
-
-        Give a brief analysis in French (max 4 sentences) and suggest 2 concrete next steps for the user.
+        Use Google Search to find information about this listing or similar vehicles.
+        Give a brief analysis in French (max 4 sentences) and suggest 2 concrete next steps.
         {PROACTIVE_INSTRUCTIONS}
         """
     else:
         prompt = f"""
-        Analyze this Canadian car listing and give a recommendation. Be concise (max 5 sentences total).
+        Analyze this Canadian car listing. Be concise (max 5 sentences total).
 
         PAGE CONTENT:
         {page_text}
 
-        Cover briefly:
-        - Vehicle summary (make, model, year, price, mileage)
-        - 1 positive point, 1 thing to watch out for
-        - Price vs current Canadian market
-        - Final recommendation (buy / negotiate / avoid)
+        Cover: vehicle summary, 1 positive point, 1 thing to watch, price vs market, recommendation.
+        Always include the listing URL in your response: {url}
 
         {PROACTIVE_INSTRUCTIONS}
-
         Respond in French.
         """
 
@@ -154,7 +252,7 @@ def analyze_listing(url: str) -> dict:
 
 def compare_listings(url1: str, url2: str) -> dict:
     """
-    Scrapes 2 listings and asks Gemini to compare them with proactive suggestions.
+    Scrapes 2 listings and asks Gemini to compare them.
     """
 
     text1 = extract_page_text(url1)
@@ -169,13 +267,10 @@ def compare_listings(url1: str, url2: str) -> dict:
     LISTING 2 ({url2}):
     {text2[:1500]}
 
-    Cover briefly:
-    - Key differences (price, km, year, condition)
-    - Which is the better deal and why
-    - Final recommendation
+    Cover: key differences, which is the better deal and why, final recommendation.
+    Include both URLs so the user can access each listing directly.
 
     {PROACTIVE_INSTRUCTIONS}
-
     Respond in French.
     """
 

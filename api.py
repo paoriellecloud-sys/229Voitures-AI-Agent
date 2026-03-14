@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from database import *
 from auth import *
 from modules.agent_chat import auto_chat, auto_chat_web, analyze_vehicle_url
-from modules.scraper import analyze_listing, compare_listings
+from modules.scraper import analyze_listing, compare_listings, search_and_analyze
 
 import numpy as np
 import joblib
@@ -266,6 +266,26 @@ def check_vin(request: VinRequest, current_user: dict = Depends(get_current_user
     Example: {"vin": "2T1BURHE0JC043821"}
     """
     result = get_vehicle_report(request.vin)
+    return result
+
+
+# =============================
+# SEARCH + SCRAPE + ANALYZE
+# =============================
+
+class SearchRequest(BaseModel):
+    query: str
+    site: str = None
+    count: int = 2
+
+
+@app.post("/agent/search")
+def search_vehicles(request: SearchRequest, current_user: dict = Depends(get_current_user)):
+    """
+    Finds real listings online from any dealer site without needing a URL.
+    Example: {"query": "Kia Seltos LX 2021 Force Occasion Quebec", "count": 2}
+    """
+    result = search_and_analyze(request.query, request.site, request.count)
     return result
 
 
