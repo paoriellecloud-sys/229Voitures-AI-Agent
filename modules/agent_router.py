@@ -4,8 +4,6 @@ from pydantic import BaseModel
 
 from database import *
 from auth import *
-from modules.agent_router import smart_chat
-
 import numpy as np
 import joblib
 import os
