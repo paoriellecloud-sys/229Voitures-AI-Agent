@@ -200,7 +200,7 @@ def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_us
     Handles: general chat, vehicle search, URL analysis, URL comparison, VIN check.
     Example: {"message": "Trouve moi 2 Kia Seltos LX 2021 chez Force Occasion"}
     """
-    result = smart_chat(request.message)
+    result = smart_chat(request.message, user_id=current_user["username"])
     return result
 
 
