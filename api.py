@@ -4,8 +4,7 @@ from pydantic import BaseModel
 
 from database import *
 from auth import *
-from modules.agent_chat import auto_chat, auto_chat_web, analyze_vehicle_url
-from modules.scraper import analyze_listing, compare_listings, search_and_analyze
+from modules.agent_router import smart_chat
 
 import numpy as np
 import joblib
@@ -186,7 +185,7 @@ def ai_vehicle_expert(data: dict, current_user: dict = Depends(get_current_user)
 
 
 # =============================
-# AGENT CHAT SIMPLE
+# SMART AGENT — SINGLE ENTRY POINT
 # =============================
 
 class ChatRequest(BaseModel):
@@ -196,96 +195,12 @@ class ChatRequest(BaseModel):
 @app.post("/agent/chat")
 def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
-    Simple chat with Gemini.
-    Example: {"message": "Quelle est la meilleure Toyota Corolla 2022?"}
+    Single entry point for all user messages.
+    Automatically detects intent and routes to the right function.
+    Handles: general chat, vehicle search, URL analysis, URL comparison, VIN check.
+    Example: {"message": "Trouve moi 2 Kia Seltos LX 2021 chez Force Occasion"}
     """
-    response = auto_chat(request.message)
-    return {"response": response}
-
-
-# =============================
-# AGENT CHAT WITH WEB SEARCH
-# =============================
-
-@app.post("/agent/chat_web")
-def chat_agent_web(request: ChatRequest, current_user: dict = Depends(get_current_user)):
-    """
-    Chat with Gemini + real-time Google Search.
-    Example: {"message": "Trouve-moi une Toyota Corolla 2023 moins de 25000$ au Québec"}
-    """
-    response = auto_chat_web(request.message)
-    return {"response": response}
-
-
-# =============================
-# ANALYZE A URL
-# =============================
-
-class UrlRequest(BaseModel):
-    url: str
-    context: str = ""
-
-
-@app.post("/agent/analyze_url")
-def analyze_url(request: UrlRequest, current_user: dict = Depends(get_current_user)):
-    """
-    Analyzes a car listing from its URL.
-    Example: {"url": "https://www.autotrader.ca/a/toyota/corolla/..."}
-    """
-    result = analyze_listing(request.url)
-    return result
-
-
-# =============================
-# COMPARE 2 LISTINGS
-# =============================
-
-class CompareRequest(BaseModel):
-    url1: str
-    url2: str
-
-
-@app.post("/agent/compare_urls")
-def compare_urls(request: CompareRequest, current_user: dict = Depends(get_current_user)):
-    """
-    Compares 2 car listings and recommends the best one.
-    Example: {"url1": "https://autotrader.ca/...", "url2": "https://kijiji.ca/..."}
-    """
-    result = compare_listings(request.url1, request.url2)
-    return result
-
-
-class VinRequest(BaseModel):
-    vin: str
-
-
-@app.post("/agent/check_vin")
-def check_vin(request: VinRequest, current_user: dict = Depends(get_current_user)):
-    """
-    Free CarFax — full report via VIN.
-    Example: {"vin": "2T1BURHE0JC043821"}
-    """
-    result = get_vehicle_report(request.vin)
-    return result
-
-
-# =============================
-# SEARCH + SCRAPE + ANALYZE
-# =============================
-
-class SearchRequest(BaseModel):
-    query: str
-    site: str = None
-    count: int = 2
-
-
-@app.post("/agent/search")
-def search_vehicles(request: SearchRequest, current_user: dict = Depends(get_current_user)):
-    """
-    Finds real listings online from any dealer site without needing a URL.
-    Example: {"query": "Kia Seltos LX 2021 Force Occasion Quebec", "count": 2}
-    """
-    result = search_and_analyze(request.query, request.site, request.count)
+    result = smart_chat(request.message)
     return result
 
 
