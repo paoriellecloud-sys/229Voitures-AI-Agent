@@ -236,3 +236,14 @@ def debug_users():
     rows = cursor.fetchall()
     conn.close()
     return {"rows": rows}
+
+
+@app.get("/debug_search")
+def debug_search(current_user: dict = Depends(get_current_user)):
+    from modules.scraper import google_search
+    results = google_search("Kia Seltos 2021 occasion Quebec", 2)
+    return {
+        "api_key_set": bool(os.getenv("GOOGLE_SEARCH_API_KEY")),
+        "engine_id_set": bool(os.getenv("GOOGLE_SEARCH_ENGINE_ID")),
+        "results": results
+    }
