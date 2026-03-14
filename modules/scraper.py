@@ -10,8 +10,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
 
-# Rotate user agents to avoid bot detection
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
@@ -20,13 +21,54 @@ USER_AGENTS = [
 ]
 
 PROACTIVE_INSTRUCTIONS = """
-After your analysis, always suggest 2-3 concrete next actions the user can take.
-Examples:
-- "Demandez un rapport CarFax pour ce véhicule"
-- "Négociez le prix — ce modèle se vend en moyenne X$ moins cher en ce moment"
-- "Comparez avec cette annonce similaire sur Kijiji ou AutoTrader"
-Keep suggestions short and actionable.
+After your analysis, always suggest 2 concrete next actions the user can take.
+Keep suggestions short and actionable. Respond in French.
 """
+
+
+# =============================
+# GOOGLE CUSTOM SEARCH
+# =============================
+
+def google_search(query: str, count: int = 2) -> list:
+    """
+    Uses Google Custom Search API to find real listing URLs.
+    Returns a list of results with title, url, and snippet.
+    """
+    if not GOOGLE_SEARCH_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
+        return []
+
+    try:
+        params = {
+            "key": GOOGLE_SEARCH_API_KEY,
+            "cx": GOOGLE_SEARCH_ENGINE_ID,
+            "q": query,
+            "num": min(count * 2, 10),  # fetch extra in case some are irrelevant
+            "gl": "ca",  # Canada
+            "hl": "fr",  # French
+        }
+
+        response = requests.get(
+            "https://www.googleapis.com/customsearch/v1",
+            params=params,
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        results = []
+        for item in data.get("items", []):
+            results.append({
+                "title": item.get("title", ""),
+                "url": item.get("link", ""),
+                "snippet": item.get("snippet", "")
+            })
+
+        return results[:count]
+
+    except Exception as e:
+        print(f"Google Search error: {str(e)}")
+        return []
 
 
 # =============================
@@ -36,7 +78,6 @@ Keep suggestions short and actionable.
 def extract_page_text(url: str, retries: int = 3) -> str:
     """
     Downloads a web page and extracts the main text content.
-    Retries with different user agents if blocked.
     """
     for attempt in range(retries):
         try:
@@ -59,7 +100,6 @@ def extract_page_text(url: str, retries: int = 3) -> str:
             response.raise_for_status()
 
             soup = BeautifulSoup(response.text, "html.parser")
-
             for tag in soup(["script", "style", "nav", "footer", "header", "iframe", "noscript"]):
                 tag.decompose()
 
@@ -93,91 +133,65 @@ def extract_page_text(url: str, retries: int = 3) -> str:
 
 def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
     """
-    Step 1 — Ask Gemini to find real listing URLs via Google Search.
-    Step 2 — Scrape each URL found.
-    Step 3 — Analyze and compare with verified data.
-
-    Works for ANY dealer site without needing a URL upfront.
+    Step 1 — Google Custom Search API finds real listing URLs
+    Step 2 — Scrape each URL found
+    Step 3 — Analyze with verified data
     """
 
     # Build search query
-    site_filter = f"site:{site}" if site else "site:autotrader.ca OR site:kijiji.ca OR site:forceoccasion.ca OR site:carpages.ca"
-    search_query = f"{query} Canada {site_filter}"
+    search_query = f"{query} occasion Canada"
+    if site:
+        search_query += f" site:{site}"
 
-    # Step 1 — Find real URLs via Google Search
-    url_prompt = f"""
-    Search Google for: {search_query}
+    # Step 1 — Find real URLs via Google Custom Search API
+    search_results = google_search(search_query, count)
 
-    Return ONLY a JSON array of the {count} best matching listing URLs found.
-    Format: ["url1", "url2"]
-    No explanation, no markdown, just the JSON array.
-    If you cannot find real URLs, return an empty array: []
-    """
-
-    url_response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=url_prompt,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(google_search=types.GoogleSearch())]
-        )
-    )
-
-    # Parse URLs from response
-    import json
-    import re
-    urls = []
-    try:
-        raw = url_response.text.strip()
-        match = re.search(r'\[.*?\]', raw, re.DOTALL)
-        if match:
-            urls = json.loads(match.group())
-    except Exception:
-        urls = []
-
-    # Step 2 — Scrape each URL found
+    # Step 2 — Scrape each URL
     scraped_listings = []
-    for url in urls[:count]:
+    for result in search_results:
+        url = result["url"]
         text = extract_page_text(url)
         scraped_listings.append({
+            "title": result["title"],
             "url": url,
+            "snippet": result["snippet"],
             "content": text,
             "scraped": "error" not in text.lower() and "blocked" not in text.lower()
         })
 
-    # Step 3 — Analyze with real scraped data
-    if scraped_listings and any(l["scraped"] for l in scraped_listings):
+    # Step 3 — Analyze
+    if scraped_listings:
         listings_text = ""
         for i, listing in enumerate(scraped_listings, 1):
-            status = "✅ scraped" if listing["scraped"] else "⚠️ blocked"
-            listings_text += f"\nLISTING {i} ({status}) — {listing['url']}:\n{listing['content'][:1500]}\n"
+            content = listing["content"] if listing["scraped"] else listing["snippet"]
+            listings_text += f"\nLISTING {i} — {listing['title']}\nURL: {listing['url']}\n{content[:1500]}\n"
 
         analysis_prompt = f"""
         The user asked: "{query}"
 
-        Here is the real scraped content from {len(scraped_listings)} listings found online:
+        Here are {len(scraped_listings)} real listings found via Google Search:
         {listings_text}
 
-        Provide a concise analysis in French (max 6 sentences total):
-        - For each listing: vehicle name, price, mileage, direct URL
-        - Which is the best deal and why
+        Provide a concise response in French:
+        - For each listing: vehicle name, price, mileage, and exact URL as a clickable link
+        - Which is the best deal and why (1 sentence)
         - Final recommendation
 
-        IMPORTANT: Only use data from the scraped content above. Do not invent data.
-        Always include the exact URL for each listing so the user can click directly.
+        IMPORTANT:
+        - Only use data from the content above
+        - Always include the exact URL for each listing
+        - Max 6 sentences total
 
         {PROACTIVE_INSTRUCTIONS}
         """
     else:
-        # Fallback — no scraping succeeded, use Google Search knowledge only
+        # Fallback — Google Search found nothing, use Gemini web search
         analysis_prompt = f"""
         The user asked: "{query}"
 
-        I could not scrape listings directly. Use your Google Search knowledge to find
-        relevant vehicles matching this request in Canada.
-
-        Be honest that these results come from search and may not be current inventory.
-        Provide max 4 sentences in French.
-        Suggest the user verify directly on the dealer site.
+        Search for relevant vehicles matching this request in Canada.
+        Be honest that results may not reflect current inventory.
+        Max 4 sentences in French. Always suggest verifying on dealer site.
 
         {PROACTIVE_INSTRUCTIONS}
         """
@@ -204,7 +218,7 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
 
 def analyze_listing(url: str) -> dict:
     """
-    Scrapes a car listing and asks Gemini to analyze it with proactive suggestions.
+    Scrapes a car listing and asks Gemini to analyze it.
     """
 
     page_text = extract_page_text(url)
@@ -212,23 +226,22 @@ def analyze_listing(url: str) -> dict:
 
     if blocked:
         prompt = f"""
-        I could not scrape this URL directly: {url}
-        Use Google Search to find information about this listing or similar vehicles.
-        Give a brief analysis in French (max 4 sentences) and suggest 2 concrete next steps.
+        I could not scrape this URL: {url}
+        Use Google Search to find information about this listing.
+        Max 4 sentences in French. Include the URL: {url}
         {PROACTIVE_INSTRUCTIONS}
         """
     else:
         prompt = f"""
-        Analyze this Canadian car listing. Be concise (max 5 sentences total).
+        Analyze this Canadian car listing. Max 5 sentences total.
 
         PAGE CONTENT:
         {page_text}
 
-        Cover: vehicle summary, 1 positive point, 1 thing to watch, price vs market, recommendation.
-        Always include the listing URL in your response: {url}
+        Cover: vehicle summary, price, mileage, 1 positive point, 1 thing to watch, recommendation.
+        Always include the listing URL: {url}
 
         {PROACTIVE_INSTRUCTIONS}
-        Respond in French.
         """
 
     response = client.models.generate_content(
@@ -259,7 +272,7 @@ def compare_listings(url1: str, url2: str) -> dict:
     text2 = extract_page_text(url2)
 
     prompt = f"""
-    Compare these two Canadian car listings. Be concise (max 6 sentences total).
+    Compare these two Canadian car listings. Max 6 sentences total.
 
     LISTING 1 ({url1}):
     {text1[:1500]}
@@ -267,11 +280,10 @@ def compare_listings(url1: str, url2: str) -> dict:
     LISTING 2 ({url2}):
     {text2[:1500]}
 
-    Cover: key differences, which is the better deal and why, final recommendation.
+    Cover: key differences, best deal and why, final recommendation.
     Include both URLs so the user can access each listing directly.
 
     {PROACTIVE_INSTRUCTIONS}
-    Respond in French.
     """
 
     response = client.models.generate_content(
