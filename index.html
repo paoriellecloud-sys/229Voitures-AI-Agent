@@ -3,217 +3,650 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>229Voitures AI Agent</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<title>229Voitures — AI Agent</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
   :root {
-    --black: #0a0a0a;
-    --yellow: #f5c800;
-    --yellow-dark: #c9a200;
-    --white: #f0ead6;
-    --gray: #141414;
-    --gray-mid: #222;
-    --gray-light: #777;
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: #2a2a3d;
+    --accent: #f5a623;
+    --accent2: #e8431a;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --success: #2ecc71;
+    --error: #e74c3c;
+    --radius: 12px;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:var(--black); color:var(--white); font-family:'DM Sans',sans-serif; font-weight:300; overflow-x:hidden; cursor:none; }
 
-  .cursor { width:10px;height:10px;background:var(--yellow);border-radius:50%;position:fixed;pointer-events:none;z-index:9999; }
-  .cursor-ring { width:36px;height:36px;border:1px solid rgba(245,200,0,0.5);border-radius:50%;position:fixed;pointer-events:none;z-index:9998; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* HERO */
-  .hero { min-height:100vh;display:grid;grid-template-columns:1fr 1fr;position:relative;overflow:hidden; }
-  .hero::before { content:'';position:absolute;top:-200px;left:-200px;width:600px;height:600px;background:radial-gradient(circle,rgba(245,200,0,0.07) 0%,transparent 70%);pointer-events:none; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 
-  .hero-left { padding:60px;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:2; }
-  .hero-right { background:var(--gray);position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px; }
-  .hero-right::before { content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(245,200,0,0.1) 0%,transparent 65%); }
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
 
-  .hero-logo { width:260px;position:relative;z-index:2;filter:drop-shadow(0 0 40px rgba(245,200,0,0.3));animation:float 5s ease-in-out infinite; }
-  .hero-mascot { width:190px;position:relative;z-index:2;animation:float 5s ease-in-out infinite 0.5s;border-radius:14px;box-shadow:0 0 50px rgba(245,200,0,0.12); }
-  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+  }
+  .logo span { color: var(--accent); }
 
-  .logo-text { font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.35em;text-transform:uppercase;color:var(--yellow);opacity:0;animation:fadeUp .6s ease forwards .2s; }
-  .badge { display:inline-flex;align-items:center;gap:8px;background:rgba(245,200,0,.1);border:1px solid rgba(245,200,0,.35);padding:6px 16px;border-radius:100px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:20px;opacity:0;animation:fadeUp .6s ease forwards .4s;width:fit-content; }
-  .badge::before { content:'';width:6px;height:6px;background:var(--yellow);border-radius:50%;animation:blink 2s infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    background: var(--surface2);
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
 
-  .hero-title { font-family:'Syne',sans-serif;font-size:clamp(48px,4.5vw,80px);font-weight:800;line-height:.95;letter-spacing:-.03em;opacity:0;animation:fadeUp .8s ease forwards .5s; }
-  .hero-title .accent { color:var(--yellow);display:block; }
-  .hero-sub { font-size:15px;line-height:1.75;color:var(--gray-light);max-width:420px;opacity:0;animation:fadeUp .8s ease forwards .7s; }
+  /* ── LAYOUT ── */
+  .app-container {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 61px);
+  }
 
-  .hero-btn { display:inline-flex;align-items:center;gap:12px;background:var(--yellow);color:#000;text-decoration:none;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;padding:17px 36px;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));transition:all .3s;opacity:0;animation:fadeUp .8s ease forwards .9s;width:fit-content;box-shadow:0 0 30px rgba(245,200,0,.25); }
-  .hero-btn:hover { background:var(--yellow-dark);transform:translateX(4px);box-shadow:0 0 50px rgba(245,200,0,.45); }
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px;
+    gap: 24px;
+  }
 
-  .stats-row { display:flex;gap:40px;opacity:0;animation:fadeUp .8s ease forwards 1.1s; }
-  .stat-num { font-family:'Syne',sans-serif;font-size:34px;font-weight:800;color:var(--yellow);line-height:1; }
-  .stat-label { font-size:11px;color:var(--gray-light);text-transform:uppercase;letter-spacing:.15em;margin-top:4px; }
+  .sidebar-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
 
-  @keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+  /* Login form */
+  #login-section { display: flex; flex-direction: column; gap: 14px; }
 
-  .divider { height:1px;background:linear-gradient(90deg,transparent,var(--gray-mid),transparent); }
+  label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
 
-  /* SECTIONS */
-  .section { padding:100px 60px;max-width:1400px;margin:0 auto; }
-  .section-label { font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.45em;text-transform:uppercase;color:var(--yellow);margin-bottom:14px; }
-  .section-title { font-family:'Syne',sans-serif;font-size:clamp(30px,3vw,50px);font-weight:800;line-height:1.1;letter-spacing:-.02em;margin-bottom:56px; }
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: var(--accent); }
 
-  /* FEATURES */
-  .features-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:var(--gray-mid);border:1px solid var(--gray-mid); }
-  .feature { background:var(--black);padding:48px 38px;position:relative;overflow:hidden;transition:background .3s; }
-  .feature::after { content:'';position:absolute;top:0;left:0;width:0;height:2px;background:var(--yellow);transition:width .4s; }
-  .feature:hover { background:#0f0f0f; }
-  .feature:hover::after { width:100%; }
-  .feature-num { font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--yellow);letter-spacing:.3em;margin-bottom:20px; }
-  .feature-icon { font-size:34px;display:block;margin-bottom:18px; }
-  .feature-title { font-family:'Syne',sans-serif;font-size:19px;font-weight:700;margin-bottom:10px; }
-  .feature-desc { font-size:14px;line-height:1.7;color:var(--gray-light); }
-  .feature-tag { display:inline-block;margin-top:18px;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);border:1px solid rgba(245,200,0,.3);padding:4px 10px;border-radius:3px; }
+  .btn {
+    width: 100%;
+    padding: 11px 20px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+  }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-  /* HOW */
-  .how-section { padding:100px 60px;background:var(--gray); }
-  .how-inner { max-width:1400px;margin:0 auto; }
-  .steps { display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:60px;position:relative; }
-  .steps::before { content:'';position:absolute;top:27px;left:10%;width:80%;height:1px;background:linear-gradient(90deg,transparent,var(--yellow),transparent); }
-  .step { padding:0 20px;text-align:center; }
-  .step-dot { width:54px;height:54px;background:var(--black);border:2px solid var(--yellow);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 22px;font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--yellow);position:relative;z-index:2;box-shadow:0 0 20px rgba(245,200,0,.2); }
-  .step-title { font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px; }
-  .step-desc { font-size:13px;color:var(--gray-light);line-height:1.6; }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* TEST */
-  .test-section { padding:100px 60px;max-width:1400px;margin:0 auto; }
-  .test-grid { display:grid;grid-template-columns:1fr 1fr;gap:3px;background:var(--gray-mid);border:1px solid var(--gray-mid);margin-top:56px; }
-  .test-card { background:var(--black);padding:38px;transition:background .3s; }
-  .test-card:hover { background:#0d0d0d; }
-  .test-card-header { display:flex;align-items:center;gap:12px;margin-bottom:14px; }
-  .method { font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.15em;background:var(--yellow);color:#000;padding:4px 10px;border-radius:3px; }
-  .endpoint { font-family:'Courier New',monospace;font-size:13px;color:var(--yellow); }
-  .test-card-title { font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px; }
-  .test-card-desc { font-size:13px;color:var(--gray-light);line-height:1.6;margin-bottom:14px; }
-  .test-example { background:var(--gray);border-left:2px solid var(--yellow);padding:12px 16px;font-size:12px;font-family:'Courier New',monospace;color:#aaa;line-height:1.5;border-radius:0 4px 4px 0; }
+  /* User info */
+  #user-info { display: none; flex-direction: column; gap: 12px; }
+  .user-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .user-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .user-name { font-weight: 600; font-size: 0.9rem; }
+  .user-role { font-size: 0.75rem; color: var(--muted); }
 
-  /* STACK */
-  .stack-section { padding:80px 60px;background:var(--gray); }
-  .stack-inner { max-width:1400px;margin:0 auto; }
-  .tech-row { display:flex;flex-wrap:wrap;gap:10px;margin-top:36px; }
-  .tech-pill { font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:.1em;padding:9px 18px;border:1px solid var(--gray-mid);color:var(--gray-light);transition:all .3s;text-transform:uppercase;border-radius:3px; }
-  .tech-pill:hover { border-color:var(--yellow);color:var(--yellow);background:rgba(245,200,0,.06); }
+  /* Suggestions */
+  .suggestions { display: flex; flex-direction: column; gap: 8px; }
+  .suggestion-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text);
+    text-align: left;
+    line-height: 1.4;
+  }
+  .suggestion-chip:hover {
+    border-color: var(--accent);
+    background: rgba(245,166,35,0.08);
+    color: var(--accent);
+  }
+  .chip-icon { margin-right: 8px; }
 
-  /* FOOTER */
-  .footer-wrap { border-top:1px solid var(--gray-mid);padding:60px;display:flex;justify-content:space-between;align-items:center;max-width:1400px;margin:0 auto;gap:24px;flex-wrap:wrap; }
-  .footer-mascot { width:70px;border-radius:10px;filter:drop-shadow(0 0 10px rgba(245,200,0,.2)); }
-  .footer-title { font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--yellow); }
-  .footer-sub { font-size:12px;color:var(--gray-light);margin-top:4px; }
-  .cta-btn { display:inline-flex;align-items:center;gap:10px;background:var(--yellow);color:#000;text-decoration:none;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;padding:16px 32px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));transition:all .3s;box-shadow:0 0 30px rgba(245,200,0,.2); }
-  .cta-btn:hover { background:var(--yellow-dark);box-shadow:0 0 50px rgba(245,200,0,.4); }
+  /* Alert box */
+  .alert {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+    border: 1px solid transparent;
+    display: none;
+  }
+  .alert.error { background: rgba(231,76,60,0.12); border-color: rgba(231,76,60,0.35); color: #ff6b5b; display: block; }
+  .alert.success { background: rgba(46,204,113,0.1); border-color: rgba(46,204,113,0.3); color: #2ecc71; display: block; }
 
-  @media(max-width:900px){
-    .hero{grid-template-columns:1fr} .hero-right{min-height:280px}
-    .features-grid{grid-template-columns:1fr}
-    .steps{grid-template-columns:1fr 1fr;gap:32px} .steps::before{display:none}
-    .test-grid{grid-template-columns:1fr}
-    .section,.how-section,.test-section,.stack-section{padding:60px 24px}
-    .footer-wrap{padding:40px 24px}
+  /* ── MAIN CHAT ── */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #chat-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--muted);
+    text-align: center;
+    padding: 40px;
+  }
+  #chat-placeholder .big-icon { font-size: 3.5rem; margin-bottom: 8px; }
+  #chat-placeholder h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.4rem;
+    color: var(--text);
+    font-weight: 700;
+  }
+  #chat-placeholder p { font-size: 0.9rem; max-width: 380px; line-height: 1.6; }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    scroll-behavior: smooth;
+  }
+  #messages::-webkit-scrollbar { width: 4px; }
+  #messages::-webkit-scrollbar-track { background: transparent; }
+  #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .message {
+    display: flex;
+    gap: 12px;
+    max-width: 760px;
+    animation: fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .message.user { flex-direction: row-reverse; align-self: flex-end; }
+
+  .msg-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+  }
+  .msg-avatar.ai {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+  }
+  .msg-avatar.user-av {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .msg-bubble {
+    padding: 13px 17px;
+    border-radius: 16px;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    max-width: 620px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .message.ai .msg-bubble {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-top-left-radius: 4px;
+  }
+  .message.user .msg-bubble {
+    background: linear-gradient(135deg, rgba(245,166,35,0.25), rgba(232,67,26,0.18));
+    border: 1px solid rgba(245,166,35,0.3);
+    border-top-right-radius: 4px;
+    color: var(--text);
+  }
+
+  /* Typing indicator */
+  .typing-bubble .msg-bubble {
+    display: flex; gap: 5px; align-items: center;
+    padding: 14px 20px;
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: bounce 1.2s infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%,60%,100% { transform: translateY(0); }
+    30% { transform: translateY(-7px); }
+  }
+
+  /* Input bar */
+  .input-bar {
+    padding: 16px 32px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 10px 14px;
+    transition: border-color 0.2s;
+  }
+  .input-wrapper:focus-within { border-color: var(--accent); }
+
+  #chat-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    resize: none;
+    max-height: 140px;
+    min-height: 24px;
+    line-height: 1.5;
+  }
+  #chat-input::placeholder { color: var(--muted); }
+  #chat-input:disabled { opacity: 0.5; }
+
+  #send-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  #send-btn:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .input-hint {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 8px;
   }
 </style>
 </head>
 <body>
 
-<div class="cursor" id="cursor"></div>
-<div class="cursor-ring" id="ring"></div>
+<header>
+  <div class="logo">229<span>Voitures</span> AI</div>
+  <div class="status-badge">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Déconnecté</span>
+  </div>
+</header>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-left">
-    <div class="logo-text">229Voitures · AI Agent · v1.0</div>
-    <div>
-      <div class="badge">🍁 En ligne · Canada</div>
-      <h1 class="hero-title">L'agent IA<br><span class="accent">qui achète</span><br>pour toi.</h1>
+<div class="app-container">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- Login -->
+    <div id="login-section">
+      <div class="sidebar-title">Connexion</div>
+      <div>
+        <label>Nom d'utilisateur</label>
+        <input type="text" id="username" placeholder="demo229" autocomplete="username">
+      </div>
+      <div>
+        <label>Mot de passe</label>
+        <input type="password" id="password" placeholder="••••••••••" autocomplete="current-password">
+      </div>
+      <div id="login-alert" class="alert"></div>
+      <button class="btn btn-primary" id="login-btn" onclick="login()">Se connecter</button>
     </div>
-    <p class="hero-sub">229Voitures AI Agent analyse les annonces automobiles en temps réel, compare les véhicules, vérifie les VINs et te conseille comme un expert — disponible 24h/24, 7j/7, gratuitement.</p>
-    <a href="https://229voitures-ai-agent-production.up.railway.app/docs" target="_blank" class="hero-btn">🚀 Tester l'agent →</a>
-    <div class="stats-row">
-      <div><div class="stat-num">5</div><div class="stat-label">Outils IA</div></div>
-      <div><div class="stat-num">24/7</div><div class="stat-label">Disponibilité</div></div>
-      <div><div class="stat-num">100%</div><div class="stat-label">Gratuit</div></div>
+
+    <!-- User info (shown after login) -->
+    <div id="user-info">
+      <div class="sidebar-title">Compte</div>
+      <div class="user-card">
+        <div class="user-avatar" id="user-initials">?</div>
+        <div>
+          <div class="user-name" id="user-display">—</div>
+          <div class="user-role">Agent AI 229Voitures</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary" onclick="logout()">Déconnexion</button>
+
+      <div class="sidebar-title" style="margin-top:8px">Suggestions</div>
+      <div class="suggestions">
+        <button class="suggestion-chip" onclick="sendSuggestion('Quelles voitures sont disponibles sous 5 millions FCFA ?')">
+          <span class="chip-icon">🚗</span>Voitures sous 5M FCFA
+        </button>
+        <button class="suggestion-chip" onclick="sendSuggestion('Montre-moi les SUV disponibles')">
+          <span class="chip-icon">🛻</span>SUV disponibles
+        </button>
+        <button class="suggestion-chip" onclick="sendSuggestion('Comment financer mon achat de voiture ?')">
+          <span class="chip-icon">💳</span>Options de financement
+        </button>
+        <button class="suggestion-chip" onclick="sendSuggestion('Quelle voiture recommandes-tu pour une famille ?')">
+          <span class="chip-icon">👨‍👩‍👧</span>Voiture familiale
+        </button>
+      </div>
     </div>
-  </div>
-  <div class="hero-right">
-    <img src="WhatsApp_Image_2025-11-29_à_21_27_40_dc6d4583.jpg" alt="Logo 229 Voitures" class="hero-logo" onerror="this.style.display='none'">
-    <img src="WhatsApp_Image_2025-11-29_à_21_27_40_1543256f.jpg" alt="Mascotte 229 Voitures" class="hero-mascot" onerror="this.style.display='none'">
-  </div>
-</section>
 
-<div class="divider"></div>
+  </aside>
 
-<!-- FEATURES -->
-<section class="section">
-  <div class="section-label">C'est quoi</div>
-  <h2 class="section-title">Un assistant IA spécialisé<br>dans l'automobile au Canada</h2>
-  <div class="features-grid">
-    <div class="feature"><div class="feature-num">01</div><span class="feature-icon">🤖</span><div class="feature-title">Expert Automobile IA</div><div class="feature-desc">Pose n'importe quelle question sur les voitures — marques, modèles, budget, entretien. L'agent répond comme un concessionnaire expérimenté.</div><span class="feature-tag">Gemini 2.5 Flash</span></div>
-    <div class="feature"><div class="feature-num">02</div><span class="feature-icon">🌐</span><div class="feature-title">Recherche en Temps Réel</div><div class="feature-desc">L'agent navigue le web en direct pour trouver les meilleures offres sur AutoTrader, Kijiji et les concessionnaires québécois.</div><span class="feature-tag">Google Search Live</span></div>
-    <div class="feature"><div class="feature-num">03</div><span class="feature-icon">🔗</span><div class="feature-title">Analyse d'Annonces</div><div class="feature-desc">Colle un lien AutoTrader ou Kijiji — l'agent extrait toutes les informations clés et évalue si c'est une bonne affaire.</div><span class="feature-tag">Web Scraping IA</span></div>
-    <div class="feature"><div class="feature-num">04</div><span class="feature-icon">⚖️</span><div class="feature-title">Comparaison de Véhicules</div><div class="feature-desc">Donne 2 liens d'annonces — l'agent compare prix, kilométrage, état et te dit lequel acheter avec des arguments clairs.</div><span class="feature-tag">Analyse comparative</span></div>
-    <div class="feature"><div class="feature-num">05</div><span class="feature-icon">🔍</span><div class="feature-title">Vérification VIN</div><div class="feature-desc">Entre le numéro de série d'un véhicule — l'agent vérifie l'historique, les rappels de sécurité et génère un rapport complet.</div><span class="feature-tag">NHTSA API · Gratuit</span></div>
-    <div class="feature" style="background:rgba(245,200,0,.04);border:1px solid rgba(245,200,0,.15)"><div class="feature-num">💡</div><span class="feature-icon">🎯</span><div class="feature-title">Pourquoi 229Voitures?</div><div class="feature-desc">Acheter une voiture au Canada est stressant. Cet agent te donne les outils d'un expert — sans payer un courtier, sans te faire avoir.</div><span class="feature-tag" style="color:var(--white);border-color:rgba(255,255,255,.2)">Notre Mission</span></div>
-  </div>
-</section>
+  <!-- CHAT -->
+  <section class="chat-area">
 
-<!-- HOW -->
-<section class="how-section">
-  <div class="how-inner">
-    <div class="section-label">Comment ça marche</div>
-    <h2 class="section-title">Prêt en 2 minutes</h2>
-    <div class="steps">
-      <div class="step"><div class="step-dot">1</div><div class="step-title">Crée un compte</div><div class="step-desc">Via <code style="color:var(--yellow)">/register</code> avec un nom et mot de passe</div></div>
-      <div class="step"><div class="step-dot">2</div><div class="step-title">Connecte-toi</div><div class="step-desc">Via <code style="color:var(--yellow)">/login</code> et copie ton <code style="color:var(--yellow)">access_token</code></div></div>
-      <div class="step"><div class="step-dot">3</div><div class="step-title">Autorise le token</div><div class="step-desc">Clique 🔓 <strong>Authorize</strong> et colle <code style="color:var(--yellow)">Bearer TOKEN</code></div></div>
-      <div class="step"><div class="step-dot">4</div><div class="step-title">Utilise l'agent!</div><div class="step-desc">Accès complet — chat, analyse, VIN, comparaison</div></div>
+    <div id="chat-placeholder">
+      <div class="big-icon">🚘</div>
+      <h2>229Voitures AI Agent</h2>
+      <p>Connectez-vous pour discuter avec votre assistant automobile intelligent. Trouvez la voiture parfaite au Bénin.</p>
     </div>
-  </div>
-</section>
 
-<!-- TESTS -->
-<section class="test-section">
-  <div class="section-label">Ce qu'il faut tester</div>
-  <h2 class="section-title">5 fonctionnalités à explorer</h2>
-  <div class="test-grid">
-    <div class="test-card"><div class="test-card-header"><span class="method">POST</span><span class="endpoint">/agent/chat</span></div><div class="test-card-title">💬 Chat Simple</div><div class="test-card-desc">Pose une question automobile générale à l'agent IA.</div><div class="test-example">{ "message": "Quelle voiture familiale sous 30 000$ recommandes-tu ?" }</div></div>
-    <div class="test-card"><div class="test-card-header"><span class="method">POST</span><span class="endpoint">/agent/chat_web</span></div><div class="test-card-title">🌐 Chat + Recherche Web</div><div class="test-card-desc">L'agent cherche sur internet en temps réel pour des offres actuelles.</div><div class="test-example">{ "message": "Toyota Corolla 2022 moins de 20 000$ au Québec" }</div></div>
-    <div class="test-card"><div class="test-card-header"><span class="method">POST</span><span class="endpoint">/agent/analyze_url</span></div><div class="test-card-title">🔗 Analyser une Annonce</div><div class="test-card-desc">Colle un vrai lien AutoTrader ou Kijiji pour une analyse complète.</div><div class="test-example">{ "url": "https://www.autotrader.ca/a/toyota/corolla/..." }</div></div>
-    <div class="test-card"><div class="test-card-header"><span class="method">POST</span><span class="endpoint">/agent/compare_urls</span></div><div class="test-card-title">⚖️ Comparer 2 Annonces</div><div class="test-card-desc">Donne 2 liens — l'agent choisit la meilleure option pour toi.</div><div class="test-example">{ "url1": "autotrader.ca/...", "url2": "kijiji.ca/..." }</div></div>
-    <div class="test-card" style="grid-column:1/-1"><div class="test-card-header"><span class="method">POST</span><span class="endpoint">/agent/check_vin</span></div><div class="test-card-title">🔍 Vérification VIN — Rapport gratuit</div><div class="test-card-desc">Entre le numéro VIN d'un véhicule (visible sur le tableau de bord côté conducteur) pour vérifier son historique, ses rappels de sécurité, et obtenir une recommandation d'achat.</div><div class="test-example">{ "vin": "2T1BURHE0JC043821" }&nbsp;&nbsp;← Exemple VIN Toyota Corolla</div></div>
-  </div>
-</section>
+    <div id="messages" style="display:none"></div>
 
-<!-- STACK -->
-<section class="stack-section">
-  <div class="stack-inner">
-    <div class="section-label">Stack technique</div>
-    <h2 class="section-title" style="margin-bottom:0">Construit avec les meilleurs outils</h2>
-    <div class="tech-row">
-      <span class="tech-pill">Python 3.12</span><span class="tech-pill">FastAPI</span><span class="tech-pill">Gemini 2.5 Flash</span><span class="tech-pill">Google Search API</span><span class="tech-pill">JWT Auth</span><span class="tech-pill">SQLite</span><span class="tech-pill">BeautifulSoup</span><span class="tech-pill">NHTSA API</span><span class="tech-pill">Docker</span><span class="tech-pill">Railway</span><span class="tech-pill">GitHub</span><span class="tech-pill">Scikit-learn ML</span>
+    <div class="input-bar">
+      <div class="input-wrapper">
+        <textarea
+          id="chat-input"
+          rows="1"
+          placeholder="Connectez-vous puis posez votre question…"
+          disabled
+          oninput="autoResize(this)"
+          onkeydown="handleKey(event)"
+        ></textarea>
+        <button id="send-btn" disabled onclick="sendMessage()">Envoyer →</button>
+      </div>
+      <div class="input-hint">Entrée pour envoyer · Maj+Entrée pour nouvelle ligne</div>
     </div>
-  </div>
-</section>
 
-<!-- FOOTER -->
-<div class="footer-wrap">
-  <div style="display:flex;align-items:center;gap:20px">
-    <img src="WhatsApp_Image_2025-11-29_à_21_27_40_1543256f.jpg" alt="Mascotte" class="footer-mascot" onerror="this.style.display='none'">
-    <div><div class="footer-title">229Voitures AI Agent</div><div class="footer-sub">Développé par Paolo · Canada 🍁 · 2026</div></div>
-  </div>
-  <a href="https://229voitures-ai-agent-production.up.railway.app/docs" target="_blank" class="cta-btn">Tester maintenant →</a>
+  </section>
+
 </div>
 
 <script>
-  const cursor=document.getElementById('cursor'), ring=document.getElementById('ring');
-  let mx=0,my=0,rx=0,ry=0;
-  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cursor.style.left=mx-5+'px';cursor.style.top=my-5+'px';});
-  (function anim(){rx+=(mx-rx)*.12;ry+=(my-ry)*.12;ring.style.left=rx-18+'px';ring.style.top=ry-18+'px';requestAnimationFrame(anim)})();
-  const obs=new IntersectionObserver(entries=>{entries.forEach((e,i)=>{if(!e.isIntersecting)return;const el=e.target;el.style.opacity='0';el.style.transform='translateY(28px)';el.style.transition=`opacity .55s ease ${i*.07}s,transform .55s ease ${i*.07}s`;setTimeout(()=>{el.style.opacity='1';el.style.transform='translateY(0)'},80);obs.unobserve(el);});},{threshold:.1});
-  document.querySelectorAll('.feature,.step,.test-card,.tech-pill').forEach(el=>obs.observe(el));
-</script>
-</body>
-</html>
+  const API_BASE = 'https://229voitures-ai-agent-production.up.railway.app';
+  let authToken = null;
+  let conversationHistory = [];
+
+  /* ── UTILS ── */
+  function setStatus(connected, label) {
+    document.getElementById('status-dot').className = 'status-dot' + (connected ? ' connected' : '');
+    document.getElementById('status-text').textContent = label;
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function showAlert(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'alert ' + type;
+  }
+  function clearAlert(id) {
+    const el = document.getElementById(id);
+    el.className = 'alert';
+    el.textContent = '';
+  }
+
+  /* ── LOGIN ── */
+  async function login() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    clearAlert('login-alert');
+
+    if (!username || !password) {
+      showAlert('login-alert', 'Veuillez remplir tous les champs.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    btn.textContent = 'Connexion…';
+
+    try {
+      // OAuth2 requires form-data (application/x-www-form-urlencoded), NOT JSON
+      const body = new URLSearchParams();
+      body.append('username', username);
+      body.append('password', password);
+
+      const res = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const msg = data.detail || `Erreur ${res.status}`;
+        showAlert('login-alert', msg, 'error');
+        return;
+      }
+
+      authToken = data.access_token || data.token || data.jwt;
+      if (!authToken) {
+        showAlert('login-alert', 'Token introuvable dans la réponse : ' + JSON.stringify(data), 'error');
+        return;
+      }
+      onLoginSuccess(username);
+
+    } catch (err) {
+      showAlert('login-alert', 'Impossible de contacter le serveur. Vérifiez votre connexion.', 'error');
+      console.error('[LOGIN]', err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Se connecter';
+    }
+  }
+
+  function onLoginSuccess(username) {
+    // Update UI
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('user-info').style.display = 'flex';
+    document.getElementById('user-display').textContent = username;
+    document.getElementById('user-initials').textContent = username.slice(0,2).toUpperCase();
+    document.getElementById('chat-placeholder').style.display = 'none';
+    document.getElementById('messages').style.display = 'flex';
+    document.getElementById('chat-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    document.getElementById('chat-input').placeholder = 'Posez votre question sur les voitures…';
+    setStatus(true, 'Connecté');
+
+    addMessage('ai', `Bonjour ${username} ! 👋 Je suis votre assistant 229Voitures. Comment puis-je vous aider aujourd'hui ? Vous pouvez me poser des questions sur nos voitures disponibles, les prix, le financement, ou tout autre sujet lié à votre achat.`);
+  }
+
+  function logout() {
+    authToken = null;
+    conversationHistory = [];
+    document.getElementById('login-section').style.display = 'flex';
+    document.getElementById('user-info').style.display = 'none';
+    document.getElementById('chat-placeholder').style.display = 'flex';
+    document.getElementById('messages').style.display = 'none';
+    document.getElementById('messages').innerHTML = '';
+    document.getElementById('chat-input').disabled = true;
+    document.getElementById('send-btn').disabled = true;
+    document.getElementById('chat-input').placeholder = 'Connectez-vous puis posez votre question…';
+    document.getElementById('password').value = '';
+    setStatus(false, 'Déconnecté');
+  }
+
+  /* ── CHAT ── */
+  function addMessage(role, text) {
+    const container = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message ' + role;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar ' + (role === 'ai' ? 'ai' : 'user-av');
+    avatar.textContent = role === 'ai' ? 'AI' : 'Moi';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.innerHTML = text.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+
+    div.appendChild(avatar);
+    div.appendChild(bubble);
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+  }
+
+  function addTyping() {
+    const container = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message ai typing-bubble';
+    div.id = 'typing-indicator';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar ai';
+    avatar.textContent = 'AI';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+
+    div.appendChild(avatar);
+    div.appendChild(bubble);
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text || !authToken) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+    addMessage('user', text);
+
+    // Add to history
+    conversationHistory.push({ role: 'user', content: text });
+
+    // Disable input during request
+    input.disabled = true;
+    document.getElementById('send-btn').disabled = true;
+    addTyping();
+
+    try {
+      // Clean text to avoid JSON control character errors
+      const cleanText = text.replace(/[
