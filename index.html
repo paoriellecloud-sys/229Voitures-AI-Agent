@@ -665,11 +665,11 @@
 
     try {
       // Clean text to avoid JSON control character errors
-      const cleanText = text.replace(/[ -]/g, ' ').trim();
+      const cleanText = text.replace(/[\x00-\x1F\x7F]/g, ' ').trim();
 
       // Single endpoint handles everything — intent detected by backend
       const endpoint = `${API_BASE}/agent/chat`;
-      const payload = { message: cleanText };
+
 
       const res = await fetch(endpoint, {
         method: 'POST',
