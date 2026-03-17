@@ -141,13 +141,22 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
     Step 3 — Analyze with verified data
     """
 
-    # Build search query
-    search_query = f"{query} occasion Canada"
+    # Build search query — Force Occasion prioritized first
     if site:
-        search_query += f" site:{site}"
+        search_query = f"{query} occasion Canada site:{site}"
+        search_results = serpapi_search(search_query, count)
+    else:
+        # Step 1a — Search Force Occasion first
+        fo_results = serpapi_search(f"{query} site:forceoccasion.ca", 1)
 
-    # Step 1 — Find real URLs via SerpAPI
-    search_results = serpapi_search(search_query, count)
+        # Step 1b — Search other Canadian sites
+        other_results = serpapi_search(f"{query} occasion Canada", count)
+
+        # Merge — Force Occasion first, then others (no duplicates)
+        fo_urls = {r["url"] for r in fo_results}
+        other_filtered = [r for r in other_results if r["url"] not in fo_urls]
+        search_results = fo_results + other_filtered
+        search_results = search_results[:count]
 
     # Step 2 — Scrape each URL
     scraped_listings = []
