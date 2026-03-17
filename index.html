@@ -70,6 +70,58 @@
   #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .input-hint { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 8px; }
   a { color: var(--accent); }
+
+  /* ── RESPONSIVE MOBILE ── */
+  @media (max-width: 768px) {
+    header { padding: 12px 16px; }
+    .logo { font-size: 1.1rem; }
+    .status-badge { font-size: 0.72rem; padding: 5px 10px; }
+
+    .app-container { flex-direction: column; height: calc(100vh - 53px); }
+
+    .sidebar {
+      width: 100%;
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      gap: 8px;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      max-height: 120px;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .sidebar-title { display: none; }
+
+    .suggestions {
+      flex-direction: row;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      gap: 6px;
+      margin-top: 0;
+    }
+
+    .suggestion-chip {
+      white-space: nowrap;
+      padding: 7px 12px;
+      font-size: 0.78rem;
+      flex-shrink: 0;
+    }
+
+    .about-box { display: none; }
+
+    .chat-area { flex: 1; min-height: 0; }
+
+    #messages { padding: 16px; gap: 14px; }
+
+    .msg-bubble { font-size: 0.85rem; padding: 10px 14px; max-width: 85vw; }
+
+    .input-bar { padding: 10px 12px 14px; }
+
+    .input-hint { display: none; }
+  }
+
 </style>
 </head>
 <body>
