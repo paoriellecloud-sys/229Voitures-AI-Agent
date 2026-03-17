@@ -2,6 +2,7 @@ from google import genai
 from google.genai import types
 from modules.scraper import analyze_listing, compare_listings, search_and_analyze
 from modules.vin_checker import get_vehicle_report
+from database import log_search
 import os
 import json
 import re
@@ -181,6 +182,17 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         search_result = search_and_analyze(query=intent_data["query"], site=intent_data.get("site"), count=intent_data.get("count", 2))
         session["context"]["last_listings"] = search_result.get("urls_found", [])
         session["context"]["last_query"] = intent_data.get("query", "")
+
+        # Log the search for analytics
+        try:
+            log_search(
+                query=intent_data["query"],
+                intent="SEARCH",
+                results_count=search_result.get("scraped_count", 0)
+            )
+        except Exception:
+            pass
+
         base_response = search_result.get("analysis", "")
         followup = "\n\nSouhaitez-vous que je vérifie le VIN d'un de ces véhicules, ou voulez-vous les comparer entre eux ?"
         result = {"intent": "SEARCH", "response": base_response + followup, "urls_found": search_result.get("urls_found", []), "scraped_count": search_result.get("scraped_count", 0)}

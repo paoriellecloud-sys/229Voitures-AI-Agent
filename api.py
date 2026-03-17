@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
 from database import *
+from database import create_search_logs_table, log_search, get_popular_searches
 from auth import *
 from modules.agent_router import smart_chat
 
@@ -48,6 +49,7 @@ def startup():
     create_users_table()
     create_user_preferences_table()
     create_recommendation_history_table()
+    create_search_logs_table()
 
     # Create demo user if it doesn't exist
     if not get_user_by_username("demo229"):
@@ -203,6 +205,10 @@ def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_us
     result = smart_chat(request.message, user_id=current_user["username"])
     return result
 
+@app.get("/stats/popular_searches")
+def popular_searches():
+    """Public endpoint — top searches on the platform."""
+    return {"popular_searches": get_popular_searches(10)}
 
 # =============================
 # DEBUG ROUTES
