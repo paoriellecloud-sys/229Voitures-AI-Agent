@@ -95,8 +95,18 @@ Return exactly this JSON format:
 }}
 
 Intent rules:
-- CHAT: general question, advice
-- SEARCH: user wants to find listings (keywords: trouve, cherche, montre, propose, liste, donne moi)
+- CHAT: general question, advice without specific vehicle lookup needed
+- SEARCH: use this when ANY of these conditions are met:
+  1. User explicitly searches (keywords: trouve, cherche, montre, propose, liste, donne moi)
+  2. User mentions a specific vehicle make/model (Toyota, Honda, Kia, Ford, Mazda, Hyundai, etc.)
+  3. User mentions a year + vehicle type (ex: "SUV 2021", "berline 2020")
+  4. User mentions a budget + vehicle type (ex: "voiture sous 20000$")
+  5. User asks about availability, price, or options for a specific model
+  Examples that should be SEARCH not CHAT:
+  - "Kia Niro PHEV, c'est bien?" → SEARCH (specific model mentioned)
+  - "Toyota Corolla 2020 fiable?" → SEARCH (specific model + year)
+  - "VUS hybride sous 25000$?" → SEARCH (budget + type)
+  - "Honda CRV disponible au Quebec?" → SEARCH (specific model + location)
 - ANALYZE_URL: message contains exactly 1 URL
 - COMPARE_URLS: message contains 2+ URLs
 - CHECK_VIN: message contains a VIN (17 alphanumeric characters)
@@ -105,7 +115,11 @@ Intent rules:
 For FOLLOWUP, set followup_action to one of:
 - "select_listing", "check_vin", "compare", "more_results", "contact_dealer", "yes", "no"
 
-For SEARCH extract query, site, count.
+For SEARCH extract:
+- query: full search terms including make, model, year, trim, budget, location
+- site: dealer domain if mentioned, null otherwise
+- count: number of results requested (default 2)
+
 Return ONLY the JSON, no explanation.
 """
 
