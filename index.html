@@ -714,16 +714,15 @@
     }
   }
 
-  function sendSuggestion(text) {
+
   function sendSuggestion(text) {
     document.getElementById('chat-input').value = text;
     sendMessage();
   }
 
-  // Allow Enter to submit login
   document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && document.activeElement.id !== 'chat-input' && !authToken) {
-      login();
+    if (e.key === 'Enter' && document.activeElement.id !== 'chat-input') {
+      sendMessage();
     }
   });
 </script>
