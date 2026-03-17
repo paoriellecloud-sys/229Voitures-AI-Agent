@@ -2,6 +2,14 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-SY2BY7J870"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-SY2BY7J870');
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>229Voitures — AI Agent</title>
 <style>
@@ -237,6 +245,14 @@
       }
       const data = await res.json();
       const reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
+      // Track search in Google Analytics
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'chat_message', {
+          'event_category': 'Agent',
+          'event_label': data.intent || 'CHAT',
+          'value': 1
+        });
+      }
       addMessage('ai', reply);
     } catch(err) {
       removeTyping();
