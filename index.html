@@ -383,7 +383,7 @@
   <div class="logo">229<span>Voitures</span> AI</div>
   <div class="status-badge">
     <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">Déconnecté</span>
+    <span id="status-text">Connexion...</span>
   </div>
 </header>
 
@@ -392,48 +392,31 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
 
-    <!-- Login -->
-    <div id="login-section">
-      <div class="sidebar-title">Connexion</div>
-      <div>
-        <label>Nom d'utilisateur</label>
-        <input type="text" id="username" placeholder="demo229" autocomplete="username">
+    <!-- Suggestions always visible -->
+    <div>
+      <div class="sidebar-title">Suggestions</div>
+      <div class="suggestions" style="margin-top:12px">
+        <button class="suggestion-chip" onclick="sendSuggestion('Trouve moi un Kia Seltos LX 2021 au Quebec')">
+          <span class="chip-icon">🔍</span>Kia Seltos LX 2021 Québec
+        </button>
+        <button class="suggestion-chip" onclick="sendSuggestion('Quelle Toyota Corolla 2020 me recommandes-tu pour 15000?')">
+          <span class="chip-icon">🚗</span>Toyota Corolla 2020
+        </button>
+        <button class="suggestion-chip" onclick="sendSuggestion('Compare ces 2 SUV: Honda CRV vs Toyota RAV4 2021')">
+          <span class="chip-icon">⚖️</span>Comparer 2 SUV
+        </button>
+        <button class="suggestion-chip" onclick="sendSuggestion('Quelle voiture fiable pour famille de 4 personnes sous 20000?')">
+          <span class="chip-icon">👨‍👩‍👧</span>Voiture familiale Canada
+        </button>
+        <button class="suggestion-chip" onclick="sendSuggestion('Trouve moi un VUS AWD 2020 sous 25000 au Canada')">
+          <span class="chip-icon">🛻</span>VUS AWD sous 25 000$
+        </button>
       </div>
-      <div>
-        <label>Mot de passe</label>
-        <input type="password" id="password" placeholder="••••••••••" autocomplete="current-password">
-      </div>
-      <div id="login-alert" class="alert"></div>
-      <button class="btn btn-primary" id="login-btn" onclick="login()">Se connecter</button>
     </div>
 
-    <!-- User info (shown after login) -->
-    <div id="user-info">
-      <div class="sidebar-title">Compte</div>
-      <div class="user-card">
-        <div class="user-avatar" id="user-initials">?</div>
-        <div>
-          <div class="user-name" id="user-display">—</div>
-          <div class="user-role">Agent AI 229Voitures</div>
-        </div>
-      </div>
-      <button class="btn btn-secondary" onclick="logout()">Déconnexion</button>
-
-      <div class="sidebar-title" style="margin-top:8px">Suggestions</div>
-      <div class="suggestions">
-        <button class="suggestion-chip" onclick="sendSuggestion('Quelles voitures sont disponibles sous 5 millions FCFA ?')">
-          <span class="chip-icon">🚗</span>Voitures sous 5M FCFA
-        </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Montre-moi les SUV disponibles')">
-          <span class="chip-icon">🛻</span>SUV disponibles
-        </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Comment financer mon achat de voiture ?')">
-          <span class="chip-icon">💳</span>Options de financement
-        </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Quelle voiture recommandes-tu pour une famille ?')">
-          <span class="chip-icon">👨‍👩‍👧</span>Voiture familiale
-        </button>
-      </div>
+    <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border);">
+      <div class="sidebar-title" style="margin-bottom:8px">À propos</div>
+      <p style="font-size:0.78rem; color:var(--muted); line-height:1.5">Agent IA automobile pour le Canada. Recherche en temps réel, analyse d'annonces, vérification VIN.</p>
     </div>
 
   </aside>
@@ -444,7 +427,7 @@
     <div id="chat-placeholder">
       <div class="big-icon">🚘</div>
       <h2>229Voitures AI Agent</h2>
-      <p>Connectez-vous pour discuter avec votre assistant automobile intelligent. Trouvez la voiture parfaite au Bénin.</p>
+      <p>Posez votre question à votre assistant automobile intelligent. Trouvez la voiture parfaite au Canada.</p>
     </div>
 
     <div id="messages" style="display:none"></div>
@@ -454,12 +437,11 @@
         <textarea
           id="chat-input"
           rows="1"
-          placeholder="Connectez-vous puis posez votre question…"
-          disabled
+          placeholder="Posez votre question sur les voitures au Canada…"
           oninput="autoResize(this)"
           onkeydown="handleKey(event)"
         ></textarea>
-        <button id="send-btn" disabled onclick="sendMessage()">Envoyer →</button>
+        <button id="send-btn" onclick="sendMessage()">Envoyer →</button>
       </div>
       <div class="input-hint">Entrée pour envoyer · Maj+Entrée pour nouvelle ligne</div>
     </div>
@@ -472,6 +454,40 @@
   const API_BASE = 'https://229voitures-ai-agent-production.up.railway.app';
   let authToken = null;
   let conversationHistory = [];
+
+  // Auto-login with demo account on page load
+  async function autoLogin() {
+    if (authToken) return;
+    try {
+      const body = new URLSearchParams();
+      body.append('username', 'demo229');
+      body.append('password', 'demo229voitures');
+      const res = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      });
+      const data = await res.json();
+      authToken = data.access_token || data.token || data.jwt;
+      if (authToken) {
+        document.getElementById('chat-placeholder').style.display = 'none';
+        document.getElementById('messages').style.display = 'flex';
+        setStatus(true, 'En ligne · Canada');
+        addMessage('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question sur un véhicule, un budget, ou demandez-moi de chercher des annonces !');
+      }
+    } catch(e) {
+      setStatus(false, 'Hors ligne');
+      console.error('[AUTO-LOGIN]', e);
+    }
+  }
+
+  // Initialize on page load
+  window.addEventListener('load', () => {
+    document.getElementById('chat-placeholder').style.display = 'flex';
+    document.getElementById('messages').style.display = 'none';
+    setStatus(false, 'Connexion...');
+    autoLogin();
+  });
 
   /* ── UTILS ── */
   function setStatus(connected, label) {
@@ -581,7 +597,7 @@
     document.getElementById('send-btn').disabled = true;
     document.getElementById('chat-input').placeholder = 'Connectez-vous puis posez votre question…';
     document.getElementById('password').value = '';
-    setStatus(false, 'Déconnecté');
+    setStatus(false, 'Connexion...');
   }
 
   /* ── CHAT ── */
@@ -633,7 +649,7 @@
   async function sendMessage() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
-    if (!text || !authToken) return;
+    if (!text) return;
 
     input.value = '';
     input.style.height = 'auto';
@@ -649,4 +665,67 @@
 
     try {
       // Clean text to avoid JSON control character errors
-      const cleanText = text.replace(/[
+      const cleanText = text.replace(/[ -]/g, ' ').trim();
+
+      // Single endpoint handles everything — intent detected by backend
+      const endpoint = `${API_BASE}/agent/chat`;
+      const payload = { message: cleanText };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      removeTyping();
+
+      if (res.status === 401) {
+        addMessage('ai', '⚠️ Session expirée. Veuillez vous reconnecter.');
+        logout();
+        return;
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        addMessage('ai', `❌ Erreur ${res.status}: ${err.detail || 'Réponse inattendue du serveur.'}`);
+        return;
+      }
+
+      const data = await res.json();
+
+      // Handle various response field names flexibly
+      const reply = data.response || data.message || data.reply || data.answer || data.content
+        || (typeof data === 'string' ? data : JSON.stringify(data));
+
+      addMessage('ai', reply);
+      conversationHistory.push({ role: 'assistant', content: reply });
+
+    } catch (err) {
+      removeTyping();
+      addMessage('ai', '⚠️ Impossible de contacter le serveur. Vérifiez votre connexion internet.');
+      console.error('[CHAT]', err);
+    } finally {
+      input.disabled = false;
+      document.getElementById('send-btn').disabled = false;
+      input.focus();
+    }
+  }
+
+  function sendSuggestion(text) {
+    if (!authToken) { autoLogin().then(() => { document.getElementById('chat-input').value = text; sendMessage(); }); return; }
+    document.getElementById('chat-input').value = text;
+    sendMessage();
+  }
+
+  // Allow Enter to submit login
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.activeElement.id !== 'chat-input' && !authToken) {
+      login();
+    }
+  });
+</script>
+</body>
+</html>
