@@ -6,375 +6,62 @@
 <title>229Voitures — AI Agent</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
-
   :root {
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --surface2: #1a1a28;
-    --border: #2a2a3d;
-    --accent: #f5a623;
-    --accent2: #e8431a;
-    --text: #e8e8f0;
-    --muted: #6b6b8a;
-    --success: #2ecc71;
-    --error: #e74c3c;
-    --radius: 12px;
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a28;
+    --border: #2a2a3d; --accent: #f5a623; --accent2: #e8431a;
+    --text: #e8e8f0; --muted: #6b6b8a; --success: #2ecc71;
+    --error: #e74c3c; --radius: 12px;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* ── HEADER ── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 32px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-
-  .logo {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 1.35rem;
-    letter-spacing: -0.02em;
-  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.35rem; letter-spacing: -0.02em; }
   .logo span { color: var(--accent); }
-
-  .status-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.8rem;
-    color: var(--muted);
-    background: var(--surface2);
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-  }
-  .status-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--muted);
-    transition: background 0.3s;
-  }
+  .status-badge { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); background: var(--surface2); padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
   .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
-
-  /* ── LAYOUT ── */
-  .app-container {
-    display: flex;
-    flex: 1;
-    height: calc(100vh - 61px);
-  }
-
-  /* ── SIDEBAR ── */
-  .sidebar {
-    width: 300px;
-    flex-shrink: 0;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    padding: 24px 20px;
-    gap: 24px;
-  }
-
-  .sidebar-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    color: var(--muted);
-    text-transform: uppercase;
-  }
-
-  /* Login form */
-  #login-section { display: flex; flex-direction: column; gap: 14px; }
-
-  label {
-    font-size: 0.78rem;
-    color: var(--muted);
-    display: block;
-    margin-bottom: 6px;
-    font-weight: 500;
-  }
-
-  input[type="text"], input[type="password"] {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 14px;
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.9rem;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  input:focus { border-color: var(--accent); }
-
-  .btn {
-    width: 100%;
-    padding: 11px 20px;
-    border-radius: var(--radius);
-    border: none;
-    cursor: pointer;
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 0.9rem;
-    letter-spacing: 0.02em;
-    transition: all 0.2s;
-  }
-  .btn-primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: #fff;
-  }
-  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-  .btn-secondary {
-    background: var(--surface2);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* User info */
-  #user-info { display: none; flex-direction: column; gap: 12px; }
-  .user-card {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .user-avatar {
-    width: 38px; height: 38px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 0.85rem;
-    color: #fff;
-    flex-shrink: 0;
-  }
-  .user-name { font-weight: 600; font-size: 0.9rem; }
-  .user-role { font-size: 0.75rem; color: var(--muted); }
-
-  /* Suggestions */
-  .suggestions { display: flex; flex-direction: column; gap: 8px; }
-  .suggestion-chip {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 14px;
-    font-size: 0.82rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: var(--text);
-    text-align: left;
-    line-height: 1.4;
-  }
-  .suggestion-chip:hover {
-    border-color: var(--accent);
-    background: rgba(245,166,35,0.08);
-    color: var(--accent);
-  }
+  .app-container { display: flex; flex: 1; height: calc(100vh - 61px); }
+  .sidebar { width: 280px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 20px; gap: 20px; overflow-y: auto; }
+  .sidebar-title { font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; }
+  .suggestions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .suggestion-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; color: var(--text); text-align: left; line-height: 1.4; }
+  .suggestion-chip:hover { border-color: var(--accent); background: rgba(245,166,35,0.08); color: var(--accent); }
   .chip-icon { margin-right: 8px; }
-
-  /* Alert box */
-  .alert {
-    padding: 10px 14px;
-    border-radius: var(--radius);
-    font-size: 0.82rem;
-    border: 1px solid transparent;
-    display: none;
-  }
-  .alert.error { background: rgba(231,76,60,0.12); border-color: rgba(231,76,60,0.35); color: #ff6b5b; display: block; }
-  .alert.success { background: rgba(46,204,113,0.1); border-color: rgba(46,204,113,0.3); color: #2ecc71; display: block; }
-
-  /* ── MAIN CHAT ── */
-  .chat-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  #chat-placeholder {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    color: var(--muted);
-    text-align: center;
-    padding: 40px;
-  }
+  .about-box { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+  .about-box p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin-top: 8px; }
+  .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #chat-placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--muted); text-align: center; padding: 40px; }
   #chat-placeholder .big-icon { font-size: 3.5rem; margin-bottom: 8px; }
-  #chat-placeholder h2 {
-    font-family: 'Syne', sans-serif;
-    font-size: 1.4rem;
-    color: var(--text);
-    font-weight: 700;
-  }
+  #chat-placeholder h2 { font-family: 'Syne', sans-serif; font-size: 1.4rem; color: var(--text); font-weight: 700; }
   #chat-placeholder p { font-size: 0.9rem; max-width: 380px; line-height: 1.6; }
-
-  #messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 28px 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    scroll-behavior: smooth;
-  }
+  #messages { flex: 1; overflow-y: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; }
   #messages::-webkit-scrollbar { width: 4px; }
-  #messages::-webkit-scrollbar-track { background: transparent; }
   #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-  .message {
-    display: flex;
-    gap: 12px;
-    max-width: 760px;
-    animation: fadeUp 0.3s ease;
-  }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+  .message { display: flex; gap: 12px; max-width: 760px; animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   .message.user { flex-direction: row-reverse; align-self: flex-end; }
-
-  .msg-avatar {
-    width: 34px; height: 34px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 700;
-    font-family: 'Syne', sans-serif;
-  }
-  .msg-avatar.ai {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: #fff;
-  }
-  .msg-avatar.user-av {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-  }
-
-  .msg-bubble {
-    padding: 13px 17px;
-    border-radius: 16px;
-    font-size: 0.9rem;
-    line-height: 1.65;
-    max-width: 620px;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .message.ai .msg-bubble {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-top-left-radius: 4px;
-  }
-  .message.user .msg-bubble {
-    background: linear-gradient(135deg, rgba(245,166,35,0.25), rgba(232,67,26,0.18));
-    border: 1px solid rgba(245,166,35,0.3);
-    border-top-right-radius: 4px;
-    color: var(--text);
-  }
-
-  /* Typing indicator */
-  .typing-bubble .msg-bubble {
-    display: flex; gap: 5px; align-items: center;
-    padding: 14px 20px;
-  }
-  .dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--muted);
-    animation: bounce 1.2s infinite;
-  }
+  .msg-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; font-family: 'Syne', sans-serif; }
+  .msg-avatar.ai { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .msg-avatar.user-av { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+  .msg-bubble { padding: 13px 17px; border-radius: 16px; font-size: 0.9rem; line-height: 1.65; max-width: 620px; word-break: break-word; }
+  .message.ai .msg-bubble { background: var(--surface2); border: 1px solid var(--border); border-top-left-radius: 4px; }
+  .message.user .msg-bubble { background: linear-gradient(135deg, rgba(245,166,35,0.25), rgba(232,67,26,0.18)); border: 1px solid rgba(245,166,35,0.3); border-top-right-radius: 4px; }
+  .typing-bubble .msg-bubble { display: flex; gap: 5px; align-items: center; padding: 14px 20px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: bounce 1.2s infinite; }
   .dot:nth-child(2) { animation-delay: 0.2s; }
   .dot:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes bounce {
-    0%,60%,100% { transform: translateY(0); }
-    30% { transform: translateY(-7px); }
-  }
-
-  /* Input bar */
-  .input-bar {
-    padding: 16px 32px 20px;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .input-wrapper {
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 10px 14px;
-    transition: border-color 0.2s;
-  }
+  @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-7px); } }
+  .input-bar { padding: 16px 32px 20px; border-top: 1px solid var(--border); background: var(--surface); }
+  .input-wrapper { display: flex; gap: 10px; align-items: flex-end; background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 10px 14px; transition: border-color 0.2s; }
   .input-wrapper:focus-within { border-color: var(--accent); }
-
-  #chat-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.9rem;
-    resize: none;
-    max-height: 140px;
-    min-height: 24px;
-    line-height: 1.5;
-  }
+  #chat-input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; resize: none; max-height: 140px; min-height: 24px; line-height: 1.5; }
   #chat-input::placeholder { color: var(--muted); }
   #chat-input:disabled { opacity: 0.5; }
-
-  #send-btn {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    border: none;
-    border-radius: 10px;
-    padding: 8px 16px;
-    color: #fff;
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
+  #send-btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; padding: 8px 16px; color: #fff; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
   #send-btn:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
-  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-  .input-hint {
-    font-size: 0.72rem;
-    color: var(--muted);
-    text-align: center;
-    margin-top: 8px;
-  }
+  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .input-hint { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 8px; }
+  a { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -388,108 +75,55 @@
 </header>
 
 <div class="app-container">
-
-  <!-- SIDEBAR -->
   <aside class="sidebar">
-
-    <!-- Suggestions always visible -->
     <div>
       <div class="sidebar-title">Suggestions</div>
-      <div class="suggestions" style="margin-top:12px">
+      <div class="suggestions">
         <button class="suggestion-chip" onclick="sendSuggestion('Trouve moi un Kia Seltos LX 2021 au Quebec')">
           <span class="chip-icon">🔍</span>Kia Seltos LX 2021 Québec
         </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Quelle Toyota Corolla 2020 me recommandes-tu pour 15000?')">
+        <button class="suggestion-chip" onclick="sendSuggestion('Toyota Corolla 2020 pour 15000$, bonne affaire?')">
           <span class="chip-icon">🚗</span>Toyota Corolla 2020
         </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Compare ces 2 SUV: Honda CRV vs Toyota RAV4 2021')">
+        <button class="suggestion-chip" onclick="sendSuggestion('Compare Honda CRV vs Toyota RAV4 2021')">
           <span class="chip-icon">⚖️</span>Comparer 2 SUV
         </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Quelle voiture fiable pour famille de 4 personnes sous 20000?')">
-          <span class="chip-icon">👨‍👩‍👧</span>Voiture familiale Canada
+        <button class="suggestion-chip" onclick="sendSuggestion('Quelle voiture fiable pour famille sous 20000?')">
+          <span class="chip-icon">👨‍👩‍👧</span>Voiture familiale
         </button>
         <button class="suggestion-chip" onclick="sendSuggestion('Trouve moi un VUS AWD 2020 sous 25000 au Canada')">
           <span class="chip-icon">🛻</span>VUS AWD sous 25 000$
         </button>
       </div>
     </div>
-
-    <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border);">
-      <div class="sidebar-title" style="margin-bottom:8px">À propos</div>
-      <p style="font-size:0.78rem; color:var(--muted); line-height:1.5">Agent IA automobile pour le Canada. Recherche en temps réel, analyse d'annonces, vérification VIN.</p>
+    <div class="about-box">
+      <div class="sidebar-title">À propos</div>
+      <p>Agent IA automobile pour le Canada. Recherche en temps réel, analyse d'annonces, vérification VIN.</p>
     </div>
-
   </aside>
 
-  <!-- CHAT -->
   <section class="chat-area">
-
     <div id="chat-placeholder">
       <div class="big-icon">🚘</div>
       <h2>229Voitures AI Agent</h2>
-      <p>Posez votre question à votre assistant automobile intelligent. Trouvez la voiture parfaite au Canada.</p>
+      <p>Votre compagnon automobile intelligent au Canada. Connexion en cours...</p>
     </div>
-
     <div id="messages" style="display:none"></div>
-
     <div class="input-bar">
       <div class="input-wrapper">
-        <textarea
-          id="chat-input"
-          rows="1"
-          placeholder="Posez votre question sur les voitures au Canada…"
-          oninput="autoResize(this)"
-          onkeydown="handleKey(event)"
-        ></textarea>
-        <button id="send-btn" onclick="sendMessage()">Envoyer →</button>
+        <textarea id="chat-input" rows="1" placeholder="Posez votre question sur les voitures au Canada…" disabled
+          oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+        <button id="send-btn" disabled onclick="sendMessage()">Envoyer →</button>
       </div>
       <div class="input-hint">Entrée pour envoyer · Maj+Entrée pour nouvelle ligne</div>
     </div>
-
   </section>
-
 </div>
 
 <script>
   const API_BASE = 'https://229voitures-ai-agent-production.up.railway.app';
   let authToken = null;
-  let conversationHistory = [];
 
-  // Auto-login with demo account on page load
-  async function autoLogin() {
-    if (authToken) return;
-    try {
-      const body = new URLSearchParams();
-      body.append('username', 'demo229');
-      body.append('password', 'demo229voitures');
-      const res = await fetch(`${API_BASE}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString()
-      });
-      const data = await res.json();
-      authToken = data.access_token || data.token || data.jwt;
-      if (authToken) {
-        document.getElementById('chat-placeholder').style.display = 'none';
-        document.getElementById('messages').style.display = 'flex';
-        setStatus(true, 'En ligne · Canada');
-        addMessage('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question sur un véhicule, un budget, ou demandez-moi de chercher des annonces !');
-      }
-    } catch(e) {
-      setStatus(false, 'Hors ligne');
-      console.error('[AUTO-LOGIN]', e);
-    }
-  }
-
-  // Initialize on page load
-  window.addEventListener('load', () => {
-    document.getElementById('chat-placeholder').style.display = 'flex';
-    document.getElementById('messages').style.display = 'none';
-    setStatus(false, 'Connexion...');
-    autoLogin();
-  });
-
-  /* ── UTILS ── */
   function setStatus(connected, label) {
     document.getElementById('status-dot').className = 'status-dot' + (connected ? ' connected' : '');
     document.getElementById('status-text').textContent = label;
@@ -501,124 +135,51 @@
   }
 
   function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
 
-  function showAlert(id, msg, type) {
-    const el = document.getElementById(id);
-    el.textContent = msg;
-    el.className = 'alert ' + type;
-  }
-  function clearAlert(id) {
-    const el = document.getElementById(id);
-    el.className = 'alert';
-    el.textContent = '';
-  }
-
-  /* ── LOGIN ── */
-  async function login() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value.trim();
-    clearAlert('login-alert');
-
-    if (!username || !password) {
-      showAlert('login-alert', 'Veuillez remplir tous les champs.', 'error');
-      return;
-    }
-
-    const btn = document.getElementById('login-btn');
-    btn.disabled = true;
-    btn.textContent = 'Connexion…';
-
+  async function autoLogin() {
     try {
-      // OAuth2 requires form-data (application/x-www-form-urlencoded), NOT JSON
       const body = new URLSearchParams();
-      body.append('username', username);
-      body.append('password', password);
-
-      const res = await fetch(`${API_BASE}/login`, {
+      body.append('username', 'demo229');
+      body.append('password', 'demo229voitures');
+      const res = await fetch(API_BASE + '/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString()
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        const msg = data.detail || `Erreur ${res.status}`;
-        showAlert('login-alert', msg, 'error');
-        return;
-      }
-
       authToken = data.access_token || data.token || data.jwt;
-      if (!authToken) {
-        showAlert('login-alert', 'Token introuvable dans la réponse : ' + JSON.stringify(data), 'error');
-        return;
+      if (authToken) {
+        document.getElementById('chat-placeholder').style.display = 'none';
+        document.getElementById('messages').style.display = 'flex';
+        document.getElementById('chat-input').disabled = false;
+        document.getElementById('send-btn').disabled = false;
+        setStatus(true, 'En ligne · Canada');
+        addMessage('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
+      } else {
+        setStatus(false, 'Erreur de connexion');
       }
-      onLoginSuccess(username);
-
-    } catch (err) {
-      showAlert('login-alert', 'Impossible de contacter le serveur. Vérifiez votre connexion.', 'error');
-      console.error('[LOGIN]', err);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Se connecter';
+    } catch(e) {
+      setStatus(false, 'Hors ligne');
+      console.error('[AUTO-LOGIN]', e);
     }
   }
 
-  function onLoginSuccess(username) {
-    // Update UI
-    document.getElementById('login-section').style.display = 'none';
-    document.getElementById('user-info').style.display = 'flex';
-    document.getElementById('user-display').textContent = username;
-    document.getElementById('user-initials').textContent = username.slice(0,2).toUpperCase();
-    document.getElementById('chat-placeholder').style.display = 'none';
-    document.getElementById('messages').style.display = 'flex';
-    document.getElementById('chat-input').disabled = false;
-    document.getElementById('send-btn').disabled = false;
-    document.getElementById('chat-input').placeholder = 'Posez votre question sur les voitures…';
-    setStatus(true, 'Connecté');
-
-    addMessage('ai', `Bonjour ${username} ! 👋 Je suis votre assistant 229Voitures. Comment puis-je vous aider aujourd'hui ? Vous pouvez me poser des questions sur nos voitures disponibles, les prix, le financement, ou tout autre sujet lié à votre achat.`);
-  }
-
-  function logout() {
-    authToken = null;
-    conversationHistory = [];
-    document.getElementById('login-section').style.display = 'flex';
-    document.getElementById('user-info').style.display = 'none';
-    document.getElementById('chat-placeholder').style.display = 'flex';
-    document.getElementById('messages').style.display = 'none';
-    document.getElementById('messages').innerHTML = '';
-    document.getElementById('chat-input').disabled = true;
-    document.getElementById('send-btn').disabled = true;
-    document.getElementById('chat-input').placeholder = 'Connectez-vous puis posez votre question…';
-    document.getElementById('password').value = '';
-    setStatus(false, 'Connexion...');
-  }
-
-  /* ── CHAT ── */
   function addMessage(role, text) {
     const container = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = 'message ' + role;
-
     const avatar = document.createElement('div');
     avatar.className = 'msg-avatar ' + (role === 'ai' ? 'ai' : 'user-av');
     avatar.textContent = role === 'ai' ? 'AI' : 'Moi';
-
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
-    bubble.innerHTML = text.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
-
+    bubble.innerHTML = text.replace(/\n/g, '<br>');
     div.appendChild(avatar);
     div.appendChild(bubble);
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
-    return div;
   }
 
   function addTyping() {
@@ -626,15 +187,12 @@
     const div = document.createElement('div');
     div.className = 'message ai typing-bubble';
     div.id = 'typing-indicator';
-
     const avatar = document.createElement('div');
     avatar.className = 'msg-avatar ai';
     avatar.textContent = 'AI';
-
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
     bubble.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-
     div.appendChild(avatar);
     div.appendChild(bubble);
     container.appendChild(div);
@@ -649,63 +207,40 @@
   async function sendMessage() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
-    if (!text) return;
-
+    if (!text || !authToken) return;
     input.value = '';
     input.style.height = 'auto';
     addMessage('user', text);
-
-    // Add to history
-    conversationHistory.push({ role: 'user', content: text });
-
-    // Disable input during request
     input.disabled = true;
     document.getElementById('send-btn').disabled = true;
     addTyping();
-
     try {
-      // Clean text to avoid JSON control character errors
-      const cleanText = text.trim();
-
-      // Single endpoint handles everything — intent detected by backend
-      const endpoint = `${API_BASE}/agent/chat`;
-
-
-      const res = await fetch(endpoint, {
+      const res = await fetch(API_BASE + '/agent/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+          'Authorization': 'Bearer ' + authToken
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ message: text })
       });
-
       removeTyping();
-
       if (res.status === 401) {
-        addMessage('ai', '⚠️ Session expirée. Veuillez vous reconnecter.');
-        logout();
+        addMessage('ai', 'Session expirée. Reconnexion...');
+        authToken = null;
+        await autoLogin();
         return;
       }
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        addMessage('ai', `❌ Erreur ${res.status}: ${err.detail || 'Réponse inattendue du serveur.'}`);
+        addMessage('ai', 'Erreur ' + res.status + ': ' + (err.detail || 'Réponse inattendue.'));
         return;
       }
-
       const data = await res.json();
-
-      // Handle various response field names flexibly
-      const reply = data.response || data.message || data.reply || data.answer || data.content
-        || (typeof data === 'string' ? data : JSON.stringify(data));
-
+      const reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
       addMessage('ai', reply);
-      conversationHistory.push({ role: 'assistant', content: reply });
-
-    } catch (err) {
+    } catch(err) {
       removeTyping();
-      addMessage('ai', '⚠️ Impossible de contacter le serveur. Vérifiez votre connexion internet.');
+      addMessage('ai', 'Impossible de contacter le serveur. Vérifiez votre connexion.');
       console.error('[CHAT]', err);
     } finally {
       input.disabled = false;
@@ -714,17 +249,12 @@
     }
   }
 
-
   function sendSuggestion(text) {
     document.getElementById('chat-input').value = text;
     sendMessage();
   }
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && document.activeElement.id !== 'chat-input') {
-      sendMessage();
-    }
-  });
+  window.addEventListener('load', autoLogin);
 </script>
 </body>
 </html>
