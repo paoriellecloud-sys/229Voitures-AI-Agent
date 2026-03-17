@@ -665,7 +665,7 @@
 
     try {
       // Clean text to avoid JSON control character errors
-      const cleanText = text.replace(/[\x00-\x1F\x7F]/g, ' ').trim();
+      const cleanText = text.trim();
 
       // Single endpoint handles everything — intent detected by backend
       const endpoint = `${API_BASE}/agent/chat`;
@@ -715,7 +715,7 @@
   }
 
   function sendSuggestion(text) {
-    if (!authToken) { autoLogin().then(() => { document.getElementById('chat-input').value = text; sendMessage(); }); return; }
+  function sendSuggestion(text) {
     document.getElementById('chat-input').value = text;
     sendMessage();
   }
