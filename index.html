@@ -253,6 +253,7 @@
   }
 
   function formatMessage(text) {
+    text = (typeof text === "string") ? text : JSON.stringify(text);
     // Replace URLs with clickable buttons
     const urlRegex = /(https?:\/\/[^\s\)\]]+)/g;
     let formatted = text.replace(/\n/g, '<br>');
