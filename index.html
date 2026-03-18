@@ -2,6 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>229Voitures — AI Agent</title>
 <!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-SY2BY7J870"></script>
 <script>
@@ -10,365 +12,852 @@
   gtag('js', new Date());
   gtag('config', 'G-SY2BY7J870');
 </script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>229Voitures — AI Agent</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
-  :root {
-    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a28;
-    --border: #2a2a3d; --accent: #f5a623; --accent2: #e8431a;
-    --text: #e8e8f0; --muted: #6b6b8a; --success: #2ecc71;
-    --error: #e74c3c; --radius: 12px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-  header { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 100; }
-  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.35rem; letter-spacing: -0.02em; }
-  .logo span { color: var(--accent); }
-  .status-badge { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); background: var(--surface2); padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
-  .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
-  .app-container { display: flex; flex: 1; height: calc(100vh - 61px); }
-  .sidebar { width: 280px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 20px; gap: 20px; overflow-y: auto; }
-  .sidebar-title { font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; }
-  .suggestions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-  .suggestion-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; color: var(--text); text-align: left; line-height: 1.4; }
-  .suggestion-chip:hover { border-color: var(--accent); background: rgba(245,166,35,0.08); color: var(--accent); }
-  .chip-icon { margin-right: 8px; }
-  .about-box { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
-  .about-box p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin-top: 8px; }
-  .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  #chat-placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--muted); text-align: center; padding: 40px; }
-  #chat-placeholder .big-icon { font-size: 3.5rem; margin-bottom: 8px; }
-  #chat-placeholder h2 { font-family: 'Syne', sans-serif; font-size: 1.4rem; color: var(--text); font-weight: 700; }
-  #chat-placeholder p { font-size: 0.9rem; max-width: 380px; line-height: 1.6; }
-  #messages { flex: 1; overflow-y: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; }
-  #messages::-webkit-scrollbar { width: 4px; }
-  #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  .message { display: flex; gap: 12px; max-width: 760px; animation: fadeUp 0.3s ease; }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  .message.user { flex-direction: row-reverse; align-self: flex-end; }
-  .msg-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; font-family: 'Syne', sans-serif; }
-  .msg-avatar.ai { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
-  .msg-avatar.user-av { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
-  .msg-bubble { padding: 13px 17px; border-radius: 16px; font-size: 0.9rem; line-height: 1.65; max-width: 620px; word-break: break-word; }
-  .message.ai .msg-bubble { background: var(--surface2); border: 1px solid var(--border); border-top-left-radius: 4px; }
-  .message.user .msg-bubble { background: linear-gradient(135deg, rgba(245,166,35,0.25), rgba(232,67,26,0.18)); border: 1px solid rgba(245,166,35,0.3); border-top-right-radius: 4px; }
-  .typing-bubble .msg-bubble { display: flex; gap: 5px; align-items: center; padding: 14px 20px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: bounce 1.2s infinite; }
-  .dot:nth-child(2) { animation-delay: 0.2s; }
-  .dot:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-7px); } }
-  .input-bar { padding: 16px 32px 20px; border-top: 1px solid var(--border); background: var(--surface); }
-  .input-wrapper { display: flex; gap: 10px; align-items: flex-end; background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 10px 14px; transition: border-color 0.2s; }
-  .input-wrapper:focus-within { border-color: var(--accent); }
-  #chat-input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; resize: none; max-height: 140px; min-height: 24px; line-height: 1.5; }
-  #chat-input::placeholder { color: var(--muted); }
-  #chat-input:disabled { opacity: 0.5; }
-  #send-btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; padding: 8px 16px; color: #fff; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
-  #send-btn:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
-  #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .input-hint { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 8px; }
-  a { color: var(--accent); }
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap');
 
+  :root {
+    --bg: #000000;
+    --surface: #0a0a0a;
+    --surface2: #141414;
+    --surface3: #1a1a1a;
+    --border: #222222;
+    --border2: #2a2a2a;
+    --accent: #FFD700;
+    --accent-dim: rgba(255,215,0,0.12);
+    --accent-border: rgba(255,215,0,0.25);
+    --text: #e8e8e8;
+    --text-muted: #666666;
+    --text-dim: #aaaaaa;
+    --success: #4ade80;
+    --warning: #fb923c;
+    --error: #f87171;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: var(--bg);
+    border-bottom: 2px solid var(--accent);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+  }
+
+  .logo-badge span {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+  }
+
+  .logo-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .logo-text .name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.05em;
+    line-height: 1;
+  }
+
+  .logo-text .name span { color: var(--accent); }
+
+  .logo-text .sub {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    line-height: 1;
+    margin-top: 2px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+
+  .status-dot.online { background: var(--success); box-shadow: 0 0 5px var(--success); }
+
+  /* LAYOUT */
+  .app {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 62px);
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 0.5px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  .section-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .chip {
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chip:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .chip-icon { font-size: 13px; flex-shrink: 0; }
+
+  .about-box {
+    padding: 16px;
+    margin-top: auto;
+  }
+
+  .about-box p {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* CHAT */
+  .chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  #placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    padding: 40px;
+  }
+
+  #placeholder .icon { font-size: 3rem; margin-bottom: 8px; }
+
+  #placeholder h2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+
+  #placeholder p {
+    font-size: 13px;
+    color: var(--text-muted);
+    max-width: 360px;
+    line-height: 1.6;
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  #messages::-webkit-scrollbar { width: 3px; }
+  #messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .message {
+    display: flex;
+    gap: 10px;
+    max-width: 780px;
+    animation: fadeUp 0.25s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message.user { flex-direction: row-reverse; align-self: flex-end; }
+
+  .avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .avatar.ai { background: var(--accent); color: #000; }
+  .avatar.me { background: var(--surface3); border: 0.5px solid var(--border2); color: var(--text-muted); }
+
+  .bubble {
+    padding: 11px 15px;
+    border-radius: 4px 12px 12px 12px;
+    font-size: 13px;
+    line-height: 1.65;
+    max-width: 640px;
+    word-break: break-word;
+  }
+
+  .message.ai .bubble {
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-left: 2px solid var(--accent);
+    color: var(--text);
+  }
+
+  .message.user .bubble {
+    background: var(--accent-dim);
+    border: 0.5px solid var(--accent-border);
+    border-radius: 12px 4px 12px 12px;
+    color: var(--accent);
+  }
+
+  /* VEHICLE CARD */
+  .vehicle-card {
+    background: var(--surface3);
+    border: 0.5px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 10px 10px 10px;
+    padding: 12px 14px;
+    margin: 4px 0;
+    max-width: 420px;
+  }
+
+  .vc-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .vc-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .vc-divider {
+    border: none;
+    border-top: 0.5px solid var(--border2);
+    margin: 8px 0;
+  }
+
+  .vc-specs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+
+  .spec-tile {
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .spec-icon { font-size: 12px; flex-shrink: 0; }
+
+  .spec-label { font-size: 9px; color: var(--text-muted); }
+  .spec-value { font-size: 11px; color: var(--text); font-weight: 500; }
+
+  .vc-section {
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+
+  .vc-section-title {
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+
+  .price-label { font-size: 11px; color: var(--text-muted); }
+  .price-value { font-size: 12px; color: var(--text-dim); }
+  .price-value.highlight { font-size: 13px; color: var(--accent); font-weight: 600; }
+
+  .price-bar-wrap {
+    background: var(--surface2);
+    border-radius: 20px;
+    height: 3px;
+    margin: 6px 0 3px;
+    position: relative;
+  }
+
+  .price-bar-fill {
+    background: var(--success);
+    border-radius: 20px;
+    height: 3px;
+  }
+
+  .price-bar-dot {
+    position: absolute;
+    top: -3px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translateX(-50%);
+  }
+
+  .price-bar-labels {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-bottom: 6px;
+  }
+
+  .badge.good { background: rgba(74,222,128,0.12); border: 0.5px solid rgba(74,222,128,0.3); color: var(--success); }
+  .badge.warn { background: rgba(251,146,60,0.12); border: 0.5px solid rgba(251,146,60,0.3); color: var(--warning); }
+  .badge.bad  { background: rgba(248,113,113,0.12); border: 0.5px solid rgba(248,113,113,0.3); color: var(--error); }
+
+  .vc-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 0.5px solid var(--border2);
+    padding-top: 6px;
+    margin-top: 4px;
+  }
+
+  .vc-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .vc-btn {
+    flex: 1;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-align: center;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+  }
+
+  .vc-btn.primary {
+    background: var(--accent-dim);
+    border: 0.5px solid var(--accent-border);
+    color: var(--accent);
+  }
+
+  .vc-btn.secondary {
+    background: var(--surface);
+    border: 0.5px solid var(--border2);
+    color: var(--text-muted);
+  }
+
+  .vc-btn:hover { opacity: 0.8; }
+
+  .vc-vin {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: monospace;
+    margin-top: 6px;
+    padding: 4px 8px;
+    background: var(--surface);
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .legal-note {
+    font-size: 10px;
+    color: #333;
+    line-height: 1.4;
+    margin-top: 4px;
+    padding: 0 2px;
+  }
+
+  /* LINK BUTTONS */
   .link-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(245,166,35,0.12);
-    border: 1px solid rgba(245,166,35,0.35);
-    border-radius: 8px;
-    padding: 6px 12px;
+    gap: 5px;
+    background: var(--accent-dim);
+    border: 0.5px solid var(--accent-border);
+    border-radius: 6px;
+    padding: 4px 10px;
     color: var(--accent);
     text-decoration: none;
-    font-size: 0.82rem;
-    font-weight: 600;
-    margin: 4px 2px;
-    transition: all 0.2s;
-    word-break: break-all;
-  }
-  .link-btn:hover {
-    background: rgba(245,166,35,0.22);
-    transform: translateY(-1px);
-  }
-  .link-btn.featured {
-    background: rgba(245,166,35,0.2);
-    border-color: var(--accent);
-    font-size: 0.88rem;
+    font-size: 11px;
+    font-weight: 500;
+    margin: 3px 2px;
+    transition: opacity 0.15s;
   }
 
-  /* ── RESPONSIVE MOBILE ── */
+  .link-btn:hover { opacity: 0.75; }
+
+  /* TYPING */
+  .typing .bubble {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 12px 16px;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: bounce 1.2s infinite;
+  }
+
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%,60%,100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  /* INPUT BAR */
+  .input-bar {
+    padding: 12px 24px 16px;
+    border-top: 0.5px solid var(--border);
+    background: var(--bg);
+  }
+
+  .input-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: 24px;
+    padding: 8px 8px 8px 16px;
+    transition: border-color 0.2s;
+  }
+
+  .input-wrap:focus-within { border-color: var(--accent-border); }
+
+  #chat-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    resize: none;
+    max-height: 120px;
+    min-height: 22px;
+    line-height: 1.5;
+  }
+
+  #chat-input::placeholder { color: var(--text-muted); }
+  #chat-input:disabled { opacity: 0.4; }
+
+  #send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 20px;
+    padding: 7px 18px;
+    color: #000;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    letter-spacing: 0.03em;
+  }
+
+  #send-btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+  #send-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .input-hint {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 6px;
+    opacity: 0.6;
+  }
+
+  /* RESPONSIVE MOBILE */
   @media (max-width: 768px) {
-    header { padding: 12px 16px; }
-    .logo { font-size: 1.1rem; }
-    .status-badge { font-size: 0.72rem; padding: 5px 10px; }
+    header { padding: 10px 14px; }
+    .logo-text .name { font-size: 14px; }
 
-    .app-container { flex-direction: column; height: calc(100vh - 53px); }
+    .app { flex-direction: column; height: calc(100vh - 56px); }
 
     .sidebar {
       width: 100%;
       flex-direction: row;
-      flex-wrap: wrap;
-      padding: 10px 12px;
-      gap: 8px;
       border-right: none;
-      border-bottom: 1px solid var(--border);
-      max-height: 120px;
+      border-bottom: 0.5px solid var(--border);
+      max-height: 100px;
       overflow-x: auto;
       overflow-y: hidden;
-    }
-
-    .sidebar-title { display: none; }
-
-    .suggestions {
-      flex-direction: row;
-      flex-wrap: nowrap;
-      overflow-x: auto;
+      padding: 8px 12px;
       gap: 6px;
-      margin-top: 0;
     }
 
-    .suggestion-chip {
-      white-space: nowrap;
-      padding: 7px 12px;
-      font-size: 0.78rem;
-      flex-shrink: 0;
-    }
-
+    .sidebar-section { padding: 0; border: none; min-width: max-content; }
+    .section-label { display: none; }
+    .suggestions { flex-direction: row; gap: 5px; }
     .about-box { display: none; }
 
-    .chat-area { flex: 1; min-height: 0; }
+    .chip { white-space: nowrap; padding: 6px 10px; font-size: 11px; }
 
-    #messages { padding: 16px; gap: 14px; }
-
-    .msg-bubble { font-size: 0.85rem; padding: 10px 14px; max-width: 85vw; }
-
-    .input-bar { padding: 10px 12px 14px; }
-
+    #messages { padding: 14px 14px; gap: 12px; }
+    .bubble { font-size: 12px; max-width: 85vw; }
+    .vehicle-card { max-width: 100%; }
+    .input-bar { padding: 8px 12px 12px; }
     .input-hint { display: none; }
   }
-
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">229<span>Voitures</span> AI</div>
-  <div class="status-badge">
+  <div class="logo">
+    <div class="logo-badge"><span>229</span></div>
+    <div class="logo-text">
+      <div class="name">229 <span>VOITURES</span></div>
+      <div class="sub">AI AGENT · CANADA</div>
+    </div>
+  </div>
+  <div class="status-pill">
     <div class="status-dot" id="status-dot"></div>
     <span id="status-text">Connexion...</span>
   </div>
 </header>
 
-<div class="app-container">
+<div class="app">
+
   <aside class="sidebar">
-    <div>
-      <div class="sidebar-title">Suggestions</div>
+    <div class="sidebar-section">
+      <div class="section-label">Suggestions</div>
       <div class="suggestions">
-        <button class="suggestion-chip" onclick="sendSuggestion('Trouve moi un Kia Seltos LX 2021 au Quebec')">
-          <span class="chip-icon">🔍</span>Kia Seltos LX 2021 Québec
+        <button class="chip" onclick="sendSuggestion('Trouve moi un Kia Seltos LX 2021 au Quebec')">
+          <span class="chip-icon">🔍</span>Kia Seltos LX 2021
         </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Toyota Corolla 2020 pour 15000$, bonne affaire?')">
+        <button class="chip" onclick="sendSuggestion('Toyota Corolla 2020 pour 15000, bonne affaire?')">
           <span class="chip-icon">🚗</span>Toyota Corolla 2020
         </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Compare Honda CRV vs Toyota RAV4 2021')">
+        <button class="chip" onclick="sendSuggestion('Compare Honda CRV vs Toyota RAV4 2021 au Quebec')">
           <span class="chip-icon">⚖️</span>Comparer 2 SUV
         </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Quelle voiture fiable pour famille sous 20000?')">
+        <button class="chip" onclick="sendSuggestion('Quelle voiture fiable pour famille de 4 sous 20000?')">
           <span class="chip-icon">👨‍👩‍👧</span>Voiture familiale
         </button>
-        <button class="suggestion-chip" onclick="sendSuggestion('Trouve moi un VUS AWD 2020 sous 25000 au Canada')">
+        <button class="chip" onclick="sendSuggestion('Trouve moi un VUS AWD 2020 sous 25000 au Canada')">
           <span class="chip-icon">🛻</span>VUS AWD sous 25 000$
+        </button>
+        <button class="chip" onclick="sendSuggestion('Quels sont les problemes connus de la Honda Civic 2019?')">
+          <span class="chip-icon">🔧</span>Fiabilité Honda Civic
         </button>
       </div>
     </div>
     <div class="about-box">
-      <div class="sidebar-title">À propos</div>
-      <p>Agent IA automobile pour le Canada. Recherche en temps réel, analyse d'annonces, vérification VIN.</p>
+      <div class="section-label" style="margin-bottom:8px">À propos</div>
+      <p>Agent IA automobile pour le Canada. Recherche en temps réel, analyse d'annonces, vérification VIN, calcul taxes Québec.</p>
     </div>
   </aside>
 
-  <section class="chat-area">
-    <div id="chat-placeholder">
-      <div class="big-icon">🚘</div>
-      <h2>229Voitures AI Agent</h2>
+  <section class="chat">
+    <div id="placeholder">
+      <div class="icon">🚘</div>
+      <h2>229VOITURES AI</h2>
       <p>Votre compagnon automobile intelligent au Canada. Connexion en cours...</p>
     </div>
     <div id="messages" style="display:none"></div>
     <div class="input-bar">
-      <div class="input-wrapper">
-        <textarea id="chat-input" rows="1" placeholder="Posez votre question sur les voitures au Canada…" disabled
-          oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
-        <button id="send-btn" disabled onclick="sendMessage()">Envoyer →</button>
+      <div class="input-wrap">
+        <textarea id="chat-input" rows="1" placeholder="Posez votre question sur les voitures au Canada…"
+          disabled oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+        <button id="send-btn" disabled onclick="sendMessage()">Envoyer</button>
       </div>
       <div class="input-hint">Entrée pour envoyer · Maj+Entrée pour nouvelle ligne</div>
     </div>
   </section>
+
 </div>
 
 <script>
-  const API_BASE = 'https://229voitures-ai-agent-production.up.railway.app';
-  let authToken = null;
+const API = 'https://229voitures-ai-agent-production.up.railway.app';
+let token = null;
 
-  function setStatus(connected, label) {
-    document.getElementById('status-dot').className = 'status-dot' + (connected ? ' connected' : '');
-    document.getElementById('status-text').textContent = label;
-  }
+function setStatus(on, label) {
+  document.getElementById('status-dot').className = 'status-dot' + (on ? ' online' : '');
+  document.getElementById('status-text').textContent = label;
+}
 
-  function autoResize(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
-  }
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
 
-  function handleKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  }
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
 
-  async function autoLogin() {
-    try {
-      const body = new URLSearchParams();
-      body.append('username', 'demo229');
-      body.append('password', 'demo229voitures');
-      const res = await fetch(API_BASE + '/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString()
-      });
-      const data = await res.json();
-      authToken = data.access_token || data.token || data.jwt;
-      if (authToken) {
-        document.getElementById('chat-placeholder').style.display = 'none';
-        document.getElementById('messages').style.display = 'flex';
-        document.getElementById('chat-input').disabled = false;
-        document.getElementById('send-btn').disabled = false;
-        setStatus(true, 'En ligne · Canada');
-        addMessage('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
-      } else {
-        setStatus(false, 'Erreur de connexion');
-      }
-    } catch(e) {
-      setStatus(false, 'Hors ligne');
-      console.error('[AUTO-LOGIN]', e);
-    }
-  }
-
-  function formatMessage(text) {
-    text = (typeof text === "string") ? text : JSON.stringify(text);
-    // Replace URLs with clickable buttons
-    const urlRegex = /(https?:\/\/[^\s\)\]]+)/g;
-    let formatted = text.replace(/\n/g, '<br>');
-    formatted = formatted.replace(urlRegex, function(url) {
-      // Clean trailing punctuation
-      const clean = url.replace(/[.,;:!?]+$/, '');
-      let label = "🔗 Voir l'annonce";
-      if (clean.includes('autotrader')) label = '🚗 AutoTrader';
-      else if (clean.includes('kijiji')) label = '🏷️ Kijiji';
-      else if (clean.includes('forceoccasion')) label = '🏢 Force Occasion';
-      else if (clean.includes('autohebdo')) label = '📰 AutoHebdo';
-      else if (clean.includes('otogo')) label = '🔍 Otogo';
-      else if (clean.includes('carpages')) label = '📋 CarPages';
-      return '<a href="' + clean + '" target="_blank" class="link-btn">' + label + ' →</a>';
+async function autoLogin() {
+  try {
+    const body = new URLSearchParams();
+    body.append('username', 'demo229');
+    body.append('password', 'demo229voitures');
+    const res = await fetch(API + '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
     });
-    return formatted;
-  }
-
-  function addMessage(role, text) {
-    const container = document.getElementById('messages');
-    const div = document.createElement('div');
-    div.className = 'message ' + role;
-    const avatar = document.createElement('div');
-    avatar.className = 'msg-avatar ' + (role === 'ai' ? 'ai' : 'user-av');
-    avatar.textContent = role === 'ai' ? 'AI' : 'Moi';
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    bubble.innerHTML = role === 'ai' ? formatMessage(text) : text.replace(/\n/g, '<br>');
-    div.appendChild(avatar);
-    div.appendChild(bubble);
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-  }
-
-  function addTyping() {
-    const container = document.getElementById('messages');
-    const div = document.createElement('div');
-    div.className = 'message ai typing-bubble';
-    div.id = 'typing-indicator';
-    const avatar = document.createElement('div');
-    avatar.className = 'msg-avatar ai';
-    avatar.textContent = 'AI';
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    bubble.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-    div.appendChild(avatar);
-    div.appendChild(bubble);
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-  }
-
-  function removeTyping() {
-    const el = document.getElementById('typing-indicator');
-    if (el) el.remove();
-  }
-
-  async function sendMessage() {
-    const input = document.getElementById('chat-input');
-    const text = input.value.trim();
-    if (!text || !authToken) return;
-    input.value = '';
-    input.style.height = 'auto';
-    addMessage('user', text);
-    input.disabled = true;
-    document.getElementById('send-btn').disabled = true;
-    addTyping();
-    try {
-      const res = await fetch(API_BASE + '/agent/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + authToken
-        },
-        body: JSON.stringify({ message: text })
-      });
-      removeTyping();
-      if (res.status === 401) {
-        addMessage('ai', 'Session expirée. Reconnexion...');
-        authToken = null;
-        await autoLogin();
-        return;
-      }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        addMessage('ai', 'Erreur ' + res.status + ': ' + (err.detail || 'Réponse inattendue.'));
-        return;
-      }
-      const data = await res.json();
-      const reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
-      // Track search in Google Analytics
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'chat_message', {
-          'event_category': 'Agent',
-          'event_label': data.intent || 'CHAT',
-          'value': 1
-        });
-      }
-      addMessage('ai', reply);
-    } catch(err) {
-      removeTyping();
-      addMessage('ai', 'Impossible de contacter le serveur. Vérifiez votre connexion.');
-      console.error('[CHAT]', err);
-    } finally {
-      input.disabled = false;
+    const data = await res.json();
+    token = data.access_token || data.token || data.jwt;
+    if (token) {
+      document.getElementById('placeholder').style.display = 'none';
+      document.getElementById('messages').style.display = 'flex';
+      document.getElementById('chat-input').disabled = false;
       document.getElementById('send-btn').disabled = false;
-      input.focus();
+      setStatus(true, 'En ligne · Canada');
+      addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada.\n\nJe peux vous aider à :\n• Trouver et analyser des véhicules d\'occasion\n• Comparer des modèles selon vos critères\n• Calculer le prix taxes incluses au Québec\n• Vérifier l\'historique d\'un véhicule via le VIN\n• Estimer le coût total de possession\n• Vous guider dans la négociation\n\nPosez-moi une question ou cliquez sur une suggestion !');
+    } else {
+      setStatus(false, 'Erreur connexion');
     }
+  } catch(e) {
+    setStatus(false, 'Hors ligne');
+  }
+}
+
+function formatText(text) {
+  if (typeof text !== 'string') text = JSON.stringify(text);
+
+  // Replace URLs with styled buttons
+  text = text.replace(/(https?:\/\/[^\s\)\]]+)/g, function(url) {
+    const clean = url.replace(/[.,;:!?]+$/, '');
+    let label = '🔗 Voir l\'annonce';
+    if (clean.includes('forceoccasion')) label = '⭐ Force Occasion';
+    else if (clean.includes('autotrader')) label = '🚗 AutoTrader';
+    else if (clean.includes('kijiji')) label = '🏷️ Kijiji';
+    else if (clean.includes('autohebdo')) label = '📰 AutoHebdo';
+    else if (clean.includes('otogo')) label = '🔍 Otogo';
+    else if (clean.includes('carpages')) label = '📋 CarPages';
+    else if (clean.includes('cargurus')) label = '📊 CarGurus';
+    return '<a href="' + clean + '" target="_blank" class="link-btn">' + label + ' →</a>';
+  });
+
+  // Render line breaks
+  text = text.replace(/\n/g, '<br>');
+  return text;
+}
+
+function addMsg(role, text) {
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'message ' + role;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar ' + (role === 'ai' ? 'ai' : 'me');
+  avatar.textContent = role === 'ai' ? 'AI' : 'Moi';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = role === 'ai' ? formatText(text) : text.replace(/\n/g, '<br>');
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function addTyping() {
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'message ai typing';
+  div.id = 'typing';
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar ai';
+  avatar.textContent = 'AI';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing');
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !token) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  addMsg('user', text);
+  input.disabled = true;
+  document.getElementById('send-btn').disabled = true;
+  addTyping();
+
+  // Track in GA
+  if (typeof gtag !== 'undefined') {
+    gtag('event', 'chat_message', { event_category: 'Agent', value: 1 });
   }
 
-  function sendSuggestion(text) {
-    document.getElementById('chat-input').value = text;
-    sendMessage();
-  }
+  try {
+    const res = await fetch(API + '/agent/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ message: text })
+    });
 
-  window.addEventListener('load', autoLogin);
+    removeTyping();
+
+    if (res.status === 401) {
+      token = null;
+      addMsg('ai', 'Session expirée. Reconnexion...');
+      await autoLogin();
+      return;
+    }
+
+    const data = await res.json();
+    const reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
+    addMsg('ai', reply);
+
+  } catch(err) {
+    removeTyping();
+    addMsg('ai', 'Impossible de contacter le serveur. Vérifiez votre connexion.');
+  } finally {
+    input.disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+}
+
+function sendSuggestion(text) {
+  document.getElementById('chat-input').value = text;
+  sendMessage();
+}
+
+window.addEventListener('load', autoLogin);
 </script>
 </body>
 </html>
