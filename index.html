@@ -860,7 +860,21 @@ async function sendMessage() {
     }
 
     const data = await res.json();
-    const reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
+    // Smart response extraction — handle VIN reports and all response types
+    let reply = '';
+    if (data.intent === 'CHECK_VIN' && data.response) {
+      // VIN report — extract full_report from nested object
+      const r = data.response;
+      if (typeof r === 'object' && r.full_report) {
+        reply = r.full_report;
+      } else if (typeof r === 'string') {
+        reply = r;
+      } else {
+        reply = JSON.stringify(r);
+      }
+    } else {
+      reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
+    }
     addMsg('ai', reply);
 
   } catch(err) {
