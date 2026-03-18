@@ -122,32 +122,42 @@ Return exactly this JSON format:
   "query": null,
   "site": null,
   "count": 2,
-  "followup_action": null
+  "followup_action": null,
+  "vehicle_filter": null
 }}
 
 Intent rules:
-- CHAT: general question, advice without specific vehicle lookup needed
-- SEARCH: use this when ANY of these conditions are met:
-  1. User explicitly searches (keywords: trouve, cherche, montre, propose, liste, donne moi)
-  2. User mentions a specific vehicle make/model (Toyota, Honda, Kia, Ford, Mazda, Hyundai, etc.)
-  3. User mentions a year + vehicle type (ex: "SUV 2021", "berline 2020")
-  4. User mentions a budget + vehicle type (ex: "voiture sous 20000$")
-  5. User asks about availability, price, or options for a specific model
-  Examples that should be SEARCH not CHAT:
-  - "Kia Niro PHEV, c'est bien?" → SEARCH (specific model mentioned)
-  - "Toyota Corolla 2020 fiable?" → SEARCH (specific model + year)
-  - "VUS hybride sous 25000$?" → SEARCH (budget + type)
-  - "Honda CRV disponible au Quebec?" → SEARCH (specific model + location)
+
+- CHAT: Use for ALL evaluation and advice questions:
+  * "bonne affaire?", "c'est bien?", "fiable?", "vaut la peine?", "recommandes-tu?"
+  * "problemes connus", "rappels", "historique de fiabilite"
+  * "X$ c'est raisonnable?", "trop cher?", "bon prix?"
+  * Negotiation advice, cost of ownership questions
+  IMPORTANT: For evaluation questions, answer the question FIRST directly,
+  then offer to search for listings as a follow-up suggestion.
+  Examples → CHAT:
+  - "Toyota Corolla 2020 pour 15000, bonne affaire?" → CHAT
+  - "Honda Civic 2019 fiable?" → CHAT
+  - "Kia Niro PHEV c'est bien?" → CHAT
+
+- SEARCH: ONLY when user EXPLICITLY wants to find/list vehicles.
+  Requires keywords: trouve, cherche, montre, propose, liste, donne moi
+  Examples → SEARCH:
+  - "Trouve moi un Toyota RAV4 2021" → SEARCH
+  - "Cherche des Honda CRV sous 25000" → SEARCH
+  - "Montre moi des Kia Seltos au Quebec" → SEARCH
+
 - ANALYZE_URL: message contains exactly 1 URL
 - COMPARE_URLS: message contains 2+ URLs
 - CHECK_VIN: message contains a VIN (17 alphanumeric characters)
-- FOLLOWUP: user is responding to a previous suggestion (ex: "le 2", "oui", "compare-les", "vérifie le vin", "montre-moi plus")
+- FOLLOWUP: user responds to a previous suggestion (ex: "le 2", "oui", "compare-les", "verifie le vin")
 
 For FOLLOWUP, set followup_action to one of:
 - "select_listing", "check_vin", "compare", "more_results", "contact_dealer", "yes", "no"
 
 For SEARCH extract:
-- query: full search terms including make, model, year, trim, budget, location
+- query: exact vehicle search terms (make, model, year, trim, budget, location)
+- vehicle_filter: specific make+model being searched (ex: "Toyota Corolla 2020") for result filtering
 - site: dealer domain if mentioned, null otherwise
 - count: number of results requested (default 2)
 

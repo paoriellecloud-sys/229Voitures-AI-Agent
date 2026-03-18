@@ -158,10 +158,21 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
         search_results = fo_results + other_filtered
         search_results = search_results[:count]
 
-    # Step 2 — Scrape each URL
+    # Step 2 — Scrape each URL + filter irrelevant results
     scraped_listings = []
     for result in search_results:
         url = result["url"]
+        title = result["title"].lower()
+        snippet = result["snippet"].lower()
+
+        # Filter out results that don't match the vehicle being searched
+        if site is None and query:
+            # Extract key terms from query for relevance check
+            query_words = [w.lower() for w in query.split() if len(w) > 2]
+            relevant = any(word in title or word in snippet for word in query_words)
+            if not relevant:
+                continue
+
         text = extract_page_text(url)
         scraped_listings.append({
             "title": result["title"],
@@ -184,15 +195,23 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
         Here are {len(scraped_listings)} real listings found via Google Search:
         {listings_text}
 
-        Provide a concise response in French:
-        - For each listing: vehicle name, price, mileage, and exact URL as a clickable link
-        - Which is the best deal and why (1 sentence)
-        - Final recommendation
+        Present each listing in French using this format:
 
-        IMPORTANT:
-        - Only use data from the content above
-        - Always include the exact URL for each listing
-        - Max 6 sentences total
+        For each vehicle found:
+        🚗 [Marque Modèle Année] · [km] km · [prix] $
+        📍 [Ville] · [URL]
+        [1 phrase : point fort ou à surveiller]
+
+        Ensuite :
+        🏆 Meilleure option : [laquelle et pourquoi en 1 phrase]
+
+        💰 Prix Québec taxes incluses (pour la meilleure option) :
+        • TPS (5%) + TVQ (9.975%) = 14.975%
+        • Total estimé : [calcul]
+
+        ⚠️ Estimations à titre informatif. Consultez un concessionnaire pour un taux personnalisé.
+
+        IMPORTANT: Only use data from the content above. Always include exact URLs.
 
         {PROACTIVE_INSTRUCTIONS}
         """
@@ -240,20 +259,55 @@ def analyze_listing(url: str) -> dict:
         prompt = f"""
         I could not scrape this URL: {url}
         Use Google Search to find information about this listing.
-        Max 4 sentences in French. Include the URL: {url}
+        Respond in French using the structured format below.
         {PROACTIVE_INSTRUCTIONS}
         """
     else:
         prompt = f"""
-        Analyze this Canadian car listing. Max 5 sentences total.
+        Analyze this Quebec/Canada car listing and present it in this EXACT structured format in French:
 
         PAGE CONTENT:
         {page_text}
 
-        Cover: vehicle summary, price, mileage, 1 positive point, 1 thing to watch, recommendation.
-        Always include the listing URL: {url}
+        Use EXACTLY this format:
 
-        {PROACTIVE_INSTRUCTIONS}
+        🚗 [Marque] [Modèle] [Trim] [Année]
+        📍 [Ville, Province] · [Kilométrage] km · [Prix affiché] $
+
+        [✅ Bonne affaire / ⚠️ Prix élevé / 💡 Prix du marché] — 1 phrase
+
+        Informations de base :
+        • Transmission : [Auto/Manuelle]
+        • Carburant : [Essence/Hybride/Électrique]
+        • Couleur : [couleur]
+        • Vendeur : [Concessionnaire/Particulier]
+
+        Équipements inclus :
+        • [équipement 1]
+        • [équipement 2]
+        • [équipement 3]
+        (liste les équipements importants trouvés dans l'annonce)
+
+        Garantie :
+        • [garantie constructeur restante si applicable]
+        • [certification concessionnaire si applicable]
+
+        💰 Prix au Québec taxes incluses :
+        • Prix affiché : [prix] $
+        • TPS (5%) : + [montant] $
+        • TVQ (9.975%) : + [montant] $
+        • Total estimé : [total] $
+
+        📊 Estimation de financement :
+        • Bon crédit (700+) : ~[montant] $/mois sur 60 mois
+        • Crédit moyen (600-699) : ~[montant] $/mois sur 60 mois
+
+        ⚠️ Ces montants sont des estimations à titre informatif seulement. Consultez votre concessionnaire ou institution financière pour un taux personnalisé. 229Voitures n'est pas un conseiller financier.
+
+        Voulez-vous que je vérifie le VIN, compare ce véhicule avec d'autres options, ou avez-vous des questions sur les garanties ?
+
+        IMPORTANT: Only use data from the page content above. If a field is not available, write "Non disponible".
+        Always include the listing URL: {url}
         """
 
     response = client.models.generate_content(
