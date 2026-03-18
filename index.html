@@ -729,7 +729,7 @@ async function autoLogin() {
       document.getElementById('chat-input').disabled = false;
       document.getElementById('send-btn').disabled = false;
       setStatus(true, 'En ligne · Canada');
-      addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada.\n\nJe peux vous aider à :\n• Trouver et analyser des véhicules d\'occasion\n• Comparer des modèles selon vos critères\n• Calculer le prix taxes incluses au Québec\n• Vérifier l\'historique d\'un véhicule via le VIN\n• Estimer le coût total de possession\n• Vous guider dans la négociation\n\nPosez-moi une question ou cliquez sur une suggestion !');
+      addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
     } else {
       setStatus(false, 'Erreur connexion');
     }
@@ -777,6 +777,8 @@ function formatText(text) {
   text = text.replace(/^\d+\.\s(.+)$/gm, '<span style="display:block;padding-left:12px;margin:3px 0;color:var(--accent)">$1</span>');
 
   // Line breaks
+    // Remove "URL:" or "URL :" prefix before link buttons
+  text = text.replace(/URL\s*:\s*(<a[^>]*class="link-btn")/g, '$1');
   text = text.replace(/\n/g, '<br>');
   return text;
 }

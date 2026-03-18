@@ -75,6 +75,8 @@ RÈGLES DE COMMUNICATION :
 - Toujours en français, toujours en dollars canadiens (CAD)
 - Sois honnête : si tu n'as pas de données vérifiées, dis-le clairement
 - Termine TOUJOURS par une question ou suggestion concrète pour guider l'utilisateur
+- La date actuelle est mars 2026 — pour les événements, distingue clairement ce qui est passé vs à venir
+- Ne jamais présenter un événement passé comme "à venir"
 
 RÈGLES DE RELANCE INTELLIGENTE :
 - Si l'utilisateur mentionne un budget → rappelle-le dans chaque réponse suivante
@@ -253,8 +255,30 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         result = {"intent": "SEARCH", "response": base_response + followup, "urls_found": search_result.get("urls_found", []), "scraped_count": search_result.get("scraped_count", 0)}
 
     else:
-        full_prompt = f"{SYSTEM_PROMPT}\nHistorique:\n{history_str}\nContexte: {context_summary}\nMessage: {message}"
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=full_prompt, config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]))
+        # CHAT with Google Search for real market data
+        full_prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+Message de l'utilisateur: {message}
+
+INSTRUCTIONS IMPORTANTES :
+- Si l'utilisateur mentionne un modèle de voiture spécifique → utilise Google Search pour trouver les prix actuels au Canada
+- Si l'utilisateur mentionne un budget → vérifie si le prix mentionné est réaliste sur le marché canadien actuel
+- Si c'est une question de comparaison → trouve les prix d'occasion actuels des deux modèles
+- Si l'utilisateur demande des recommandations avec un budget → cherche des modèles disponibles dans ce budget au Canada
+- Calcule toujours les taxes Québec (TPS 5% + TVQ 9.975%) si un prix est mentionné
+- Ne jamais dire "je n'ai pas de données vérifiées" — utilise Google Search pour trouver les données
+"""
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=full_prompt,
+            config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+        )
         result = {"intent": "CHAT", "response": response.text}
 
     response_text = result.get("response", "")
