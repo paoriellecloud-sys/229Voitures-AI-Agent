@@ -10,22 +10,20 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 # =============================
-# DECODER LE VIN (NHTSA - Gratuit)
+# DECODE VIN (NHTSA - Free)
 # =============================
 
 def decode_vin(vin: str) -> dict:
     """
-    Décode un numéro VIN via l'API gratuite NHTSA (USA).
-    Retourne les infos de base du véhicule.
+    Decodes a VIN number via the free NHTSA API.
+    Returns basic vehicle information.
     """
     try:
         url = f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/{vin}?format=json"
         response = requests.get(url, timeout=10)
         data = response.json()
-
         results = data.get("Results", [])
 
-        # Extraire les infos importantes
         info = {}
         important_fields = [
             "Make", "Model", "ModelYear", "VehicleType",
@@ -43,7 +41,7 @@ def decode_vin(vin: str) -> dict:
         return {
             "vin": vin,
             "decoded": info,
-            "source": "NHTSA (National Highway Traffic Safety Administration)"
+            "source": "NHTSA"
         }
 
     except Exception as e:
@@ -51,39 +49,33 @@ def decode_vin(vin: str) -> dict:
 
 
 # =============================
-# RAPPELS DE SÉCURITÉ (NHTSA - Gratuit)
+# SAFETY RECALLS (NHTSA - Free)
 # =============================
 
 def get_recalls(make: str, model: str, year: str) -> dict:
     """
-    Récupère les rappels de sécurité via NHTSA.
+    Retrieves safety recalls via NHTSA API.
     """
     try:
         url = f"https://api.nhtsa.gov/recalls/recallsByVehicle?make={make}&model={model}&modelYear={year}"
         response = requests.get(url, timeout=10)
         data = response.json()
-
         recalls = data.get("results", [])
 
         if not recalls:
-            return {
-                "count": 0,
-                "message": "✅ Aucun rappel de sécurité trouvé pour ce véhicule.",
-                "recalls": []
-            }
+            return {"count": 0, "message": "Aucun rappel trouvé.", "recalls": []}
 
         recall_list = []
-        for r in recalls[:5]:  # Limiter à 5 rappels
+        for r in recalls[:5]:
             recall_list.append({
                 "component": r.get("Component", "N/A"),
                 "summary": r.get("Summary", "N/A")[:200],
-                "consequence": r.get("Conséquence", r.get("Consequence", "N/A"))[:200],
                 "remedy": r.get("Remedy", "N/A")[:200]
             })
 
         return {
             "count": len(recalls),
-            "message": f"⚠️ {len(recalls)} rappel(s) de sécurité trouvé(s).",
+            "message": f"{len(recalls)} rappel(s) trouvé(s).",
             "recalls": recall_list
         }
 
@@ -92,18 +84,17 @@ def get_recalls(make: str, model: str, year: str) -> dict:
 
 
 # =============================
-# RAPPORT COMPLET (CarFax Gratuit)
+# FULL VEHICLE REPORT
 # =============================
 
 def get_vehicle_report(vin: str) -> dict:
     """
-    Génère un rapport complet gratuit pour un VIN donné.
-    Combine NHTSA + analyse Gemini.
+    Generates a complete free report for a given VIN.
+    Combines NHTSA data + Gemini analysis.
     """
 
-    # Étape 1 — Décoder le VIN
+    # Step 1 — Decode VIN
     vin_info = decode_vin(vin)
-
     if "error" in vin_info:
         return vin_info
 
@@ -112,41 +103,48 @@ def get_vehicle_report(vin: str) -> dict:
     model = decoded.get("Model", "")
     year = decoded.get("ModelYear", "")
 
-    # Étape 2 — Rappels de sécurité
+    # Step 2 — Safety recalls
     recalls_info = {}
     if make and model and year:
         recalls_info = get_recalls(make, model, year)
 
-    # Étape 3 — Analyse Gemini
+    # Step 3 — Gemini analysis
     prompt = f"""
-    Tu es un expert automobile. Génère un rapport de vérification de véhicule basé sur ces informations.
+    Tu es AutoAgent 229Voitures, expert automobile au Canada.
+    Génère un rapport VIN court et structuré en français.
 
     VIN : {vin}
+    DONNÉES NHTSA : {decoded}
+    RAPPELS : {recalls_info}
 
-    INFORMATIONS DU VÉHICULE (source NHTSA) :
-    {decoded}
+    Utilise EXACTEMENT ce format — sois concis, max 2-3 lignes par section :
 
-    RAPPELS DE SÉCURITÉ :
-    {recalls_info}
+    🔍 RAPPORT VIN — {vin}
 
-    Génère un rapport structuré avec :
+    🚗 VÉHICULE
+    • Marque/Modèle/Année : [valeur]
+    • Carrosserie : [valeur] · [portes] portes
+    • Moteur : [cylindrée] · [carburant]
+    • Transmission : [valeur]
 
-    ## 🚗 INFORMATIONS DU VÉHICULE
-    (marque, modèle, année, moteur, transmission, carburant)
+    ⚠️ RAPPELS DE SÉCURITÉ
+    [Si aucun rappel] ✅ Aucun rappel confirmé pour ce VIN
+    [Si rappels] ⚠️ [nombre] rappel(s) — [composant principal concerné]
+    • Vérifier auprès d'un concessionnaire avec le VIN
 
-    ## ⚠️ RAPPELS DE SÉCURITÉ
-    (liste des rappels avec recommandations)
+    🔧 POINTS À SURVEILLER
+    • [problème 1 connu pour ce modèle/année — 1 ligne]
+    • [problème 2 — 1 ligne]
+    • [problème 3 — 1 ligne]
 
-    ## 🔍 POINTS À VÉRIFIER
-    (basé sur les problèmes connus de ce modèle/année)
+    💰 VALEUR MARCHÉ CANADA
+    • Fourchette estimée : [min] $ — [max] $
+    • Prix moyen : ~ [valeur] $
 
-    ## 💰 VALEUR MARCHANDE ESTIMÉE
-    (prix moyen au Canada pour ce véhicule)
+    🎯 RECOMMANDATION
+    [Acheter ✅ / Inspecter ⚠️ / Éviter ❌] — 1 phrase d'explication
 
-    ## 🎯 RECOMMANDATION FINALE
-    (acheter / inspecter / éviter)
-
-    Réponds en français de façon claire et professionnelle.
+    ⚠️ Données à titre informatif. Vérifiez auprès d'un concessionnaire certifié. 229Voitures n'est pas un conseiller financier.
     """
 
     response = client.models.generate_content(
