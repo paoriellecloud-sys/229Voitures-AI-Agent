@@ -738,24 +738,45 @@ async function autoLogin() {
   }
 }
 
+function getLinkLabel(url) {
+  if (url.includes('forceoccasion')) return '⭐ Force Occasion';
+  if (url.includes('autotrader')) return '🚗 AutoTrader';
+  if (url.includes('kijiji')) return '🏷️ Kijiji';
+  if (url.includes('autohebdo')) return '📰 AutoHebdo';
+  if (url.includes('otogo')) return '🔍 Otogo';
+  if (url.includes('carpages')) return '📋 CarPages';
+  if (url.includes('cargurus')) return '📊 CarGurus';
+  return '🔗 Voir l\'annonce';
+}
+
 function formatText(text) {
   if (typeof text !== 'string') text = JSON.stringify(text);
 
-  // Replace URLs with styled buttons
-  text = text.replace(/(https?:\/\/[^\s\)\]]+)/g, function(url) {
-    const clean = url.replace(/[.,;:!?]+$/, '');
-    let label = '🔗 Voir l\'annonce';
-    if (clean.includes('forceoccasion')) label = '⭐ Force Occasion';
-    else if (clean.includes('autotrader')) label = '🚗 AutoTrader';
-    else if (clean.includes('kijiji')) label = '🏷️ Kijiji';
-    else if (clean.includes('autohebdo')) label = '📰 AutoHebdo';
-    else if (clean.includes('otogo')) label = '🔍 Otogo';
-    else if (clean.includes('carpages')) label = '📋 CarPages';
-    else if (clean.includes('cargurus')) label = '📊 CarGurus';
-    return '<a href="' + clean + '" target="_blank" class="link-btn">' + label + ' →</a>';
+  // Fix broken markdown links [label](url) or [label](broken)
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(match, label, url) {
+    if (url.startsWith('http')) {
+      const clean = url.replace(/[.,;:!?]+$/, '');
+      return '<a href="' + clean + '" target="_blank" class="link-btn">' + getLinkLabel(clean) + ' →</a>';
+    }
+    return label;
   });
 
-  // Render line breaks
+  // Replace bare URLs
+  text = text.replace(/(https?:\/\/[^\s)<\"]+)/g, function(url) {
+    const clean = url.replace(/[.,;:!?]+$/, '');
+    return '<a href="' + clean + '" target="_blank" class="link-btn">' + getLinkLabel(clean) + ' →</a>';
+  });
+
+  // Bold **text**
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--accent)">$1</strong>');
+
+  // Bullet points
+  text = text.replace(/^[*\-]\s(.+)$/gm, '<span style="display:block;padding-left:12px;margin:2px 0">• $1</span>');
+
+  // Numbered list
+  text = text.replace(/^\d+\.\s(.+)$/gm, '<span style="display:block;padding-left:12px;margin:3px 0;color:var(--accent)">$1</span>');
+
+  // Line breaks
   text = text.replace(/\n/g, '<br>');
   return text;
 }
