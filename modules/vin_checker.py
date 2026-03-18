@@ -237,6 +237,8 @@ def get_vehicle_report(vin: str, mileage: int = None) -> dict:
     mileage_info = validate_mileage(year, mileage)
 
     # Step 6 — Gemini analysis
+    make_model_year = f"{make} {model} {year}"
+
     prompt = f"""
     Tu es AutoAgent 229Voitures, expert automobile au Canada.
     Génère un rapport VIN concis et structuré en français.
@@ -248,15 +250,20 @@ def get_vehicle_report(vin: str, mileage: int = None) -> dict:
     PLAINTES PROPRIÉTAIRES : {complaints_info}
     VALIDATION KILOMÉTRAGE : {mileage_info}
 
-    Utilise EXACTEMENT ce format — sois concis, max 2-3 lignes par section :
+    IMPORTANT — VALEUR MARCHÉ :
+    Utilise Google Search pour trouver le prix ACTUEL au Canada pour "{make_model_year} d'occasion Canada prix".
+    Cherche sur AutoTrader.ca, CarGurus.ca, Kijiji Autos pour avoir des prix réels 2024-2025.
+    Ne donne pas de fourchette inventée — base-toi sur les vraies annonces trouvées.
+
+    Utilise EXACTEMENT ce format — sois concis :
 
     🔍 RAPPORT VIN — {vin}
 
     🚗 VÉHICULE
     • [Marque] [Modèle] [Année] · [Carrosserie] · [Portes] portes
-    • Moteur : [cylindrée] · [carburant]
-    • Transmission : [valeur] · Traction : [valeur]
-    • Assemblé : [pays] · Usage : [Personnel/Commercial]
+    • Moteur : [cylindrée et type exact] · [carburant]
+    • Transmission : [valeur exact] · Traction : [valeur]
+    • Assemblé : [pays] · Usage : [Personnel/Commercial/Fleet]
 
     ⚠️ RAPPELS DE SÉCURITÉ
     [Si aucun] ✅ Aucun rappel actif pour ce VIN
@@ -264,25 +271,27 @@ def get_vehicle_report(vin: str, mileage: int = None) -> dict:
     • Action : vérifier auprès d'un concessionnaire certifié
 
     📊 PLAINTES PROPRIÉTAIRES
-    [Si aucune] ✅ Peu de plaintes enregistrées
+    [Si aucune] ✅ Peu de plaintes enregistrées pour ce modèle
     [Si plaintes] Top problèmes signalés :
     • [composant 1] — [nombre] plaintes
     • [composant 2] — [nombre] plaintes
 
     🛣️ KILOMÉTRAGE
-    • [statut kilométrage et commentaire]
+    [Si kilométrage fourni] • [statut et commentaire basé sur l'âge du véhicule]
+    [Si kilométrage non fourni] • Non fourni — demandez au vendeur ou consultez l'annonce directement
 
     🔧 POINTS À SURVEILLER
-    • [problème connu 1 pour ce modèle/année]
+    • [problème connu 1 spécifique à ce modèle/année/moteur]
     • [problème connu 2]
     • [problème connu 3]
 
-    💰 VALEUR MARCHÉ CANADA
-    • Fourchette : [min] $ — [max] $
-    • Prix moyen : ~ [valeur] $
+    💰 VALEUR MARCHÉ CANADA (basé sur les annonces actuelles trouvées)
+    • Fourchette réelle : [min trouvé] $ — [max trouvé] $
+    • Prix moyen marché : ~ [valeur réaliste] $
+    • Source : [AutoTrader / CarGurus / Kijiji]
 
     🎯 RECOMMANDATION
-    [Acheter ✅ / Inspecter ⚠️ / Éviter ❌] — 1 phrase claire
+    [Acheter ✅ / Inspecter ⚠️ / Éviter ❌] — 1 phrase claire et directe
 
     ⚠️ Données à titre informatif. Vérifiez auprès d'un concessionnaire certifié. 229Voitures n'est pas un conseiller financier.
     """
