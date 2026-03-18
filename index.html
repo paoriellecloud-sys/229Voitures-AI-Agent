@@ -798,7 +798,14 @@ function addMsg(role, text) {
   div.appendChild(bubble);
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
+  // Smooth scroll to bottom
+  setTimeout(() => container.scrollTop = container.scrollHeight, 50);
   return div;
+}
+
+function scrollToBottom() {
+  const container = document.getElementById('messages');
+  container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
 }
 
 function addTyping() {
@@ -876,6 +883,7 @@ async function sendMessage() {
       reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
     }
     addMsg('ai', reply);
+    setTimeout(scrollToBottom, 100);
 
   } catch(err) {
     removeTyping();
