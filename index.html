@@ -592,6 +592,27 @@
     opacity: 0.6;
   }
 
+  #upload-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 18px;
+    padding: 4px 6px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+  #upload-btn:hover { color: var(--accent); }
+
+  .image-preview {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 8px;
+    border: 1px solid var(--accent-border);
+    margin-top: 6px;
+    display: block;
+  }
+
   /* RESPONSIVE MOBILE */
   @media (max-width: 768px) {
     header { padding: 10px 14px; }
@@ -683,7 +704,9 @@
     <div id="messages" style="display:none"></div>
     <div class="input-bar">
       <div class="input-wrap">
-        <textarea id="chat-input" rows="1" placeholder="Posez votre question sur les voitures au Canada…"
+        <button id="upload-btn" title="Analyser un contrat ou une photo" onclick="document.getElementById('file-input').click()">📎</button>
+        <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+        <textarea id="chat-input" rows="1" placeholder="Posez votre question ou joignez un contrat/photo…"
           disabled oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
         <button id="send-btn" disabled onclick="sendMessage()">Envoyer</button>
       </div>
@@ -830,6 +853,76 @@ function addTyping() {
 function removeTyping() {
   const el = document.getElementById('typing');
   if (el) el.remove();
+}
+
+let pendingImage = null;
+
+async function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const base64 = e.target.result.split(',')[1];
+    const mediaType = file.type;
+
+    // Show preview in chat
+    const container = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message user';
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar me';
+    avatar.textContent = 'Moi';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    const img = document.createElement('img');
+    img.src = e.target.result;
+    img.className = 'image-preview';
+    bubble.appendChild(img);
+    const caption = document.createElement('div');
+    caption.style.fontSize = '11px';
+    caption.style.marginTop = '4px';
+    caption.style.color = 'var(--accent)';
+    caption.textContent = '📎 ' + file.name;
+    bubble.appendChild(caption);
+    div.appendChild(avatar);
+    div.appendChild(bubble);
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+
+    // Send to analyze_image endpoint
+    addTyping();
+    document.getElementById('send-btn').disabled = true;
+
+    try {
+      const context = document.getElementById('chat-input').value.trim() || '';
+      const res = await fetch(API + '/agent/analyze_image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          image_base64: base64,
+          media_type: mediaType,
+          context: context
+        })
+      });
+      removeTyping();
+      const data = await res.json();
+      const reply = data.response || data.error || 'Impossible d'analyser cette image.';
+      addMsg('ai', reply);
+      setTimeout(scrollToBottom, 100);
+    } catch(err) {
+      removeTyping();
+      addMsg('ai', 'Erreur lors de l'analyse de l'image.');
+    } finally {
+      document.getElementById('send-btn').disabled = false;
+      document.getElementById('file-input').value = '';
+      document.getElementById('chat-input').value = '';
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 async function sendMessage() {

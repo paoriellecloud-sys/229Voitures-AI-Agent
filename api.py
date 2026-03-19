@@ -3,7 +3,6 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
 from database import *
-from database import create_search_logs_table, log_search, get_popular_searches
 from auth import *
 from modules.agent_router import smart_chat
 
@@ -49,7 +48,6 @@ def startup():
     create_users_table()
     create_user_preferences_table()
     create_recommendation_history_table()
-    create_search_logs_table()
 
     # Create demo user if it doesn't exist
     if not get_user_by_username("demo229"):
@@ -205,10 +203,108 @@ def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_us
     result = smart_chat(request.message, user_id=current_user["username"])
     return result
 
-@app.get("/stats/popular_searches")
-def popular_searches():
-    """Public endpoint — top searches on the platform."""
-    return {"popular_searches": get_popular_searches(10)}
+
+# =============================
+# IMAGE / CONTRACT ANALYSIS
+# =============================
+
+class ImageRequest(BaseModel):
+    image_base64: str
+    media_type: str = "image/jpeg"
+    context: str = ""
+
+@app.post("/agent/analyze_image")
+def analyze_image(request: ImageRequest, current_user: dict = Depends(get_current_user)):
+    """
+    Analyzes a car contract or listing photo using Gemini Vision.
+    Supports CCAQ contracts, dealer listings, and vehicle photos.
+    """
+    from google import genai
+    from google.genai import types
+    import os
+    import base64
+
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+    prompt = f"""
+    Tu es AutoAgent 229Voitures, expert automobile et conseiller financier au Canada.
+    Analyse cette image et identifie ce qu'elle contient.
+
+    Contexte fourni par l'utilisateur : {request.context if request.context else "Aucun contexte fourni"}
+
+    Si c'est un CONTRAT CCAQ ou contrat de vente automobile :
+    Analyse systématiquement ces éléments :
+
+    📋 RÉSUMÉ DU CONTRAT
+    • Véhicule : [marque, modèle, année, VIN si visible]
+    • Prix du véhicule (ligne A) : [valeur]
+    • Prix après réduction (ligne E) : [valeur]
+    • Véhicule d'échange (ligne F) : [valeur si applicable]
+    • Sous-total taxes (ligne H) : [valeur]
+    • TPS + TVQ calculées : [valeurs]
+    • Accessoires additionnels (ligne P) : [valeur et détail]
+    • Total à payer (ligne S) : [valeur]
+    • Solde à la livraison (ligne W) : [valeur]
+    • Taux de financement : [% si visible]
+    • Paiements mensuels : [montant si visible]
+
+    ✅ POINTS POSITIFS
+    • [éléments favorables pour l'acheteur]
+
+    ⚠️ POINTS À SURVEILLER
+    • [anomalies, frais élevés, clauses à vérifier]
+
+    🔴 RED FLAGS
+    • [produits F&I surévalués, taux excessif, frais cachés]
+    Produits F&I typiquement surévalués : garantie prolongée >2000$, renonciation de dette >2500$, protection peinture >800$
+
+    💰 VÉRIFICATION DES CALCULS
+    • TPS (5%) correcte ? [oui/non + calcul]
+    • TVQ (9.975%) correcte ? [oui/non + calcul]
+    • Total cohérent ? [oui/non]
+
+    🎯 RECOMMANDATION
+    [Signer ✅ / Négocier ⚠️ / Refuser ❌] — explication courte
+
+    Si c'est une FICHE CLIENT ou formulaire de vente :
+    Identifie les champs importants et explique à quoi sert chaque section pour aider l'utilisateur à comprendre le processus de vente.
+
+    Si c'est une PHOTO DE VÉHICULE :
+    Analyse l'état visible du véhicule et identifie les points à inspecter.
+
+    ⚠️ Analyse à titre informatif. Consultez un professionnel avant de signer. 229Voitures n'est pas un conseiller juridique ou financier.
+    """
+
+    try:
+        image_data = base64.b64decode(request.image_base64)
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "inline_data": {
+                                "mime_type": request.media_type,
+                                "data": request.image_base64
+                            }
+                        },
+                        {"text": prompt}
+                    ]
+                }
+            ]
+        )
+
+        return {
+            "intent": "ANALYZE_IMAGE",
+            "response": response.text,
+            "context": request.context
+        }
+
+    except Exception as e:
+        return {"error": f"Impossible d'analyser l'image : {str(e)}"}
+
 
 # =============================
 # DEBUG ROUTES
