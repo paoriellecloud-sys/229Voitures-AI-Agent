@@ -910,12 +910,12 @@ async function handleImageUpload(event) {
       });
       removeTyping();
       const data = await res.json();
-      const reply = data.response || data.error || 'Impossible d'analyser cette image.';
+      const reply = data.response || data.error || "Impossible d'analyser cette image.";
       addMsg('ai', reply);
       setTimeout(scrollToBottom, 100);
     } catch(err) {
       removeTyping();
-      addMsg('ai', 'Erreur lors de l'analyse de l'image.');
+      addMsg('ai', "Erreur lors de l'analyse de l'image.");
     } finally {
       document.getElementById('send-btn').disabled = false;
       document.getElementById('file-input').value = '';
