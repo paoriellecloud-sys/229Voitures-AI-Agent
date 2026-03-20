@@ -195,10 +195,15 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
         Here are {len(scraped_listings)} real listings found via Google Search:
         {listings_text}
 
-        Present each listing in French using this format:
+        IMPORTANT INSTRUCTIONS:
+        - If price is missing from the scraped content, use Google Search to find the current market price for this specific vehicle in Canada
+        - Never leave price as "non spécifié" — always find an estimated price from the market
+        - Present ONLY the vehicles that match the user's request (correct make, model, year)
+        - Skip any listing that is clearly irrelevant
 
-        For each vehicle found:
-        🚗 [Marque Modèle Année] · [km] km · [prix] $
+        Present each matching vehicle in French using this format:
+
+        🚗 [Marque Modèle Trim Année] · [km] km · [prix réel ou estimé marché] $
         📍 [Ville] · [URL]
         [1 phrase : point fort ou à surveiller]
 
@@ -206,12 +211,12 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
         🏆 Meilleure option : [laquelle et pourquoi en 1 phrase]
 
         💰 Prix Québec taxes incluses (pour la meilleure option) :
-        • TPS (5%) + TVQ (9.975%) = 14.975%
-        • Total estimé : [calcul]
+        • Prix : [montant] $
+        • TPS (5%) : + [calcul] $
+        • TVQ (9.975%) : + [calcul] $
+        • Total estimé : [total] $
 
-        ⚠️ Estimations à titre informatif. Consultez un concessionnaire pour un taux personnalisé.
-
-        IMPORTANT: Only use data from the content above. Always include exact URLs.
+        ⚠️ Estimations à titre informatif. Consultez un concessionnaire pour le prix exact.
 
         {PROACTIVE_INSTRUCTIONS}
         """
@@ -220,9 +225,18 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
         analysis_prompt = f"""
         The user asked: "{query}"
 
-        Search for relevant vehicles matching this request in Canada.
-        Be honest that results may not reflect current inventory.
-        Max 4 sentences in French. Always suggest verifying on dealer site.
+        Use Google Search to find real current listings for: {query} au Canada
+
+        Present findings in French using this format for each vehicle found:
+        🚗 [Marque Modèle Trim Année] · [km] km · [prix] $
+        📍 [Ville] · [URL si disponible]
+        [1 phrase : point fort ou à surveiller]
+
+        💰 Prix Québec taxes incluses pour la meilleure option :
+        • TPS (5%) + TVQ (9.975%) = 14.975%
+        • Total estimé : [calcul]
+
+        ⚠️ Vérifiez la disponibilité directement auprès du concessionnaire.
 
         {PROACTIVE_INSTRUCTIONS}
         """
@@ -257,14 +271,40 @@ def analyze_listing(url: str) -> dict:
 
     if blocked:
         prompt = f"""
-        I could not scrape this URL: {url}
-        Use Google Search to find information about this listing.
-        Respond in French using the structured format below.
+        Use Google Search to find information about this specific car listing URL: {url}
+
+        Search for the vehicle details from this page and present them in French using this EXACT format.
+        If you cannot find the exact listing, find a similar vehicle from the same dealer.
+
+        🚗 [Marque] [Modèle] [Trim] [Année]
+        📍 [Ville, Province] · [Kilométrage] km · [Prix] $
+
+        [✅ Bonne affaire / ⚠️ Prix élevé] — 1 phrase basée sur le marché actuel
+
+        Informations de base :
+        • Transmission : [valeur]
+        • Carburant : [valeur]
+        • Couleur : [valeur]
+        • Vendeur : [nom du concessionnaire]
+
+        Équipements inclus :
+        • [équipements principaux]
+
+        💰 Prix Québec taxes incluses :
+        • Prix affiché : [prix] $
+        • TPS (5%) + TVQ (9.975%) : + [montant] $
+        • Total estimé : [total] $
+
+        ⚠️ Données à titre informatif. 229Voitures n'est pas un conseiller financier.
+
+        Lien : {url}
         {PROACTIVE_INSTRUCTIONS}
         """
     else:
         prompt = f"""
-        Analyze this Quebec/Canada car listing and present it in this EXACT structured format in French:
+        Analyze this Quebec/Canada car listing and present it in this EXACT structured format in French.
+        ONLY use real data found in the page content — if a value is truly missing, skip that field entirely.
+        Never write "Non disponible" — simply omit missing fields.
 
         PAGE CONTENT:
         {page_text}
@@ -277,37 +317,33 @@ def analyze_listing(url: str) -> dict:
         [✅ Bonne affaire / ⚠️ Prix élevé / 💡 Prix du marché] — 1 phrase
 
         Informations de base :
-        • Transmission : [Auto/Manuelle]
-        • Carburant : [Essence/Hybride/Électrique]
-        • Couleur : [couleur]
-        • Vendeur : [Concessionnaire/Particulier]
+        • Transmission : [valeur]
+        • Carburant : [valeur]
+        • Couleur : [valeur]
+        • Vendeur : [valeur]
 
         Équipements inclus :
-        • [équipement 1]
-        • [équipement 2]
-        • [équipement 3]
-        (liste les équipements importants trouvés dans l'annonce)
+        • [liste des équipements trouvés]
 
         Garantie :
-        • [garantie constructeur restante si applicable]
-        • [certification concessionnaire si applicable]
+        • [si mentionnée dans l'annonce]
 
-        💰 Prix au Québec taxes incluses :
+        💰 Prix Québec taxes incluses :
         • Prix affiché : [prix] $
-        • TPS (5%) : + [montant] $
-        • TVQ (9.975%) : + [montant] $
-        • Total estimé : [total] $
+        • TPS (5%) : + [calcul exact] $
+        • TVQ (9.975%) : + [calcul exact] $
+        • Total estimé : [total exact] $
 
-        📊 Estimation de financement :
-        • Bon crédit (700+) : ~[montant] $/mois sur 60 mois
-        • Crédit moyen (600-699) : ~[montant] $/mois sur 60 mois
+        📊 Financement estimé (taux moyen 6.9%) :
+        • 48 mois : ~[calcul] $/mois
+        • 60 mois : ~[calcul] $/mois
+        • 72 mois : ~[calcul] $/mois
 
-        ⚠️ Ces montants sont des estimations à titre informatif seulement. Consultez votre concessionnaire ou institution financière pour un taux personnalisé. 229Voitures n'est pas un conseiller financier.
+        ⚠️ Estimations à titre informatif. Consultez votre concessionnaire. 229Voitures n'est pas un conseiller financier.
 
-        Voulez-vous que je vérifie le VIN, compare ce véhicule avec d'autres options, ou avez-vous des questions sur les garanties ?
+        Voulez-vous que je vérifie le VIN, compare ce véhicule avec d'autres options, ou calculer le coût total de possession ?
 
-        IMPORTANT: Only use data from the page content above. If a field is not available, write "Non disponible".
-        Always include the listing URL: {url}
+        URL de l'annonce : {url}
         """
 
     response = client.models.generate_content(
