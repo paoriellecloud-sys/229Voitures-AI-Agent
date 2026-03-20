@@ -258,9 +258,15 @@
 
   .message {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
     max-width: 780px;
     animation: fadeUp 0.25s ease;
+  }
+
+  .message .msg-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
   }
 
   @keyframes fadeUp {
@@ -268,7 +274,8 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .message.user { flex-direction: row-reverse; align-self: flex-end; }
+  .message.user { align-self: flex-end; }
+  .message.user .msg-row { flex-direction: row-reverse; }
 
   .avatar {
     width: 30px;
@@ -616,20 +623,15 @@
   /* Action buttons — style Claude */
   .msg-actions {
     display: flex;
-    gap: 2px;
+    gap: 4px;
     margin-top: 6px;
     padding-left: 40px;
     opacity: 0;
-    max-height: 0;
-    overflow: hidden;
-    transition: opacity 0.2s, max-height 0.2s;
+    transition: opacity 0.2s;
   }
-  .message.ai:hover .msg-actions {
-    opacity: 1;
-    max-height: 32px;
-  }
+  .message.ai:hover .msg-actions { opacity: 1; }
   @media (max-width: 768px) {
-    .msg-actions { opacity: 1; max-height: 32px; }
+    .msg-actions { opacity: 1; }
   }
   .action-btn {
     background: var(--surface3);
@@ -922,16 +924,21 @@ function addMsg(role, text) {
   const div = document.createElement('div');
   div.className = 'message ' + role;
 
+  const row = document.createElement('div');
+  row.className = 'msg-row';
+
   const avatar = document.createElement('div');
   avatar.className = 'avatar ' + (role === 'ai' ? 'ai' : 'me');
   avatar.textContent = role === 'ai' ? 'AI' : 'Moi';
 
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.innerHTML = role === 'ai' ? formatText(text) : text.replace(/\n/g, '<br>');
+  bubble.innerHTML = role === 'ai' ? formatText(text) : text.replace(/
+/g, '<br>');
 
-  div.appendChild(avatar);
-  div.appendChild(bubble);
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  div.appendChild(row);
 
   if (role === 'ai') {
     const actions = document.createElement('div');
@@ -989,6 +996,8 @@ function addTyping() {
   const div = document.createElement('div');
   div.className = 'message ai typing';
   div.id = 'typing';
+  const row = document.createElement('div');
+  row.className = 'msg-row';
   const avatar = document.createElement('div');
   avatar.className = 'avatar ai';
   avatar.textContent = 'AI';
@@ -998,8 +1007,9 @@ function addTyping() {
   bubble.style.alignItems = 'center';
   bubble.style.gap = '8px';
   bubble.innerHTML = '<div style="display:flex;gap:4px;align-items:center"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><span style="font-size:11px;color:var(--text-muted);font-style:italic">AutoAgent rédige...</span>';
-  div.appendChild(avatar);
-  div.appendChild(bubble);
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  div.appendChild(row);
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 }
