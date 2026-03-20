@@ -833,6 +833,8 @@ function scrollToBottom() {
   container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
 }
 
+// MutationObserver initialized on window load
+
 function addTyping() {
   const container = document.getElementById('messages');
   const div = document.createElement('div');
@@ -843,7 +845,10 @@ function addTyping() {
   avatar.textContent = 'AI';
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  bubble.style.display = 'flex';
+  bubble.style.alignItems = 'center';
+  bubble.style.gap = '8px';
+  bubble.innerHTML = '<div style="display:flex;gap:4px;align-items:center"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><span style="font-size:11px;color:var(--text-muted);font-style:italic">AutoAgent rédige...</span>';
   div.appendChild(avatar);
   div.appendChild(bubble);
   container.appendChild(div);
@@ -995,7 +1000,24 @@ function sendSuggestion(text) {
   sendMessage();
 }
 
-window.addEventListener('load', autoLogin);
+window.addEventListener('load', () => {
+  autoLogin();
+  // Init MutationObserver after DOM ready
+  const msgs = document.getElementById('messages');
+  if (msgs) {
+    const obs = new MutationObserver(() => {
+      msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'smooth' });
+    });
+    obs.observe(msgs, { childList: true, subtree: true });
+  }
+});
 </script>
+
+<div class="legal-footer">
+  ⚠️ 229Voitures AI Agent fournit des informations à titre indicatif uniquement. 
+  Les prix, taxes et estimations de financement sont approximatifs. 
+  Consultez un professionnel avant tout achat. 229Voitures n'est pas un conseiller financier ou juridique.
+</div>
+
 </body>
 </html>

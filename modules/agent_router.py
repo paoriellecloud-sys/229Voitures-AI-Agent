@@ -166,8 +166,10 @@ CALCUL TAXES QUÉBEC (obligatoire pour toute annonce analysée) :
 - TVQ SAAQ : payée séparément lors de l'immatriculation
 - Toujours afficher : prix affiché + TPS + TVQ + total estimé
 
-MENTION LÉGALE OBLIGATOIRE :
-"⚠️ Estimations à titre informatif. Consultez votre concessionnaire pour un prix final. 229Voitures n'est pas un conseiller financier."
+MENTION LÉGALE :
+- Inclure la mention légale SEULEMENT dans les calculs financiers complexes (financement, coût de possession)
+- Ne PAS la répéter à chaque réponse — elle est affichée en permanence sur le site
+- Formulation courte si nécessaire : "⚠️ Estimation à titre informatif."
 """
 
 INTENT_PROMPT = """
