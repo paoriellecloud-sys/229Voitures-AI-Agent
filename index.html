@@ -847,31 +847,70 @@ function handleKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
 
+async function tryLogin() {
+  const body = new URLSearchParams();
+  body.append('username', 'demo229');
+  body.append('password', 'demo229voitures');
+  const res = await fetch(API + '/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  const data = await res.json();
+  return data.access_token || data.token || data.jwt || null;
+}
+
+function enableChat() {
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('messages').style.display = 'flex';
+  document.getElementById('chat-input').disabled = false;
+  document.getElementById('send-btn').disabled = false;
+}
+
 async function autoLogin() {
+  setStatus(false, 'Connexion...');
+
+  // Attempt 1
   try {
-    const body = new URLSearchParams();
-    body.append('username', 'demo229');
-    body.append('password', 'demo229voitures');
-    const res = await fetch(API + '/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString()
-    });
-    const data = await res.json();
-    token = data.access_token || data.token || data.jwt;
+    token = await tryLogin();
     if (token) {
-      document.getElementById('placeholder').style.display = 'none';
-      document.getElementById('messages').style.display = 'flex';
-      document.getElementById('chat-input').disabled = false;
-      document.getElementById('send-btn').disabled = false;
+      enableChat();
       setStatus(true, 'En ligne · Canada');
       addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
-    } else {
-      setStatus(false, 'Erreur connexion');
+      return;
     }
-  } catch(e) {
-    setStatus(false, 'Hors ligne');
-  }
+  } catch(e) {}
+
+  // Attempt 2 — wait 3s and retry (Railway cold start)
+  setStatus(false, 'Démarrage...');
+  await new Promise(r => setTimeout(r, 3000));
+  try {
+    token = await tryLogin();
+    if (token) {
+      enableChat();
+      setStatus(true, 'En ligne · Canada');
+      addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
+      return;
+    }
+  } catch(e) {}
+
+  // Attempt 3 — wait 5 more seconds
+  setStatus(false, 'Reconnexion...');
+  await new Promise(r => setTimeout(r, 5000));
+  try {
+    token = await tryLogin();
+    if (token) {
+      enableChat();
+      setStatus(true, 'En ligne · Canada');
+      addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
+      return;
+    }
+  } catch(e) {}
+
+  // All attempts failed
+  setStatus(false, 'Hors ligne');
+  enableChat();
+  addMsg('ai', 'Le serveur est temporairement indisponible. Réessayez dans quelques instants.');
 }
 
 function getLinkLabel(url) {
