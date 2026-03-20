@@ -702,6 +702,16 @@
       <p>Votre compagnon automobile intelligent au Canada. Connexion en cours...</p>
     </div>
     <div id="messages" style="display:none"></div>
+    <!-- Image context bar — shown when image is selected -->
+    <div class="image-context-bar" id="image-context-bar">
+      <img id="image-thumb" class="image-thumb" src="" alt="preview">
+      <input type="text" class="image-context-input" id="image-context-input"
+        placeholder="Ajoutez un contexte (ex: analyse ce contrat CCAQ)..."
+        onkeydown="if(event.key==='Enter') sendImageWithContext()">
+      <button class="image-cancel-btn" onclick="cancelImage()">✕</button>
+      <button class="image-send-btn" onclick="sendImageWithContext()">Analyser →</button>
+    </div>
+
     <div class="input-bar">
       <div class="input-wrap">
         <button id="upload-btn" title="Analyser un contrat ou une photo" onclick="document.getElementById('file-input').click()">📎</button>
@@ -821,9 +831,41 @@ function addMsg(role, text) {
 
   div.appendChild(avatar);
   div.appendChild(bubble);
+
+  if (role === 'ai') {
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'action-btn';
+    copyBtn.innerHTML = '📋 Copier';
+    copyBtn.onclick = () => {
+      const plain = bubble.innerText || bubble.textContent;
+      navigator.clipboard.writeText(plain).then(() => {
+        copyBtn.innerHTML = '✅ Copié';
+        copyBtn.classList.add('copied');
+        setTimeout(() => { copyBtn.innerHTML = '📋 Copier'; copyBtn.classList.remove('copied'); }, 2000);
+      });
+    };
+
+    const likeBtn = document.createElement('button');
+    likeBtn.className = 'action-btn';
+    likeBtn.innerHTML = '👍';
+    likeBtn.onclick = () => { likeBtn.classList.toggle('active'); dislikeBtn.classList.remove('active'); };
+
+    const dislikeBtn = document.createElement('button');
+    dislikeBtn.className = 'action-btn';
+    dislikeBtn.innerHTML = '👎';
+    dislikeBtn.onclick = () => { dislikeBtn.classList.toggle('active'); likeBtn.classList.remove('active'); };
+
+    actions.appendChild(copyBtn);
+    actions.appendChild(likeBtn);
+    actions.appendChild(dislikeBtn);
+    div.appendChild(actions);
+  }
+
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
-  // Smooth scroll to bottom
   setTimeout(() => container.scrollTop = container.scrollHeight, 50);
   return div;
 }
@@ -861,73 +903,93 @@ function removeTyping() {
 }
 
 let pendingImage = null;
+let pendingImageType = null;
 
-async function handleImageUpload(event) {
+function handleImageUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = async function(e) {
-    const base64 = e.target.result.split(',')[1];
-    const mediaType = file.type;
+  reader.onload = function(e) {
+    pendingImage = e.target.result.split(',')[1];
+    pendingImageType = file.type;
 
-    // Show preview in chat
-    const container = document.getElementById('messages');
-    const div = document.createElement('div');
-    div.className = 'message user';
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar me';
-    avatar.textContent = 'Moi';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    const img = document.createElement('img');
-    img.src = e.target.result;
-    img.className = 'image-preview';
-    bubble.appendChild(img);
-    const caption = document.createElement('div');
-    caption.style.fontSize = '11px';
-    caption.style.marginTop = '4px';
-    caption.style.color = 'var(--accent)';
-    caption.textContent = '📎 ' + file.name;
-    bubble.appendChild(caption);
-    div.appendChild(avatar);
-    div.appendChild(bubble);
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-
-    // Send to analyze_image endpoint
-    addTyping();
-    document.getElementById('send-btn').disabled = true;
-
-    try {
-      const context = document.getElementById('chat-input').value.trim() || '';
-      const res = await fetch(API + '/agent/analyze_image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token
-        },
-        body: JSON.stringify({
-          image_base64: base64,
-          media_type: mediaType,
-          context: context
-        })
-      });
-      removeTyping();
-      const data = await res.json();
-      const reply = data.response || data.error || "Impossible d'analyser cette image.";
-      addMsg('ai', reply);
-      setTimeout(scrollToBottom, 100);
-    } catch(err) {
-      removeTyping();
-      addMsg('ai', "Erreur lors de l'analyse de l'image.");
-    } finally {
-      document.getElementById('send-btn').disabled = false;
-      document.getElementById('file-input').value = '';
-      document.getElementById('chat-input').value = '';
-    }
+    // Show context bar with thumbnail
+    const thumb = document.getElementById('image-thumb');
+    thumb.src = e.target.result;
+    const bar = document.getElementById('image-context-bar');
+    bar.classList.add('visible');
+    document.getElementById('image-context-input').focus();
+    document.getElementById('file-input').value = '';
   };
   reader.readAsDataURL(file);
+}
+
+function cancelImage() {
+  pendingImage = null;
+  pendingImageType = null;
+  document.getElementById('image-context-bar').classList.remove('visible');
+  document.getElementById('image-context-input').value = '';
+  document.getElementById('image-thumb').src = '';
+}
+
+async function sendImageWithContext() {
+  if (!pendingImage) return;
+  const context = document.getElementById('image-context-input').value.trim();
+  const base64 = pendingImage;
+  const mediaType = pendingImageType;
+
+  // Hide context bar
+  document.getElementById('image-context-bar').classList.remove('visible');
+  document.getElementById('image-context-input').value = '';
+
+  // Show image preview in chat
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'message user';
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar me';
+  avatar.textContent = 'Moi';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  const img = document.createElement('img');
+  img.src = 'data:' + mediaType + ';base64,' + base64;
+  img.className = 'image-preview';
+  bubble.appendChild(img);
+  if (context) {
+    const cap = document.createElement('div');
+    cap.style.cssText = 'font-size:11px;margin-top:4px;color:var(--accent)';
+    cap.textContent = context;
+    bubble.appendChild(cap);
+  }
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+
+  pendingImage = null;
+  pendingImageType = null;
+
+  addTyping();
+  document.getElementById('send-btn').disabled = true;
+
+  try {
+    const res = await fetch(API + '/agent/analyze_image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ image_base64: base64, media_type: mediaType, context: context })
+    });
+    removeTyping();
+    const data = await res.json();
+    const reply = data.response || data.error || "Impossible d'analyser cette image.";
+    addMsg('ai', reply);
+    setTimeout(scrollToBottom, 100);
+  } catch(err) {
+    removeTyping();
+    addMsg('ai', "Erreur lors de l'analyse de l'image.");
+  } finally {
+    document.getElementById('send-btn').disabled = false;
+  }
 }
 
 async function sendMessage() {
