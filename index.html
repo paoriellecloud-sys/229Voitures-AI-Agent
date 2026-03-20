@@ -819,7 +819,7 @@
       <div class="input-wrap">
         <button id="upload-btn" title="Analyser un contrat ou une photo" onclick="document.getElementById('file-input').click()">📎</button>
         <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
-        <textarea id="chat-input" rows="1" placeholder="Posez votre question ou joignez un contrat/photo…"
+        <textarea id="chat-input" rows="1" placeholder="Posez votre question ou joignez un contrat/photo..."
           oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
         <button id="send-btn" onclick="sendMessage()">Envoyer</button>
       </div>
@@ -863,54 +863,39 @@ async function tryLogin() {
 function enableChat() {
   document.getElementById('placeholder').style.display = 'none';
   document.getElementById('messages').style.display = 'flex';
-  document.getElementById('chat-input').disabled = false;
-  document.getElementById('send-btn').disabled = false;
+}
+
+async function wakeServer() {
+  try { await fetch(API + '/health', { method: 'GET' }); } catch(e) {}
 }
 
 async function autoLogin() {
   setStatus(false, 'Connexion...');
 
-  // Attempt 1
-  try {
-    token = await tryLogin();
-    if (token) {
-      enableChat();
-      setStatus(true, 'En ligne · Canada');
-      addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
-      return;
-    }
-  } catch(e) {}
+  // Ping server to wake it up first (Railway cold start)
+  await wakeServer();
 
-  // Attempt 2 — wait 3s and retry (Railway cold start)
-  setStatus(false, 'Démarrage...');
-  await new Promise(r => setTimeout(r, 3000));
-  try {
-    token = await tryLogin();
-    if (token) {
-      enableChat();
-      setStatus(true, 'En ligne · Canada');
-      addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
-      return;
+  const delays = [0, 3000, 5000, 8000];
+  for (let i = 0; i < delays.length; i++) {
+    if (delays[i] > 0) {
+      setStatus(false, i === 1 ? 'Démarrage...' : 'Reconnexion...');
+      await new Promise(r => setTimeout(r, delays[i]));
     }
-  } catch(e) {}
+    try {
+      token = await tryLogin();
+      if (token) {
+        enableChat();
+        setStatus(true, 'En ligne · Canada');
+        addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
+        return;
+      }
+    } catch(e) {}
+  }
 
-  // Attempt 3 — wait 5 more seconds
-  setStatus(false, 'Reconnexion...');
-  await new Promise(r => setTimeout(r, 5000));
-  try {
-    token = await tryLogin();
-    if (token) {
-      enableChat();
-      setStatus(true, 'En ligne · Canada');
-      addMsg('ai', 'Bonjour ! 👋 Je suis AutoAgent 229Voitures, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
-      return;
-    }
-  } catch(e) {}
-
-  // All attempts failed
+  // All attempts failed — enable chat anyway
   setStatus(false, 'Hors ligne');
   enableChat();
-  addMsg('ai', 'Le serveur est temporairement indisponible. Réessayez dans quelques instants.');
+  addMsg('ai', '⚠️ Le serveur démarre, veuillez patienter 10-15 secondes et rafraîchir la page.');
 }
 
 function getLinkLabel(url) {
