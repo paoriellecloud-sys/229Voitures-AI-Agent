@@ -820,8 +820,8 @@
         <button id="upload-btn" title="Analyser un contrat ou une photo" onclick="document.getElementById('file-input').click()">📎</button>
         <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
         <textarea id="chat-input" rows="1" placeholder="Posez votre question ou joignez un contrat/photo…"
-          disabled oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
-        <button id="send-btn" disabled onclick="sendMessage()">Envoyer</button>
+          oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+        <button id="send-btn" onclick="sendMessage()">Envoyer</button>
       </div>
       <div class="input-hint">Entrée pour envoyer · Maj+Entrée pour nouvelle ligne</div>
     </div>
@@ -1151,7 +1151,12 @@ async function sendImageWithContext() {
 async function sendMessage() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
-  if (!text || !token) return;
+  if (!text) return;
+  if (!token) {
+    addMsg('ai', 'Connexion en cours... Réessayez dans quelques secondes.');
+    autoLogin();
+    return;
+  }
 
   input.value = '';
   input.style.height = 'auto';
