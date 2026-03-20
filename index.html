@@ -617,7 +617,7 @@
   .msg-actions {
     display: flex;
     gap: 2px;
-    margin-top: 4px;
+    margin-top: 6px;
     padding-left: 40px;
     opacity: 0;
     max-height: 0;
@@ -628,23 +628,26 @@
     opacity: 1;
     max-height: 32px;
   }
+  @media (max-width: 768px) {
+    .msg-actions { opacity: 1; max-height: 32px; }
+  }
   .action-btn {
-    background: transparent;
-    border: none;
+    background: var(--surface3);
+    border: 0.5px solid var(--border2);
     border-radius: 6px;
-    padding: 4px 7px;
+    padding: 4px 9px;
     font-size: 12px;
     cursor: pointer;
-    color: var(--text-muted);
+    color: var(--text-dim);
     transition: all 0.15s;
     display: flex;
     align-items: center;
     gap: 4px;
     line-height: 1;
   }
-  .action-btn:hover { background: var(--surface3); color: var(--text); }
-  .action-btn.active { color: var(--accent); }
-  .action-btn.copied { color: var(--success); }
+  .action-btn:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-dim); }
+  .action-btn.active { color: var(--accent); border-color: var(--accent-border); background: var(--accent-dim); }
+  .action-btn.copied { color: var(--success); border-color: rgba(74,222,128,0.3); }
   .action-btn .label { font-size: 11px; }
 
   /* Image context bar */
@@ -703,11 +706,12 @@
   /* Legal footer */
   .legal-footer {
     text-align: center;
-    font-size: 9px;
-    color: #2a2a2a;
-    padding: 4px 24px;
-    background: var(--bg);
-    line-height: 1.4;
+    font-size: 11px;
+    color: #aaaaaa;
+    padding: 8px 24px;
+    background: var(--surface);
+    border-top: 0.5px solid var(--border);
+    line-height: 1.5;
   }
 
   /* RESPONSIVE MOBILE */
