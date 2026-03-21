@@ -987,13 +987,13 @@ function addMsg(role, text) {
     likeBtn.className = 'action-btn';
     likeBtn.title = 'Bonne réponse';
     likeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
-    likeBtn.onclick = () => { likeBtn.classList.toggle('active'); dislikeBtn.classList.remove('active'); };
+    likeBtn.onclick = () => { likeBtn.classList.toggle('active'); dislikeBtn.classList.remove('active'); if(likeBtn.classList.contains('active')) sendFeedback('like'); };
 
     const dislikeBtn = document.createElement('button');
     dislikeBtn.className = 'action-btn';
     dislikeBtn.title = 'Mauvaise réponse';
     dislikeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>';
-    dislikeBtn.onclick = () => { dislikeBtn.classList.toggle('active'); likeBtn.classList.remove('active'); };
+    dislikeBtn.onclick = () => { dislikeBtn.classList.toggle('active'); likeBtn.classList.remove('active'); if(dislikeBtn.classList.contains('active')) sendFeedback('dislike'); };
 
     actions.appendChild(copyBtn);
     actions.appendChild(likeBtn);
@@ -1044,6 +1044,26 @@ function removeTyping() {
 
 let pendingImage = null;
 let pendingImageType = null;
+let lastAIMessage = null;
+
+async function sendFeedback(type) {
+  if (!lastAIMessage || !token) return;
+  try {
+    await fetch(API + '/agent/feedback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        question: lastAIMessage.question,
+        response: lastAIMessage.response,
+        intent: lastAIMessage.intent,
+        feedback: type
+      })
+    });
+  } catch(e) {}
+}
 
 function handleImageUpload(event) {
   const file = event.target.files[0];
@@ -1122,7 +1142,8 @@ async function sendImageWithContext() {
     removeTyping();
     const data = await res.json();
     const reply = data.response || data.error || "Impossible d'analyser cette image.";
-    addMsg('ai', reply);
+    const aiMsg = addMsg('ai', reply);
+    lastAIMessage = { question: text, response: reply, intent: data.intent || 'CHAT' };
     setTimeout(scrollToBottom, 100);
   } catch(err) {
     removeTyping();

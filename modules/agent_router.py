@@ -318,6 +318,34 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
 
     else:
         # CHAT with Google Search for real market data
+        # Inject learning — similar good responses + user memory
+        learning_context = ""
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+            from database import get_similar_good_responses, get_user_memory
+
+            # User persistent memory
+            user_mem = get_user_memory(user_id) if user_id else {}
+            if user_mem:
+                mem_parts = []
+                if user_mem.get('budget'): mem_parts.append(f"Budget connu: {user_mem['budget']}$")
+                if user_mem.get('preferred_make'): mem_parts.append(f"Marque préférée: {user_mem['preferred_make']}")
+                if user_mem.get('preferred_type'): mem_parts.append(f"Type préféré: {user_mem['preferred_type']}")
+                if user_mem.get('city'): mem_parts.append(f"Ville: {user_mem['city']}")
+                if user_mem.get('needs_awd'): mem_parts.append("Préfère AWD/4x4")
+                if mem_parts:
+                    learning_context += f"\n\nMÉMOIRE UTILISATEUR (persistante):\n" + "\n".join(mem_parts)
+
+            # Similar good responses from past interactions
+            good = get_similar_good_responses(message, limit=2)
+            if good:
+                learning_context += "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES (utilise comme référence):\n"
+                for g in good:
+                    learning_context += f"Q: {g['question']}\nA: {g['response'][:300]}...\n\n"
+        except Exception as e:
+            learning_context = ""
+
         full_prompt = f"""
 {SYSTEM_PROMPT}
 
@@ -325,16 +353,20 @@ Historique:
 {history_str}
 
 Contexte: {context_summary}
+{learning_context}
 
 Message de l'utilisateur: {message}
 
 INSTRUCTIONS IMPORTANTES :
+- Ne jamais te présenter ou faire une introduction — l'utilisateur sait déjà qui tu es
+- Réponds directement à la question sans préambule
 - Si l'utilisateur mentionne un modèle de voiture spécifique → utilise Google Search pour trouver les prix actuels au Canada
 - Si l'utilisateur mentionne un budget → vérifie si le prix mentionné est réaliste sur le marché canadien actuel
 - Si c'est une question de comparaison → trouve les prix d'occasion actuels des deux modèles
 - Si l'utilisateur demande des recommandations avec un budget → cherche des modèles disponibles dans ce budget au Canada
 - Calcule toujours les taxes Québec (TPS 5% + TVQ 9.975%) si un prix est mentionné
 - Ne jamais dire "je n'ai pas de données vérifiées" — utilise Google Search pour trouver les données
+- Si la mémoire utilisateur contient un budget → toujours l'utiliser comme référence
 """
         response = client.models.generate_content(
             model="gemini-2.5-flash",

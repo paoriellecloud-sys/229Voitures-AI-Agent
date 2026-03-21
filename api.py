@@ -57,6 +57,14 @@ def startup():
         hashed_password = get_password_hash("demo229voitures")
         create_user("demo229", hashed_password)
 
+    # Init learning tables
+    try:
+        from database import create_learning_tables
+        create_learning_tables()
+        print("Learning tables initialized.")
+    except Exception as e:
+        print(f"Learning tables error: {e}")
+
     # Init inventory cache
     try:
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
@@ -371,6 +379,57 @@ def analyze_image(request: ImageRequest, current_user: dict = Depends(get_curren
 
     except Exception as e:
         return {"error": f"Impossible d'analyser l'image : {str(e)}"}
+
+
+# =============================
+# FEEDBACK & LEARNING
+# =============================
+
+class FeedbackRequest(BaseModel):
+    question: str
+    response: str
+    intent: str = "CHAT"
+    feedback: str  # "like" or "dislike"
+
+@app.post("/agent/feedback")
+def submit_feedback(request: FeedbackRequest, current_user: dict = Depends(get_current_user)):
+    """Saves user feedback (like/dislike) for learning."""
+    from database import save_good_response, save_bad_response, update_user_memory
+    user_id = current_user["username"]
+
+    if request.feedback == "like":
+        save_good_response(request.question, request.response, request.intent, user_id)
+        # Update user memory with search patterns
+        if any(word in request.question.lower() for word in ['budget', '$', 'sous', 'under']):
+            import re
+            amounts = re.findall(r'\d+[,.]?\d*\s*(?:\$|000)', request.question)
+            if amounts:
+                try:
+                    budget = float(amounts[0].replace(',', '').replace('$', '').replace(' ', '').replace('000', '000'))
+                    update_user_memory(user_id, {'budget': budget, 'last_search': request.question[:100]})
+                except:
+                    pass
+        return {"status": "saved", "type": "good_response"}
+
+    elif request.feedback == "dislike":
+        save_bad_response(request.question, request.response, request.intent, user_id)
+        return {"status": "saved", "type": "bad_response"}
+
+    return {"status": "ignored"}
+
+
+@app.get("/agent/my_memory")
+def get_my_memory(current_user: dict = Depends(get_current_user)):
+    """Returns the user's persistent memory/preferences."""
+    from database import get_user_memory
+    return get_user_memory(current_user["username"])
+
+
+@app.get("/agent/popular")
+def get_popular(current_user: dict = Depends(get_current_user)):
+    """Returns the most successful question patterns."""
+    from database import get_popular_patterns
+    return {"patterns": get_popular_patterns()}
 
 
 # =============================
