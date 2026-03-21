@@ -6,14 +6,20 @@ from database import log_search
 import os
 import json
 import re
+import sqlite3
 from dotenv import load_dotenv
 
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+DB_PATH = os.environ.get("DB_PATH", "229voitures.db")
 
 sessions = {}
 
+
+# =============================
+# SESSION MANAGEMENT
+# =============================
 
 def get_session(user_id: str) -> dict:
     if user_id not in sessions:
@@ -67,6 +73,140 @@ def build_context_summary(user_id: str):
     return context_str, history_str
 
 
+# =============================
+# INVENTORY CACHE SEARCH
+# =============================
+
+def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
+    """
+    Cherche dans inventory_cache (SQLite) les véhicules qui correspondent
+    à la requête. Retourne une liste de dicts avec les données réelles.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Extraire les mots-clés de la requête pour la recherche
+        keywords = [k.strip() for k in query.lower().split() if len(k.strip()) > 2]
+
+        # Construire une requête SQL avec LIKE sur title et raw_content
+        conditions = []
+        params = []
+        for kw in keywords[:5]:  # Max 5 mots-clés
+            conditions.append("(LOWER(title) LIKE ? OR LOWER(raw_content) LIKE ?)")
+            params.extend([f"%{kw}%", f"%{kw}%"])
+
+        if not conditions:
+            conn.close()
+            return []
+
+        sql = f"""
+            SELECT url, source, title, price, mileage, raw_content, scraped_at
+            FROM inventory_cache
+            WHERE {" AND ".join(conditions)}
+            ORDER BY scraped_at DESC
+            LIMIT ?
+        """
+        params.append(limit)
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+        conn.close()
+
+        results = []
+        for row in rows:
+            try:
+                raw = json.loads(row["raw_content"]) if row["raw_content"] else {}
+            except Exception:
+                raw = {}
+
+            results.append({
+                "url": row["url"],
+                "source": row["source"],
+                "title": row["title"],
+                "price": row["price"],
+                "mileage": row["mileage"],
+                "details": raw,
+                "scraped_at": row["scraped_at"],
+            })
+
+        return results
+
+    except Exception as e:
+        print(f"[search_inventory_cache] Erreur: {e}")
+        return []
+
+
+def format_cache_results_for_prompt(results: list[dict]) -> str:
+    """Formate les résultats du cache en texte lisible pour Gemini."""
+    if not results:
+        return ""
+
+    lines = ["=== VÉHICULES DISPONIBLES (données réelles Force Occasion) ===\n"]
+    for i, r in enumerate(results, 1):
+        d = r.get("details", {})
+        annee = d.get("annee", "")
+        marque = d.get("marque", "")
+        modele = d.get("modele", "")
+        prix = d.get("prix", r.get("price", ""))
+        prix_marche = d.get("prix_marche", "")
+        km = d.get("kilometrage", r.get("mileage", ""))
+        ville = d.get("ville", "")
+        province = d.get("province", "")
+        concessionnaire = d.get("concessionnaire", "")
+        telephone = d.get("telephone", "")
+        transmission = d.get("transmission", "")
+        moteur = d.get("moteur", "")
+        carburant = d.get("carburant", "")
+        traction = d.get("traction", "")
+        couleur = d.get("couleur", "")
+        niv = d.get("niv", "")
+        tps = d.get("tps", "")
+        tvq = d.get("tvq", "")
+        options = (d.get("options", "") or "")[:200]
+        source = r.get("source", "")
+
+        # Calculer taxes si pas disponibles
+        if prix and not tps:
+            try:
+                prix_num = float(str(prix).replace(",", "").replace("$", "").strip())
+                tps = round(prix_num * 0.05, 2)
+                tvq = round(prix_num * 0.09975, 2)
+                total_taxes = round(prix_num + tps + tvq, 2)
+            except Exception:
+                total_taxes = ""
+        else:
+            try:
+                prix_num = float(str(prix).replace(",", "").replace("$", "").strip())
+                total_taxes = round(prix_num + float(str(tps).replace(",","")) + float(str(tvq).replace(",","")), 2)
+            except Exception:
+                total_taxes = ""
+
+        line = f"""
+Véhicule #{i} — {source}
+  Titre      : {annee} {marque} {modele}
+  Prix       : {prix}$ (marché moyen: {prix_marche}$)
+  Taxes QC   : TPS {tps}$ + TVQ {tvq}$ = Total estimé {total_taxes}$
+  Kilométrage: {km} km
+  Localisation: {ville}, {province}
+  Concessionnaire: {concessionnaire} | Tél: {telephone}
+  Moteur     : {moteur} | Transmission: {transmission}
+  Carburant  : {carburant} | Traction: {traction}
+  Couleur    : {couleur}
+  VIN        : {niv}
+  Options    : {options}
+  URL fiche  : {r.get('url', '')}
+"""
+        lines.append(line)
+
+    lines.append("\n=== FIN DES DONNÉES FORCE OCCASION ===")
+    return "\n".join(lines)
+
+
+# =============================
+# SYSTEM PROMPT
+# =============================
+
 SYSTEM_PROMPT = """
 Tu es AutoAgent 229Voitures, compagnon automobile expert au Canada.
 Tu combines l'expertise d'un conseiller financier automobile, d'un mécanicien et d'un négociateur professionnel.
@@ -79,6 +219,16 @@ RÈGLES DE COMMUNICATION :
 - La date actuelle est mars 2026 — distingue clairement événements passés vs à venir
 - Ne jamais présenter un événement passé comme "à venir"
 
+RÈGLES SUR LES DONNÉES D'INVENTAIRE :
+- Quand des données FORCE OCCASION sont fournies, utilise TOUJOURS ces données réelles — ne pas inventer
+- Affiche le prix EXACT de la fiche, jamais "estimation"
+- Affiche le kilométrage EXACT, jamais "environ"
+- Affiche le nom du concessionnaire et la ville EXACTS
+- Calcule les taxes avec les chiffres exacts TPS/TVQ fournis
+- Si un prix_marche est disponible : compare le prix demandé au prix du marché
+- Si prix < prix_marche → signale que c'est sous le marché (bonne affaire potentielle)
+- Si prix > prix_marche → signale que c'est au-dessus du marché (négocier)
+
 RÈGLES DE RELANCE INTELLIGENTE :
 - Si l'utilisateur mentionne un budget → rappelle-le dans chaque réponse suivante
 - Si le prix dépasse le budget mentionné → signale-le immédiatement et propose une alternative
@@ -87,7 +237,6 @@ RÈGLES DE RELANCE INTELLIGENTE :
 - Si l'utilisateur dit "c'est cher" → cherche des alternatives similaires moins chères
 - Si l'utilisateur hésite → pose UNE seule question précise pour l'aider à décider
 - Si un prix semble anormalement bas → avertis l'utilisateur d'un red flag potentiel
-- Utilise toujours les informations des échanges précédents pour personnaliser ta réponse
 
 FLOW DE QUALIFICATION CLIENT (inspiré de la fiche invité CCAQ) :
 Quand un utilisateur commence une recherche sans préciser ses besoins, guide-le avec ces questions dans l'ordre :
@@ -99,77 +248,38 @@ Quand un utilisateur commence une recherche sans préciser ses besoins, guide-le
 6. Véhicule d'échange ? (si oui, obtenir modèle, année, km)
 7. Critères prioritaires ? (espace, sécurité, économie, performance, option)
 8. Préférence AWD/4x4 pour l'hiver québécois ?
-Ne pose qu'UNE question à la fois — ne bombarde pas l'utilisateur.
+Ne pose qu'UNE question à la fois.
 
-EXPERTISE CONTRAT CCAQ (structure officielle des concessionnaires québécois) :
-Quand un utilisateur partage un contrat ou pose des questions sur un contrat, tu connais ces lignes :
-A - Prix du véhicule : prix de base négociable
-B - Prix des accessoires : souvent gonflés, négociables
-C - Prix de vente (A+B) : total avant réductions
-D - Réduction : marge de négociation obtenue
-E - Prix après réduction (C-D)
-F - Véhicule d'échange : valeur de reprise
-G - Droit de tenure à bail : si applicable
-H - Sous-total (E-F-G) : base de calcul des taxes
-K - TPS 5% × H : taxe fédérale
-L - TVQ 9.975% × H : taxe provinciale
-M - Total véhicule (H+K+L)
-P - Accessoires additionnels : garanties prolongées, produits F&I
-Q - Droits d'immatriculation
-R - Solde véhicule d'échange
-S - Total à payer (M+P+Q+R)
-T - TVQ SAAQ : payée séparément lors de l'immatriculation
-W - Solde dû à la livraison
+EXPERTISE CONTRAT CCAQ :
+A - Prix du véhicule | B - Accessoires | C - Prix de vente (A+B)
+D - Réduction | E - Prix après réduction (C-D) | F - Véhicule d'échange
+H - Sous-total (E-F-G) | K - TPS 5%×H | L - TVQ 9.975%×H
+M - Total véhicule | P - Accessoires F&I | S - Total à payer | W - Solde dû livraison
 
-PRODUITS F&I À SURVEILLER (souvent surévalués) :
-- Garantie prolongée : vérifier si le prix est justifié vs valeur réelle
-- Renonciation de dette : souvent 2 000-3 500$ — vérifier si nécessaire
-- Protection de peinture/tissu : rarement nécessaire
-- Assurance crédit : souvent plus chère qu'une assurance vie ordinaire
-- Ces produits peuvent ajouter 3 000-8 000$ au prix total
-
-ANALYSE DE CONTRAT (quand l'utilisateur partage une photo) :
-Vérifie systématiquement :
-1. Le prix du véhicule est-il cohérent avec le marché actuel ?
-2. Les accessoires (ligne B) sont-ils raisonnables ?
-3. La valeur du véhicule d'échange (F) est-elle correcte ?
-4. Les produits F&I (garantie, protection) sont-ils justifiés ?
-5. Le taux de financement est-il compétitif (comparer avec taux Desjardins/BMO/TD) ?
-6. Y a-t-il des frais cachés ou surprenants ?
-7. Le calcul des taxes (K et L) est-il correct ?
-8. Le solde dû à la livraison (W) correspond-il aux calculs ?
-
-NÉGOCIATION BASÉE SUR LE CONTRAT CCAQ :
-- La ligne D (réduction) est toujours négociable — viser au moins 5-10% du prix
-- Les produits F&I (ligne P) ont souvent une marge de 50-80% — très négociables
-- La valeur du véhicule d'échange (F) peut être augmentée en faisant des contre-offres
-- Le taux de financement est négociable — avoir une pré-approbation bancaire donne un avantage
-- Ne jamais signer le jour même — demander 24h de réflexion
+PRODUITS F&I À SURVEILLER :
+- Garantie prolongée, renonciation de dette (2000-3500$), protection peinture/tissu, assurance crédit
+- Ces produits peuvent ajouter 3000-8000$ au total — toujours négociables
 
 CAPACITÉS DISPONIBLES :
-1. RECHERCHE : Trouver des véhicules d'occasion au Canada avec prix et kilométrage réels
-2. ANALYSE D'ANNONCE : Analyser une fiche véhicule via son URL
-3. ANALYSE DE CONTRAT : Analyser un contrat CCAQ en photo et détecter les anomalies
-4. COMPARAISON : Comparer 2+ véhicules selon les critères de l'utilisateur avec score
-5. VÉRIFICATION VIN : Vérifier l'historique complet d'un véhicule via son numéro VIN
-6. TAXES QUÉBEC : Calculer automatiquement TPS (5%) + TVQ (9.975%) = 14.975%
-7. COÛT TOTAL DE POSSESSION : Estimer sur 5 ans — assurance, entretien, carburant, dépréciation
-8. FIABILITÉ : Donner l'historique de fiabilité, problèmes connus et rappels pour chaque modèle
-9. NÉGOCIATION : Donner des arguments précis basés sur le contrat CCAQ
-10. RED FLAGS : Détecter prix suspects, produits F&I surévalués, clauses abusives
-11. QUALIFICATION CLIENT : Guider l'utilisateur pour définir ses besoins comme un vrai conseiller
-12. RECOMMANDATION PERSONNALISÉE : Proposer le véhicule idéal selon le profil complet
+1. RECHERCHE dans inventaire local Force Occasion (données réelles et vérifiées)
+2. RECHERCHE web si pas de résultats locaux
+3. ANALYSE D'ANNONCE via URL
+4. ANALYSE DE CONTRAT CCAQ par photo
+5. COMPARAISON de véhicules avec score
+6. VÉRIFICATION VIN complète
+7. CALCUL TAXES QC : TPS 5% + TVQ 9.975%
+8. FIABILITÉ et rappels par modèle
+9. NÉGOCIATION basée sur contrat CCAQ
+10. RED FLAGS : prix suspects, frais cachés
 
-CALCUL TAXES QUÉBEC (obligatoire pour toute annonce analysée) :
-- TPS fédérale : 5% du sous-total H
-- TVQ provinciale : 9.975% du sous-total H
-- TVQ SAAQ : payée séparément lors de l'immatriculation
-- Toujours afficher : prix affiché + TPS + TVQ + total estimé
-
-MENTION LÉGALE :
-- Inclure la mention légale SEULEMENT dans les calculs financiers complexes (financement, coût de possession)
-- Ne PAS la répéter à chaque réponse — elle est affichée en permanence sur le site
-- Formulation courte si nécessaire : "⚠️ Estimation à titre informatif."
+FORMAT DE PRÉSENTATION DES VÉHICULES :
+🚗 [Année] [Marque] [Modèle] — [Concessionnaire], [Ville]
+• Prix : [prix exact]$ | Marché moyen : [prix_marche]$
+• Kilométrage : [km exact] km
+• Moteur : [moteur] | Transmission : [transmission]
+• VIN : [niv]
+💰 Taxes QC : [prix]$ + TPS [tps]$ + TVQ [tvq]$ = **[total]$**
+🔗 [url fiche]
 """
 
 INTENT_PROMPT = """
@@ -199,16 +309,14 @@ Intent rules:
   * Negotiation advice, cost of ownership questions
   IMPORTANT: For evaluation questions, answer the question FIRST directly,
   then offer to search for listings as a follow-up suggestion.
-  Examples → CHAT:
-  - "Toyota Corolla 2020 pour 15000, bonne affaire?" → CHAT
-  - "Honda Civic 2019 fiable?" → CHAT
-  - "Kia Niro PHEV c'est bien?" → CHAT
 
 - SEARCH: ONLY when user EXPLICITLY wants to find/list vehicles.
   Requires keywords: trouve, cherche, montre, propose, liste, donne moi
+  Also trigger SEARCH for: "je recherche", "je cherche", "je veux trouver"
   Examples → SEARCH:
   - "Trouve moi un Toyota RAV4 2021" → SEARCH
   - "Cherche des Honda CRV sous 25000" → SEARCH
+  - "je recherche une Seltos 2022 au quebec" → SEARCH
   - "Montre moi des Kia Seltos au Quebec" → SEARCH
 
 - ANALYZE_URL: message contains exactly 1 URL
@@ -216,18 +324,19 @@ Intent rules:
 - CHECK_VIN: message contains a VIN (17 alphanumeric characters)
 - FOLLOWUP: user responds to a previous suggestion (ex: "le 2", "oui", "compare-les", "verifie le vin")
 
-For FOLLOWUP, set followup_action to one of:
-- "select_listing", "check_vin", "compare", "more_results", "contact_dealer", "yes", "no"
-
 For SEARCH extract:
 - query: exact vehicle search terms (make, model, year, trim, budget, location)
-- vehicle_filter: specific make+model being searched (ex: "Toyota Corolla 2020") for result filtering
+- vehicle_filter: specific make+model being searched (ex: "Kia Seltos 2022")
 - site: dealer domain if mentioned, null otherwise
-- count: number of results requested (default 2)
+- count: number of results requested (default 3)
 
 Return ONLY the JSON, no explanation.
 """
 
+
+# =============================
+# INTENT DETECTION
+# =============================
 
 def detect_intent(message: str, context_summary: str) -> dict:
     prompt = INTENT_PROMPT.format(message=message, context=context_summary)
@@ -239,8 +348,12 @@ def detect_intent(message: str, context_summary: str) -> dict:
             return json.loads(match.group())
     except Exception:
         pass
-    return {"intent": "CHAT", "urls": [], "vin": None, "query": message, "site": None, "count": 2, "followup_action": None}
+    return {"intent": "CHAT", "urls": [], "vin": None, "query": message, "site": None, "count": 3, "followup_action": None}
 
+
+# =============================
+# FOLLOWUP HANDLER
+# =============================
 
 def handle_followup(user_id: str, intent_data: dict, history_str: str, context_summary: str) -> dict:
     session = get_session(user_id)
@@ -275,6 +388,10 @@ def handle_followup(user_id: str, intent_data: dict, history_str: str, context_s
         return {"intent": "FOLLOWUP", "response": response.text}
 
 
+# =============================
+# SMART CHAT — MAIN ENTRY POINT
+# =============================
+
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
     context_summary, history_str = build_context_summary(user_id)
@@ -298,34 +415,78 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         result = {"intent": "ANALYZE_URL", "response": analyze_result.get("analysis", ""), "url": intent_data["urls"][0], "scraped": analyze_result.get("scraped", False)}
 
     elif intent == "SEARCH" and intent_data.get("query"):
-        search_result = search_and_analyze(query=intent_data["query"], site=intent_data.get("site"), count=intent_data.get("count", 2))
-        session["context"]["last_listings"] = search_result.get("urls_found", [])
-        session["context"]["last_query"] = intent_data.get("query", "")
+        query = intent_data["query"]
+        session["context"]["last_query"] = query
 
-        # Log the search for analytics
-        try:
-            log_search(
-                query=intent_data["query"],
-                intent="SEARCH",
-                results_count=search_result.get("scraped_count", 0)
+        # ─── ÉTAPE 1 : Chercher dans l'inventaire local (Force Occasion) ───
+        cache_results = search_inventory_cache(query, limit=5)
+
+        if cache_results:
+            # On a des données locales réelles — les utiliser en priorité
+            cache_text = format_cache_results_for_prompt(cache_results)
+            session["context"]["last_listings"] = [r["url"] for r in cache_results]
+
+            prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+{cache_text}
+
+RECHERCHE DE L'UTILISATEUR : "{query}"
+
+INSTRUCTIONS :
+- Présente les véhicules trouvés en utilisant UNIQUEMENT les données réelles ci-dessus
+- Utilise le FORMAT DE PRÉSENTATION défini dans tes instructions
+- Compare le prix au prix du marché si disponible
+- Si le kilométrage > 100 000 km, suggère de vérifier le VIN
+- Termine avec une question concrète (vérifier VIN, voir plus de détails, comparer ?)
+- NE PAS inventer de données — utilise seulement ce qui est fourni
+"""
+            response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+            result = {
+                "intent": "SEARCH",
+                "response": response.text + "\n\nSouhaitez-vous vérifier le VIN d'un de ces véhicules ou les comparer entre eux ?",
+                "urls_found": [r["url"] for r in cache_results],
+                "scraped_count": len(cache_results),
+                "source": "inventory_cache"
+            }
+
+        else:
+            # ─── ÉTAPE 2 : Fallback — recherche web via SerpAPI ───
+            print(f"[smart_chat] Aucun résultat local pour '{query}' → fallback SerpAPI")
+            search_result = search_and_analyze(
+                query=query,
+                site=intent_data.get("site"),
+                count=intent_data.get("count", 3)
             )
-        except Exception:
-            pass
+            session["context"]["last_listings"] = search_result.get("urls_found", [])
 
-        base_response = search_result.get("analysis", "")
-        followup = "\n\nSouhaitez-vous que je vérifie le VIN d'un de ces véhicules, ou voulez-vous les comparer entre eux ?"
-        result = {"intent": "SEARCH", "response": base_response + followup, "urls_found": search_result.get("urls_found", []), "scraped_count": search_result.get("scraped_count", 0)}
+            try:
+                log_search(query=query, intent="SEARCH", results_count=search_result.get("scraped_count", 0))
+            except Exception:
+                pass
+
+            base_response = search_result.get("analysis", "")
+            result = {
+                "intent": "SEARCH",
+                "response": base_response + "\n\nSouhaitez-vous que je vérifie le VIN d'un de ces véhicules, ou voulez-vous les comparer entre eux ?",
+                "urls_found": search_result.get("urls_found", []),
+                "scraped_count": search_result.get("scraped_count", 0),
+                "source": "serpapi"
+            }
 
     else:
-        # CHAT with Google Search for real market data
-        # Inject learning — similar good responses + user memory
+        # ─── CHAT — conseils, fiabilité, prix, etc. ───
         learning_context = ""
         try:
-            import sys, os
+            import sys
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
             from database import get_similar_good_responses, get_user_memory
 
-            # User persistent memory
             user_mem = get_user_memory(user_id) if user_id else {}
             if user_mem:
                 mem_parts = []
@@ -335,15 +496,14 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 if user_mem.get('city'): mem_parts.append(f"Ville: {user_mem['city']}")
                 if user_mem.get('needs_awd'): mem_parts.append("Préfère AWD/4x4")
                 if mem_parts:
-                    learning_context += f"\n\nMÉMOIRE UTILISATEUR (persistante):\n" + "\n".join(mem_parts)
+                    learning_context += f"\n\nMÉMOIRE UTILISATEUR:\n" + "\n".join(mem_parts)
 
-            # Similar good responses from past interactions
             good = get_similar_good_responses(message, limit=2)
             if good:
-                learning_context += "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES (utilise comme référence):\n"
+                learning_context += "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES:\n"
                 for g in good:
                     learning_context += f"Q: {g['question']}\nA: {g['response'][:300]}...\n\n"
-        except Exception as e:
+        except Exception:
             learning_context = ""
 
         full_prompt = f"""
@@ -357,16 +517,12 @@ Contexte: {context_summary}
 
 Message de l'utilisateur: {message}
 
-INSTRUCTIONS IMPORTANTES :
-- Ne jamais te présenter ou faire une introduction — l'utilisateur sait déjà qui tu es
-- Réponds directement à la question sans préambule
-- Si l'utilisateur mentionne un modèle de voiture spécifique → utilise Google Search pour trouver les prix actuels au Canada
-- Si l'utilisateur mentionne un budget → vérifie si le prix mentionné est réaliste sur le marché canadien actuel
-- Si c'est une question de comparaison → trouve les prix d'occasion actuels des deux modèles
-- Si l'utilisateur demande des recommandations avec un budget → cherche des modèles disponibles dans ce budget au Canada
-- Calcule toujours les taxes Québec (TPS 5% + TVQ 9.975%) si un prix est mentionné
-- Ne jamais dire "je n'ai pas de données vérifiées" — utilise Google Search pour trouver les données
-- Si la mémoire utilisateur contient un budget → toujours l'utiliser comme référence
+INSTRUCTIONS :
+- Réponds directement sans préambule
+- Si l'utilisateur mentionne un modèle → utilise Google Search pour les prix actuels au Canada
+- Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
+- Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
+- Si la mémoire utilisateur contient un budget → l'utiliser comme référence
 """
         response = client.models.generate_content(
             model="gemini-2.5-flash",
