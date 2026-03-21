@@ -4,7 +4,10 @@ from pydantic import BaseModel
 
 from database import *
 from auth import *
-from modules.agent_router import smart_chat
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
+from agent_router import smart_chat
 
 import numpy as np
 import joblib
@@ -56,6 +59,7 @@ def startup():
 
     # Init inventory cache
     try:
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
         from playwright_scraper import init_inventory_cache
         init_inventory_cache()
         print("Inventory cache initialized.")
@@ -66,8 +70,9 @@ def startup():
     import threading, time
 
     def run_scraper():
-        import asyncio
-        time.sleep(60)  # Wait 60s after startup before first scrape
+        import asyncio, sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
+        time.sleep(60)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         while True:
@@ -77,7 +82,7 @@ def startup():
                 print("Background scrape completed.")
             except Exception as e:
                 print(f"Background scraper error: {e}")
-            time.sleep(6 * 60 * 60)  # 6 hours
+            time.sleep(6 * 60 * 60)
 
     t = threading.Thread(target=run_scraper, daemon=True)
     t.start()
@@ -239,8 +244,11 @@ def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_us
 
 @app.get("/health")
 def health():
-    from playwright_scraper import get_cache_stats
-    stats = get_cache_stats()
+    try:
+        from playwright_scraper import get_cache_stats
+        stats = get_cache_stats()
+    except Exception:
+        stats = {"total": 0, "fresh": 0, "sources": 0}
     return {
         "status": "ok",
         "service": "229Voitures AI Agent",
@@ -250,14 +258,20 @@ def health():
 
 @app.get("/cache/stats")
 def cache_stats(current_user: dict = Depends(get_current_user)):
-    from playwright_scraper import get_cache_stats
-    return get_cache_stats()
+    try:
+        from playwright_scraper import get_cache_stats
+        return get_cache_stats()
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.post("/cache/search")
 def cache_search(query: str, current_user: dict = Depends(get_current_user)):
-    from playwright_scraper import search_cache
-    results = search_cache(query)
+    try:
+        from playwright_scraper import search_cache
+        results = search_cache(query)
+    except Exception:
+        results = []
     return {"results": results, "count": len(results)}
 
 
