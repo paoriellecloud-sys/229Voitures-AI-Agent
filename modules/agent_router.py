@@ -18,6 +18,25 @@ sessions = {}
 
 
 # =============================
+# NETTOYAGE HTML
+# =============================
+
+def strip_html(text: str) -> str:
+    """Nettoie les balises HTML et attributs parasites dans le texte."""
+    if not text:
+        return text
+    # Supprimer attributs HTML qui se retrouvent en texte brut
+    text = re.sub(r'"\s*target="_blank"\s*class="[^"]*">', '', text)
+    text = re.sub(r'"\s*target="_blank">', '', text)
+    text = re.sub(r'\s*class="[^"]*">', '', text)
+    # Supprimer balises HTML complètes
+    text = re.sub(r'<[^>]+>', '', text)
+    # Nettoyer espaces multiples
+    text = re.sub(r'  +', ' ', text)
+    return text.strip()
+
+
+# =============================
 # SESSION MANAGEMENT
 # =============================
 
@@ -78,22 +97,16 @@ def build_context_summary(user_id: str):
 # =============================
 
 def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
-    """
-    Cherche dans inventory_cache (SQLite) les véhicules qui correspondent
-    à la requête. Retourne une liste de dicts avec les données réelles.
-    """
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Extraire les mots-clés de la requête pour la recherche
         keywords = [k.strip() for k in query.lower().split() if len(k.strip()) > 2]
 
-        # Construire une requête SQL avec LIKE sur title et raw_content
         conditions = []
         params = []
-        for kw in keywords[:5]:  # Max 5 mots-clés
+        for kw in keywords[:5]:
             conditions.append("(LOWER(title) LIKE ? OR LOWER(raw_content) LIKE ?)")
             params.extend([f"%{kw}%", f"%{kw}%"])
 
@@ -138,7 +151,6 @@ def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
 
 
 def format_cache_results_for_prompt(results: list[dict]) -> str:
-    """Formate les résultats du cache en texte lisible pour Gemini."""
     if not results:
         return ""
 
@@ -166,7 +178,6 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
         options = (d.get("options", "") or "")[:200]
         source = r.get("source", "")
 
-        # Calculer taxes si pas disponibles
         if prix and not tps:
             try:
                 prix_num = float(str(prix).replace(",", "").replace("$", "").strip())
@@ -218,6 +229,8 @@ RÈGLES DE COMMUNICATION :
 - Termine TOUJOURS par une question ou suggestion concrète pour guider l'utilisateur
 - La date actuelle est mars 2026 — distingue clairement événements passés vs à venir
 - Ne jamais présenter un événement passé comme "à venir"
+- NE JAMAIS inclure de HTML brut dans ta réponse (pas de class=, target=, href= en texte)
+- Les liens doivent être en format markdown uniquement : [texte](url)
 
 RÈGLES SUR LES DONNÉES D'INVENTAIRE :
 - Quand des données FORCE OCCASION sont fournies, utilise TOUJOURS ces données réelles — ne pas inventer
@@ -422,7 +435,6 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         cache_results = search_inventory_cache(query, limit=5)
 
         if cache_results:
-            # On a des données locales réelles — les utiliser en priorité
             cache_text = format_cache_results_for_prompt(cache_results)
             session["context"]["last_listings"] = [r["url"] for r in cache_results]
 
@@ -445,6 +457,7 @@ INSTRUCTIONS :
 - Si le kilométrage > 100 000 km, suggère de vérifier le VIN
 - Termine avec une question concrète (vérifier VIN, voir plus de détails, comparer ?)
 - NE PAS inventer de données — utilise seulement ce qui est fourni
+- NE PAS inclure de HTML brut dans ta réponse
 """
             response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
             result = {
@@ -470,7 +483,9 @@ INSTRUCTIONS :
             except Exception:
                 pass
 
-            base_response = search_result.get("analysis", "")
+            # Nettoyer le HTML parasite dans la réponse SerpAPI
+            base_response = strip_html(search_result.get("analysis", ""))
+
             result = {
                 "intent": "SEARCH",
                 "response": base_response + "\n\nSouhaitez-vous que je vérifie le VIN d'un de ces véhicules, ou voulez-vous les comparer entre eux ?",
@@ -523,6 +538,7 @@ INSTRUCTIONS :
 - Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
 - Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
 - Si la mémoire utilisateur contient un budget → l'utiliser comme référence
+- NE PAS inclure de HTML brut dans ta réponse
 """
         response = client.models.generate_content(
             model="gemini-2.5-flash",
@@ -532,8 +548,10 @@ INSTRUCTIONS :
         result = {"intent": "CHAT", "response": response.text}
 
     response_text = result.get("response", "")
+    # Nettoyage final HTML sur toutes les réponses
     if isinstance(response_text, str):
-        session["history"].append({"role": "assistant", "content": response_text})
-    update_context(user_id, intent_data, response_text if isinstance(response_text, str) else "")
+        result["response"] = strip_html(response_text)
+        session["history"].append({"role": "assistant", "content": result["response"]})
+    update_context(user_id, intent_data, result["response"] if isinstance(result.get("response"), str) else "")
     session["history"] = session["history"][-20:]
     return result
