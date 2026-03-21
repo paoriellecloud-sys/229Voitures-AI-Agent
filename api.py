@@ -54,6 +54,35 @@ def startup():
         hashed_password = get_password_hash("demo229voitures")
         create_user("demo229", hashed_password)
 
+    # Init inventory cache
+    try:
+        from playwright_scraper import init_inventory_cache
+        init_inventory_cache()
+        print("Inventory cache initialized.")
+    except Exception as e:
+        print(f"Cache init error: {e}")
+
+    # Start background scraper thread
+    import threading, time
+
+    def run_scraper():
+        import asyncio
+        time.sleep(60)  # Wait 60s after startup before first scrape
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        while True:
+            try:
+                from background_scraper import run_scrape_job
+                loop.run_until_complete(run_scrape_job())
+                print("Background scrape completed.")
+            except Exception as e:
+                print(f"Background scraper error: {e}")
+            time.sleep(6 * 60 * 60)  # 6 hours
+
+    t = threading.Thread(target=run_scraper, daemon=True)
+    t.start()
+    print("Background scraper thread started.")
+
 
 # =============================
 # AUTH
@@ -205,6 +234,34 @@ def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_us
 
 
 # =============================
+# HEALTH CHECK
+# =============================
+
+@app.get("/health")
+def health():
+    from playwright_scraper import get_cache_stats
+    stats = get_cache_stats()
+    return {
+        "status": "ok",
+        "service": "229Voitures AI Agent",
+        "cache": stats
+    }
+
+
+@app.get("/cache/stats")
+def cache_stats(current_user: dict = Depends(get_current_user)):
+    from playwright_scraper import get_cache_stats
+    return get_cache_stats()
+
+
+@app.post("/cache/search")
+def cache_search(query: str, current_user: dict = Depends(get_current_user)):
+    from playwright_scraper import search_cache
+    results = search_cache(query)
+    return {"results": results, "count": len(results)}
+
+
+# =============================
 # IMAGE / CONTRACT ANALYSIS
 # =============================
 
@@ -276,24 +333,20 @@ def analyze_image(request: ImageRequest, current_user: dict = Depends(get_curren
     """
 
     try:
-        image_data = base64.b64decode(request.image_base64)
+        from google.genai import types as genai_types
+
+        image_part = genai_types.Part.from_bytes(
+            data=base64.b64decode(request.image_base64),
+            mime_type=request.media_type
+        )
+        text_part = genai_types.Part.from_text(prompt)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=[
-                {
-                    "role": "user",
-                    "parts": [
-                        {
-                            "inline_data": {
-                                "mime_type": request.media_type,
-                                "data": request.image_base64
-                            }
-                        },
-                        {"text": prompt}
-                    ]
-                }
-            ]
+            contents=[genai_types.Content(
+                role="user",
+                parts=[image_part, text_part]
+            )]
         )
 
         return {
