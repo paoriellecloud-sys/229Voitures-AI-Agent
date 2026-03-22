@@ -85,11 +85,17 @@ def startup():
         asyncio.set_event_loop(loop)
         while True:
             try:
+                print("🔄 Import background_scraper...")
                 from background_scraper import run_scrape_job
+                print("✅ Import réussi, lancement du scrape job...")
                 loop.run_until_complete(run_scrape_job())
-                print("Background scrape completed.")
+                print("✅ Background scrape completed.")
+            except ImportError as e:
+                print(f"❌ Import error: {e}")
             except Exception as e:
-                print(f"Background scraper error: {e}")
+                print(f"❌ Background scraper error: {e}")
+                import traceback
+                traceback.print_exc()
             time.sleep(6 * 60 * 60)
 
     t = threading.Thread(target=run_scraper, daemon=True)
