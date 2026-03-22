@@ -103,6 +103,22 @@ def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS inventory_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT, vehicle_id TEXT, title TEXT, price REAL, mileage INTEGER,
+                year INTEGER, make TEXT, model TEXT, city TEXT, province TEXT,
+                dealer_name TEXT, dealer_phone TEXT, vin TEXT, color TEXT,
+                transmission TEXT, drivetrain TEXT, fuel_type TEXT, engine TEXT, trim TEXT,
+                avg_market_price REAL, price_diff REAL, price_status TEXT,
+                tps REAL, tvq REAL, total_taxes REAL, total_with_taxes REAL,
+                options TEXT, description TEXT, highway_consumption TEXT, city_consumption TEXT,
+                photos TEXT, url TEXT, json_url TEXT, raw_content TEXT, scraped_at TEXT,
+                UNIQUE(source, vehicle_id)
+            )
+        """)
+        conn.commit()
+
         keywords = [k.strip() for k in query.lower().split() if len(k.strip()) > 2]
 
         conditions = []
