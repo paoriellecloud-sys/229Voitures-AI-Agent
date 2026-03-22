@@ -1,70 +1,61 @@
 """
-Force Occasion - Playwright Infinite Scroll Scraper
-Récupère TOUS les véhicules en simulant le scroll humain
+Force Occasion - Sitemap XML Scraper
+Récupère TOUS les véhicules via les sitemaps XML publics + API JSON
 Intégration dans background_scraper.py
 """
 
 import asyncio
 import json
 import logging
-import requests
+import re
 import aiohttp
-from bs4 import BeautifulSoup
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-FO_INVENTORY_URL = "https://www.forceoccasion.ca/inventaire.html"
 FO_JSON_API = "https://www.forceoccasion.ca/js/json/{vehicle_id}.json"
 
+SITEMAP_URLS = [
+    "https://www.forceoccasion.ca/fr/sitemap.xml",
+    "https://www.forceoccasion.ca/fr/sitemap_newinventory.xml",
+    "https://www.forceoccasion.ca/fr/sitemap_demo.xml",
+]
 
-async def scroll_and_collect_ids(page) -> list:
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/xml,text/xml,*/*;q=0.8",
+}
+
+
+async def fetch_ids_from_sitemaps() -> list:
     """
-    Scrolle la page jusqu'en bas en boucle jusqu'à ce qu'aucun
-    nouvel ID ne soit chargé. Retourne la liste complète des IDs.
+    Fetche les 3 sitemaps XML en parallèle via aiohttp et extrait
+    les IDs de véhicules depuis les URLs /fiche/{id}.
     """
-    all_ids = set()
-    no_new_count = 0
-    max_no_new = 5  # Arrêter après 5 scrolls sans nouveaux IDs
+    vehicle_ids = set()
 
-    logger.info("🔄 Début du scroll infini sur Force Occasion...")
-
-    while no_new_count < max_no_new:
-        # Extraire les IDs actuellement visibles
-        ids_on_page = await page.evaluate("""
-            () => {
-                const elements = document.querySelectorAll('li.carBoxWrapper[data-carid]');
-                return Array.from(elements).map(el => el.getAttribute('data-carid')).filter(id => id);
-            }
-        """)
-
-        new_ids = set(ids_on_page) - all_ids
-        if new_ids:
-            all_ids.update(new_ids)
-            no_new_count = 0
-            logger.info(f"📦 {len(all_ids)} véhicules trouvés jusqu'ici (+{len(new_ids)} nouveaux)")
-        else:
-            no_new_count += 1
-            logger.info(f"⏳ Aucun nouveau véhicule ({no_new_count}/{max_no_new})")
-
-        # Scroller vers le bas
-        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-
-        # Attendre que le contenu charge (lazy loading)
-        await asyncio.sleep(2)
-
-        # Vérifier si un spinner/loader est visible (attendre qu'il disparaisse)
+    async def fetch_sitemap(session: aiohttp.ClientSession, url: str):
         try:
-            await page.wait_for_selector(
-                ".loading, .spinner, [class*='load']",
-                state="hidden",
-                timeout=3000
-            )
-        except Exception:
-            pass  # Pas de spinner visible, on continue
+            logger.info(f"📥 Fetching sitemap: {url}")
+            async with session.get(url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                resp.raise_for_status()
+                text = await resp.text()
+                ids = re.findall(r'/fiche/(\d+)', text)
+                logger.info(f"  → {len(ids)} IDs trouvés dans {url.split('/')[-1]}")
+                return ids
+        except Exception as e:
+            logger.error(f"❌ Erreur sitemap {url}: {e}")
+            return []
 
-    logger.info(f"✅ Scroll terminé. Total: {len(all_ids)} IDs collectés")
-    return list(all_ids)
+    async with aiohttp.ClientSession() as session:
+        results = await asyncio.gather(*[fetch_sitemap(session, url) for url in SITEMAP_URLS])
+
+    for ids in results:
+        vehicle_ids.update(ids)
+
+    logger.info(f"✅ Total IDs uniques collectés: {len(vehicle_ids)}")
+    return list(vehicle_ids)
 
 
 async def get_vehicle_details_batch(vehicle_ids: list, batch_size: int = 10) -> list:
@@ -190,53 +181,22 @@ def normalize_vehicle(raw: dict) -> dict:
 
 async def scrape_forceoccasion_full() -> list:
     """
-    Fonction principale: utilise requests+BeautifulSoup pour collecter les IDs
-    depuis plusieurs URLs d'inventaire, puis aiohttp pour les détails JSON en parallèle.
+    Fonction principale: parse les sitemaps XML pour collecter les IDs,
+    puis utilise aiohttp pour récupérer les détails JSON en parallèle.
     Retourne une liste de véhicules normalisés.
     """
-    logger.info("🚀 Démarrage du scraper Force Occasion (requests + BeautifulSoup)")
+    logger.info("🚀 Démarrage du scraper Force Occasion (sitemaps XML + API JSON)")
 
-    inventory_urls = [
-        "https://www.forceoccasion.ca/inventaire.html",
-        "https://www.forceoccasion.ca/inventaire.html?filterid=a1b21c2q0-10x0-0-0",
-        "https://www.forceoccasion.ca/inventaire.html?cartype=demo",
-        "https://www.forceoccasion.ca/inventaire.html?cartype=new",
-    ]
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept-Language": "fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    }
-
-    vehicle_ids = set()
-
-    for url in inventory_urls:
-        try:
-            logger.info(f"📄 Chargement de {url}")
-            resp = requests.get(url, headers=headers, timeout=30)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            items = soup.select("li.carBoxWrapper[data-carid]")
-            ids = {el["data-carid"] for el in items if el.get("data-carid")}
-            logger.info(f"  → {len(ids)} IDs trouvés")
-            vehicle_ids.update(ids)
-        except Exception as e:
-            logger.error(f"❌ Erreur chargement {url}: {e}")
-
-    vehicle_ids = list(vehicle_ids)
+    vehicle_ids = await fetch_ids_from_sitemaps()
 
     if not vehicle_ids:
-        logger.warning("⚠️ Aucun ID collecté via requests/BeautifulSoup")
+        logger.warning("⚠️ Aucun ID collecté depuis les sitemaps")
         return []
 
     logger.info(f"🔗 {len(vehicle_ids)} IDs collectés, récupération des détails JSON...")
 
-    # Récupérer les détails via l'API JSON publique
     raw_vehicles = await get_vehicle_details_batch(vehicle_ids, batch_size=15)
 
-    # Normaliser
     vehicles = []
     for raw in raw_vehicles:
         normalized = normalize_vehicle(raw)
@@ -247,16 +207,11 @@ async def scrape_forceoccasion_full() -> list:
     return vehicles
 
 
-# ============================================================
-# INTÉGRATION DANS background_scraper.py
-# Remplace la fonction scrape_forceoccasion() existante par:
-# ============================================================
-
 async def scrape_forceoccasion_for_background(db_conn) -> int:
     """
     Wrapper pour background_scraper.py
     Retourne le nombre de véhicules sauvegardés.
-    
+
     Usage dans background_scraper.py:
         from fo_playwright_scraper import scrape_forceoccasion_for_background
         count = await scrape_forceoccasion_for_background(conn)
@@ -271,7 +226,6 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
 
     for v in vehicles:
         try:
-            # Construire raw_content pour la recherche
             raw_content = (
                 f"{v['title']} {v['make']} {v['model']} {v['year']} "
                 f"{v['trim']} {v['color']} {v['city']} {v['dealer_name']} "
@@ -279,7 +233,7 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
             ).lower()
 
             cursor.execute("""
-                INSERT INTO inventory_cache 
+                INSERT INTO inventory_cache
                 (source, vehicle_id, title, price, mileage, year, make, model,
                  city, province, dealer_name, dealer_phone, vin, color,
                  transmission, drivetrain, fuel_type, engine, trim,
@@ -344,7 +298,6 @@ if __name__ == "__main__":
                 if v['avg_market_price'] > 0:
                     print(f"    Prix marché: {v['avg_market_price']:,}$ → {v['price_status']}")
 
-        # Sauvegarder en JSON pour inspection
         with open("fo_full_inventory.json", "w", encoding="utf-8") as f:
             json.dump(vehicles, f, ensure_ascii=False, indent=2)
         print(f"\n💾 Sauvegardé dans fo_full_inventory.json")
