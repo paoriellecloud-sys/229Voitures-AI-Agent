@@ -207,6 +207,10 @@ async def scrape_forceoccasion_full() -> list:
                 '--no-first-run',
                 '--no-zygote',
                 '--single-process',
+                '--disable-http2',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-extensions',
+                '--disable-infobars',
             ]
         )
 
@@ -237,8 +241,9 @@ async def scrape_forceoccasion_full() -> list:
         await page.route("**/ads*", lambda route: route.abort())
 
         try:
+            await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             logger.info(f"📄 Chargement de {FO_INVENTORY_URL}")
-            await page.goto(FO_INVENTORY_URL, wait_until="domcontentloaded", timeout=30000)
+            await page.goto(FO_INVENTORY_URL, wait_until="networkidle", timeout=30000)
 
             # Attendre que les premiers véhicules chargent
             await page.wait_for_selector("li.carBoxWrapper[data-carid]", timeout=15000)
