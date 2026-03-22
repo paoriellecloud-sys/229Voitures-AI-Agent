@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Cache bust: 2026-03-21
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
