@@ -216,6 +216,22 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
         from fo_playwright_scraper import scrape_forceoccasion_for_background
         count = await scrape_forceoccasion_for_background(conn)
     """
+    db_conn.execute("""
+        CREATE TABLE IF NOT EXISTS inventory_cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT, vehicle_id TEXT, title TEXT, price REAL, mileage INTEGER,
+            year INTEGER, make TEXT, model TEXT, city TEXT, province TEXT,
+            dealer_name TEXT, dealer_phone TEXT, vin TEXT, color TEXT,
+            transmission TEXT, drivetrain TEXT, fuel_type TEXT, engine TEXT, trim TEXT,
+            avg_market_price REAL, price_diff REAL, price_status TEXT,
+            tps REAL, tvq REAL, total_taxes REAL, total_with_taxes REAL,
+            options TEXT, description TEXT, highway_consumption TEXT, city_consumption TEXT,
+            photos TEXT, url TEXT, json_url TEXT, raw_content TEXT, scraped_at TEXT,
+            UNIQUE(source, vehicle_id)
+        )
+    """)
+    db_conn.commit()
+
     vehicles = await scrape_forceoccasion_full()
 
     if not vehicles:
