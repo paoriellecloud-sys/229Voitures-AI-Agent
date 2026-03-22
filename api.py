@@ -78,6 +78,7 @@ def startup():
     import threading, time
 
     def run_scraper():
+        print("🚀 Scraper thread démarré")
         import asyncio, sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
         time.sleep(60)
