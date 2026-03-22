@@ -39,7 +39,7 @@ SCRAPE_TARGETS = [
     }
 ]
 
-DB_PATH = os.environ.get("DB_PATH", "229voitures.db")
+DB_PATH = os.environ.get("DB_PATH", "vehicles.db")
 
 
 # =============================
@@ -80,7 +80,7 @@ async def run_scrape_job():
     init_inventory_cache()
 
     # 1. Force Occasion en premier — Playwright infinite scroll
-    print(f"\n[{datetime.now()}] === Force Occasion Scraper (Playwright) ===")
+    print(f"\n[{datetime.now()}] === Force Occasion Scraper (sitemaps XML) ===")
     try:
         conn = sqlite3.connect(DB_PATH)
         fo_count = await scrape_forceoccasion_for_background(conn)

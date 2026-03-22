@@ -88,6 +88,54 @@ def create_recommendation_history_table():
     conn.close()
 
 
+def create_inventory_cache_table():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS inventory_cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT,
+            vehicle_id TEXT,
+            title TEXT,
+            price REAL,
+            mileage INTEGER,
+            year INTEGER,
+            make TEXT,
+            model TEXT,
+            city TEXT,
+            province TEXT,
+            dealer_name TEXT,
+            dealer_phone TEXT,
+            vin TEXT,
+            color TEXT,
+            transmission TEXT,
+            drivetrain TEXT,
+            fuel_type TEXT,
+            engine TEXT,
+            trim TEXT,
+            avg_market_price REAL,
+            price_diff REAL,
+            price_status TEXT,
+            tps REAL,
+            tvq REAL,
+            total_taxes REAL,
+            total_with_taxes REAL,
+            options TEXT,
+            description TEXT,
+            highway_consumption TEXT,
+            city_consumption TEXT,
+            photos TEXT,
+            url TEXT,
+            json_url TEXT,
+            raw_content TEXT,
+            scraped_at TEXT,
+            UNIQUE(source, vehicle_id)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
 def create_search_logs_table():
     conn = get_connection()
     cursor = conn.cursor()

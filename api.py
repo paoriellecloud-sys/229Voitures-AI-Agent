@@ -67,9 +67,8 @@ def startup():
 
     # Init inventory cache
     try:
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
-        from playwright_scraper import init_inventory_cache
-        init_inventory_cache()
+        from database import create_inventory_cache_table
+        create_inventory_cache_table()
         print("Inventory cache initialized.")
     except Exception as e:
         print(f"Cache init error: {e}")
