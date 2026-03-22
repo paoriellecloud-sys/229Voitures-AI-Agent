@@ -630,6 +630,8 @@
     transition: opacity 0.2s;
   }
   .message.ai:hover .msg-actions { opacity: 1; }
+  .message.user:hover .msg-actions { opacity: 1; }
+  .message.user .msg-actions { justify-content: flex-end; }
   @media (max-width: 768px) {
     .msg-actions { opacity: 1; }
   }
@@ -962,6 +964,51 @@ function addMsg(role, text) {
   row.appendChild(avatar);
   row.appendChild(bubble);
   div.appendChild(row);
+
+  if (role === 'user') {
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'action-btn';
+    copyBtn.title = 'Copier';
+    copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="label">Copier</span>';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span class="label">Copié !</span>';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="label">Copier</span>';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      });
+    };
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'action-btn';
+    editBtn.title = 'Éditer';
+    editBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span class="label">Éditer</span>';
+    editBtn.onclick = () => {
+      const input = document.getElementById('chat-input');
+      input.value = text;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    };
+
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'action-btn';
+    retryBtn.title = 'Relancer';
+    retryBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.39"/></svg><span class="label">Relancer</span>';
+    retryBtn.onclick = () => {
+      document.getElementById('chat-input').value = text;
+      sendMessage();
+    };
+
+    actions.appendChild(copyBtn);
+    actions.appendChild(editBtn);
+    actions.appendChild(retryBtn);
+    div.appendChild(actions);
+  }
 
   if (role === 'ai') {
     const actions = document.createElement('div');

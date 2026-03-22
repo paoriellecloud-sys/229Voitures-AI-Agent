@@ -184,6 +184,7 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
         traction = d.get("traction", "")
         couleur = d.get("couleur", "")
         niv = d.get("vin", "") or d.get("niv", "")
+        stock = d.get("stock", "") or d.get("id", "") or r.get("vehicle_id", "")
         tps = d.get("tps", "")
         tvq = d.get("tvq", "")
         options = (d.get("options", "") or "")[:200]
@@ -216,6 +217,7 @@ Véhicule #{i} — {source}
   Carburant  : {carburant} | Traction: {traction}
   Couleur    : {couleur}
   VIN        : {niv}
+  N° Stock   : {stock}
   Options    : {options}
   URL fiche  : {r.get('url', '')}
 """
@@ -253,6 +255,7 @@ RÈGLES SUR LES DONNÉES D'INVENTAIRE :
 - Si prix < prix_marche → signale que c'est sous le marché (bonne affaire potentielle)
 - Si prix > prix_marche → signale que c'est au-dessus du marché (négocier)
 - Le VIN est toujours disponible dans les données Force Occasion — ne jamais dire que tu ne l'as pas si les données du cache sont présentes
+- Toujours afficher le N° Stock dans la présentation des véhicules Force Occasion pour faciliter la recherche chez le concessionnaire
 
 RÈGLES DE RELANCE INTELLIGENTE :
 - Si l'utilisateur mentionne un budget → rappelle-le dans chaque réponse suivante
