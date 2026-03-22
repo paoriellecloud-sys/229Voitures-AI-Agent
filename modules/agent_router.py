@@ -22,17 +22,11 @@ sessions = {}
 # =============================
 
 def strip_html(text: str) -> str:
-    """Nettoie les balises HTML et attributs parasites dans le texte."""
     if not text:
         return text
-    # Supprimer attributs HTML qui se retrouvent en texte brut
-    text = re.sub(r'"\s*target="_blank"\s*class="link-btn">🔗 Voir l\'annonce\s*→?', '', text)
-    text = re.sub(r'"\s*target="_blank"\s*class="[^"]*">', '', text)
-    text = re.sub(r'"\s*target="_blank">', '', text)
+    text = re.sub(r'"\s*target="_blank"[^>]*>', '', text)
     text = re.sub(r'\s*class="[^"]*">', '', text)
-    # Supprimer balises HTML complètes
     text = re.sub(r'<[^>]+>', '', text)
-    # Nettoyer espaces multiples
     text = re.sub(r'  +', ' ', text)
     return text.strip()
 
