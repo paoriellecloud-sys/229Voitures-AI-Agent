@@ -26,6 +26,7 @@ def strip_html(text: str) -> str:
     if not text:
         return text
     # Supprimer attributs HTML qui se retrouvent en texte brut
+    text = re.sub(r'"\s*target="_blank"\s*class="link-btn">🔗 Voir l\'annonce\s*→?', '', text)
     text = re.sub(r'"\s*target="_blank"\s*class="[^"]*">', '', text)
     text = re.sub(r'"\s*target="_blank">', '', text)
     text = re.sub(r'\s*class="[^"]*">', '', text)
