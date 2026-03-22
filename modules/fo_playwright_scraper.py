@@ -7,9 +7,10 @@ Intégration dans background_scraper.py
 import asyncio
 import json
 import logging
+import requests
 import aiohttp
+from bs4 import BeautifulSoup
 from datetime import datetime
-from playwright.async_api import async_playwright
 
 logger = logging.getLogger(__name__)
 
@@ -189,76 +190,45 @@ def normalize_vehicle(raw: dict) -> dict:
 
 async def scrape_forceoccasion_full() -> list:
     """
-    Fonction principale: lance Playwright, scroll, récupère tout.
+    Fonction principale: utilise requests+BeautifulSoup pour collecter les IDs
+    depuis plusieurs URLs d'inventaire, puis aiohttp pour les détails JSON en parallèle.
     Retourne une liste de véhicules normalisés.
     """
-    logger.info("🚀 Démarrage du scraper Force Occasion (Playwright + Infinite Scroll)")
+    logger.info("🚀 Démarrage du scraper Force Occasion (requests + BeautifulSoup)")
 
-    vehicle_ids = []
+    inventory_urls = [
+        "https://www.forceoccasion.ca/inventaire.html",
+        "https://www.forceoccasion.ca/inventaire.html?filterid=a1b21c2q0-10x0-0-0",
+        "https://www.forceoccasion.ca/inventaire.html?cartype=demo",
+        "https://www.forceoccasion.ca/inventaire.html?cartype=new",
+    ]
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-http2',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-extensions',
-                '--disable-infobars',
-            ]
-        )
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
 
-        context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                       "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            viewport={"width": 1920, "height": 1080},
-            locale="fr-CA",
-            ignore_https_errors=True,
-            extra_http_headers={
-                "Accept-Language": "fr-CA,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Sec-CH-UA": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-                "Sec-CH-UA-Mobile": "?0",
-                "Sec-CH-UA-Platform": '"Windows"',
-                "Upgrade-Insecure-Requests": "1",
-            }
-        )
+    vehicle_ids = set()
 
-        page = await context.new_page()
-
-        # Bloquer les ressources inutiles pour aller plus vite
-        await page.route("**/*.{png,jpg,jpeg,gif,svg,woff,woff2,ttf,css}", 
-                         lambda route: route.abort())
-        await page.route("**/google-analytics*", lambda route: route.abort())
-        await page.route("**/facebook*", lambda route: route.abort())
-        await page.route("**/ads*", lambda route: route.abort())
-
+    for url in inventory_urls:
         try:
-            await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            logger.info(f"📄 Chargement de {FO_INVENTORY_URL}")
-            await page.goto(FO_INVENTORY_URL, wait_until="domcontentloaded", timeout=60000)
-
-            # Attendre que les premiers véhicules chargent
-            await page.wait_for_selector("li.carBoxWrapper[data-carid]", timeout=15000)
-            logger.info("✅ Page chargée, premiers véhicules visibles")
-
-            # Scroll infini pour tout collecter
-            vehicle_ids = await scroll_and_collect_ids(page)
-
+            logger.info(f"📄 Chargement de {url}")
+            resp = requests.get(url, headers=headers, timeout=30)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            items = soup.select("li.carBoxWrapper[data-carid]")
+            ids = {el["data-carid"] for el in items if el.get("data-carid")}
+            logger.info(f"  → {len(ids)} IDs trouvés")
+            vehicle_ids.update(ids)
         except Exception as e:
-            logger.error(f"❌ Erreur Playwright: {e}")
-        finally:
-            await browser.close()
+            logger.error(f"❌ Erreur chargement {url}: {e}")
+
+    vehicle_ids = list(vehicle_ids)
 
     if not vehicle_ids:
-        logger.warning("⚠️ Aucun ID collecté via Playwright")
+        logger.warning("⚠️ Aucun ID collecté via requests/BeautifulSoup")
         return []
 
     logger.info(f"🔗 {len(vehicle_ids)} IDs collectés, récupération des détails JSON...")
