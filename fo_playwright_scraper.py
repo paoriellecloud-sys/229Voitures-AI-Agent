@@ -41,7 +41,7 @@ async def fetch_ids_from_sitemaps() -> list:
             async with session.get(url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 resp.raise_for_status()
                 text = await resp.text()
-                ids = re.findall(r'/fiche/(\d+)', text)
+                ids = re.findall(r'-id(\d+)(?:-brochure|-pdf)?\.html', text)
                 logger.info(f"  → {len(ids)} IDs trouvés dans {url.split('/')[-1]}")
                 return ids
         except Exception as e:
