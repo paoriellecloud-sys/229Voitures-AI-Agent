@@ -126,7 +126,12 @@ def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
             return []
 
         sql = f"""
-            SELECT url, source, title, price, mileage, raw_content, scraped_at
+            SELECT url, source, title, price, mileage, year, make, model,
+                   city, province, dealer_name, dealer_phone, vin, color,
+                   transmission, drivetrain, fuel_type, engine, trim,
+                   avg_market_price, price_diff, price_status,
+                   tps, tvq, total_taxes, total_with_taxes,
+                   options, vehicle_id, raw_content, scraped_at
             FROM inventory_cache
             WHERE {" AND ".join(conditions)}
             ORDER BY scraped_at DESC
@@ -139,25 +144,42 @@ def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
 
         results = []
         for row in rows:
-            try:
-                raw = json.loads(row["raw_content"]) if row["raw_content"] else {}
-            except Exception:
-                raw = {}
-
             results.append({
-                "url": row["url"],
-                "source": row["source"],
-                "title": row["title"],
-                "price": row["price"],
-                "mileage": row["mileage"],
-                "details": raw,
-                "vehicle_id": row["vehicle_id"] if "vehicle_id" in row.keys() else "",
-                "scraped_at": row["scraped_at"],
+                "url":            row["url"],
+                "source":         row["source"],
+                "title":          row["title"],
+                "price":          row["price"],
+                "mileage":        row["mileage"],
+                "year":           row["year"],
+                "make":           row["make"],
+                "model":          row["model"],
+                "city":           row["city"],
+                "province":       row["province"],
+                "dealer_name":    row["dealer_name"],
+                "dealer_phone":   row["dealer_phone"],
+                "vin":            row["vin"],
+                "color":          row["color"],
+                "transmission":   row["transmission"],
+                "drivetrain":     row["drivetrain"],
+                "fuel_type":      row["fuel_type"],
+                "engine":         row["engine"],
+                "trim":           row["trim"],
+                "avg_market_price": row["avg_market_price"],
+                "price_diff":     row["price_diff"],
+                "price_status":   row["price_status"],
+                "tps":            row["tps"],
+                "tvq":            row["tvq"],
+                "total_taxes":    row["total_taxes"],
+                "total_with_taxes": row["total_with_taxes"],
+                "options":        row["options"],
+                "vehicle_id":     row["vehicle_id"],
+                "raw_content":    row["raw_content"],
+                "scraped_at":     row["scraped_at"],
             })
 
         print(f"[search_inventory_cache] query={repr(query)} → {len(results)} résultat(s)")
         for r in results[:3]:
-            print(f"  • {r.get('title','?')} | {r.get('price','?')}$ | {r.get('url','?')[:60]}")
+            print(f"  • {r.get('year','')} {r.get('make','')} {r.get('model','')} | {r.get('price','?')}$ | {r.get('city','?')} | {r.get('url','?')[:60]}")
 
         return results
 
@@ -172,28 +194,33 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
 
     lines = ["=== VÉHICULES DISPONIBLES (données réelles Force Occasion) ===\n"]
     for i, r in enumerate(results, 1):
-        d = r.get("details", {})
-        annee = d.get("annee", "")
-        marque = d.get("marque", "")
-        modele = d.get("modele", "")
-        prix = d.get("prix", r.get("price", ""))
-        prix_marche = d.get("prix_marche", "")
-        km = d.get("kilometrage", r.get("mileage", ""))
-        ville = d.get("ville", "")
-        province = d.get("province", "")
-        concessionnaire = d.get("concessionnaire", "")
-        telephone = d.get("telephone", "")
-        transmission = d.get("transmission", "")
-        moteur = d.get("moteur", "")
-        carburant = d.get("carburant", "")
-        traction = d.get("traction", "")
-        couleur = d.get("couleur", "")
-        niv = d.get("vin", "") or d.get("niv", "")
-        stock = d.get("stock", "") or d.get("id", "") or r.get("vehicle_id", "")
-        tps = d.get("tps", "")
-        tvq = d.get("tvq", "")
-        options = (d.get("options", "") or "")[:200]
-        source = r.get("source", "")
+        prix  = r.get("price", "")
+        titre = r.get("title", "")
+
+        # Skip véhicules avec données essentielles manquantes
+        if not prix and not titre:
+            continue
+
+        annee          = r.get("year", "")
+        marque         = r.get("make", "")
+        modele         = r.get("model", "")
+        prix_marche    = r.get("avg_market_price", "")
+        km             = r.get("mileage", "")
+        ville          = r.get("city", "")
+        province       = r.get("province", "")
+        concessionnaire = r.get("dealer_name", "")
+        telephone      = r.get("dealer_phone", "")
+        transmission   = r.get("transmission", "")
+        moteur         = r.get("engine", "")
+        carburant      = r.get("fuel_type", "")
+        traction       = r.get("drivetrain", "")
+        couleur        = r.get("color", "")
+        niv            = r.get("vin", "")
+        stock          = r.get("vehicle_id", "")
+        tps            = r.get("tps", "")
+        tvq            = r.get("tvq", "")
+        options        = (r.get("options", "") or "")[:200]
+        source         = r.get("source", "")
 
         if prix and not tps:
             try:

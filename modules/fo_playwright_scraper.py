@@ -290,16 +290,22 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
     db_conn.commit()
     logger.info(f"💾 {saved}/{len(vehicles)} véhicules sauvegardés dans inventory_cache")
 
-    # Debug: afficher les 3 premiers véhicules sauvegardés
+    # Debug: afficher les 3 premiers véhicules sauvegardés avec tous les champs clés
     try:
         cur = db_conn.cursor()
-        cur.execute("SELECT source, vehicle_id, make, model, price, raw_content FROM inventory_cache LIMIT 3")
+        cur.execute("""
+            SELECT source, vehicle_id, make, model, year, price, mileage,
+                   city, dealer_name, vin, raw_content
+            FROM inventory_cache LIMIT 3
+        """)
         rows = cur.fetchall()
         print(f"\n=== DEBUG inventory_cache ({saved} véhicules sauvegardés) ===")
         for row in rows:
-            source, vid, make, model, price, raw_content = row
-            print(f"  [{source}] {make} {model} | prix={price} | vehicle_id={vid}")
-            print(f"  raw_content[:100]: {str(raw_content)[:100]}")
+            source, vid, make, model, year, price, mileage, city, dealer, vin, raw_content = row
+            print(f"  [{source}] {year} {make} {model}")
+            print(f"    prix={price} | km={mileage} | ville={city} | dealer={dealer}")
+            print(f"    vin={vin} | vehicle_id={vid}")
+            print(f"    raw_content[:200]: {str(raw_content)[:200]}")
         print("=== FIN DEBUG ===\n")
     except Exception as e:
         print(f"[DEBUG inventory_cache] Erreur: {e}")
