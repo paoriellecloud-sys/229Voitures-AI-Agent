@@ -151,8 +151,13 @@ def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
                 "price": row["price"],
                 "mileage": row["mileage"],
                 "details": raw,
+                "vehicle_id": row["vehicle_id"] if "vehicle_id" in row.keys() else "",
                 "scraped_at": row["scraped_at"],
             })
+
+        print(f"[search_inventory_cache] query={repr(query)} → {len(results)} résultat(s)")
+        for r in results[:3]:
+            print(f"  • {r.get('title','?')} | {r.get('price','?')}$ | {r.get('url','?')[:60]}")
 
         return results
 
