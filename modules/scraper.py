@@ -158,6 +158,15 @@ def search_and_analyze(query: str, site: str = None, count: int = 2) -> dict:
         search_results = fo_results + other_filtered
         search_results = search_results[:count]
 
+    # Fallback immédiat si SerpAPI n'a rien retourné
+    if not search_results:
+        return {
+            "analysis": "Je n'ai pas trouvé ce véhicule dans mon inventaire actuel. Cherchez sur AutoHebdo.net, Otogo.ca ou Kijiji.ca/autos et envoyez-moi le lien pour une analyse complète.",
+            "urls_found": [],
+            "scraped_count": 0,
+            "source": "no_results"
+        }
+
     # Step 2 — Scrape each URL + filter irrelevant results
     scraped_listings = []
     for result in search_results:

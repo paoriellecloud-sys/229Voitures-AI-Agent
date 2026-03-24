@@ -79,6 +79,20 @@ async def run_scrape_job():
     print(f"\n[{datetime.now()}] Starting background scrape job...")
     init_inventory_cache()
 
+    # Vérifier l'âge de fo_vehicle_ids.json
+    import json as _json
+    ids_file = os.path.join(os.path.dirname(__file__), "fo_vehicle_ids.json")
+    if os.path.exists(ids_file):
+        try:
+            with open(ids_file) as f:
+                ids_data = _json.load(f)
+            age_days = (datetime.now().timestamp() - os.path.getmtime(ids_file)) / 86400
+            print(f"[fo_vehicle_ids.json] {len(ids_data)} IDs — âge: {age_days:.1f} jours")
+            if age_days > 7:
+                print("⚠️ fo_vehicle_ids.json a plus de 7 jours — pensez à régénérer localement avec python get_fo_ids.py")
+        except Exception as e:
+            print(f"[fo_vehicle_ids.json] Erreur lecture: {e}")
+
     # 1. Force Occasion en premier — Playwright infinite scroll
     print(f"\n[{datetime.now()}] === Force Occasion Scraper (sitemaps XML) ===")
     try:

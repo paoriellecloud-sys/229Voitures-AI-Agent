@@ -51,6 +51,19 @@ def get_session(user_id: str) -> dict:
                 "last_intent": None,
             }
         }
+        # Charger la mémoire persistante depuis SQLite
+        try:
+            import sys
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+            from database import get_user_memory
+            saved_memory = get_user_memory(user_id)
+            if saved_memory:
+                if saved_memory.get("budget"):
+                    sessions[user_id]["context"]["budget"] = saved_memory["budget"]
+                if saved_memory.get("preferred_make"):
+                    sessions[user_id]["context"]["preferred_make"] = saved_memory["preferred_make"]
+        except Exception:
+            pass
     return sessions[user_id]
 
 
@@ -65,6 +78,21 @@ def update_context(user_id: str, intent_data: dict, response: str):
     if urls:
         ctx["viewed_urls"].extend(urls)
         ctx["viewed_urls"] = list(set(ctx["viewed_urls"]))[-10:]
+
+    # Sauvegarder la mémoire persistante dans SQLite
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        from database import update_user_memory
+        memory_update = {}
+        if ctx.get("budget"):
+            memory_update["budget"] = ctx["budget"]
+        if ctx.get("preferred_make"):
+            memory_update["preferred_make"] = ctx["preferred_make"]
+        if memory_update:
+            update_user_memory(user_id, memory_update)
+    except Exception:
+        pass
 
 
 def build_context_summary(user_id: str):
@@ -395,6 +423,18 @@ Si l'utilisateur commence sans préciser ses besoins, poser ces questions dans l
 5. Véhicule d'échange ?
 6. Préférence AWD pour l'hiver québécois ?
 7. Critères prioritaires ? (espace, fiabilité, consommation, technologie)
+
+RÈGLE CONCESSIONNAIRE :
+Toujours afficher le nom EXACT du concessionnaire. Si non disponible dans les données, écrire :
+🔎 Retrouvez ce véhicule : recherchez '[Marque] [Modèle] [Année] [km]km [Ville]' sur Google ou AutoHebdo.net
+JAMAIS écrire "Concessionnaire à [Ville]" sans le nom.
+
+RÈGLE QUALITÉ MINIMALE :
+Un véhicule ne peut être présenté que s'il a AU MINIMUM : prix exact + kilométrage exact + ville exacte + nom concessionnaire OU lien direct.
+Si ces 4 éléments manquent → ne pas présenter de fiche. À la place écrire :
+"Je n'ai pas trouvé de [Marque Modèle Année] avec suffisamment de détails dans mon inventaire.
+🔎 Cherchez directement sur : AutoHebdo.net · Otogo.ca · Kijiji.ca/autos
+Si vous trouvez une annonce, envoyez-moi le lien et je l'analyse complètement."
 """
 
 INTENT_PROMPT = """
@@ -532,6 +572,39 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     elif intent == "SEARCH" and intent_data.get("query"):
         query = intent_data["query"]
         session["context"]["last_query"] = query
+
+        # ─── Détection de recherche "similaires" — élargir par catégorie ───
+        CATEGORIES_VEHICULES = {
+            "vus_compact": ["rogue", "rav4", "cr-v", "crv", "escape", "tucson", "sportage", "outlander", "cx-5", "cx5", "equinox", "forester"],
+            "vus_souscompact": ["seltos", "venue", "trax", "encore", "ecosport", "qashqai", "kicks"],
+            "berline_compacte": ["civic", "corolla", "elantra", "sentra", "mazda3", "forte", "golf"],
+            "berline_intermediaire": ["camry", "accord", "altima", "sonata", "fusion", "malibu"],
+            "camionnette_midsized": ["tacoma", "colorado", "ranger", "frontier", "ridgeline", "canyon"],
+            "camionnette_fullsize": ["f-150", "f150", "ram", "silverado", "sierra", "tundra"],
+            "electrique": ["ioniq", "leaf", "bolt", "model 3", "model y", "id.4", "mache", "mustang mache"],
+        }
+        MOTS_SIMILAIRES = ["similaire", "pareil", "alternative", "autres options", "autres modeles", "comme ça", "du même genre", "equivalent"]
+
+        if any(mot in query.lower() for mot in MOTS_SIMILAIRES):
+            dernier_vehicule = ""
+            categorie = ""
+            for msg in reversed(session["history"]):
+                if msg["role"] == "assistant":
+                    for cat, modeles in CATEGORIES_VEHICULES.items():
+                        for modele in modeles:
+                            if modele in msg["content"].lower():
+                                dernier_vehicule = modele
+                                categorie = cat
+                                break
+                        if dernier_vehicule:
+                            break
+                if dernier_vehicule:
+                    break
+            if dernier_vehicule:
+                modeles_categorie = CATEGORIES_VEHICULES.get(categorie, [])
+                query = " ".join(modeles_categorie[:4]) + " occasion Quebec"
+                intent_data["query"] = query
+                print(f"[smart_chat] Recherche similaires → catégorie '{categorie}' → query: {query}")
 
         # ─── ÉTAPE 1 : Chercher dans l'inventaire local (Force Occasion) ───
         cache_results = search_inventory_cache(query, limit=5)
