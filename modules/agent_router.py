@@ -198,7 +198,7 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
         titre = r.get("title", "")
 
         # Skip véhicules avec données essentielles manquantes
-        if not prix and not titre:
+        if not prix or not titre:
             continue
 
         annee          = r.get("year", "")
@@ -237,6 +237,21 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
             except Exception:
                 total_taxes = ""
 
+        # Score de fiabilité
+        reliability = "✅ Données cohérentes"
+        try:
+            prix_float = float(str(prix).replace(",", "").replace("$", "").strip())
+            km_float = float(str(km)) if km else 0
+            prix_marche_float = float(str(prix_marche)) if prix_marche else 0
+            if prix_marche_float > 0 and prix_float < prix_marche_float * 0.85:
+                reliability = "⚠️ Prix suspect — vérifier l'état du véhicule"
+            elif prix_marche_float > 0 and prix_float > prix_marche_float * 1.15:
+                reliability = "💡 Prix au-dessus du marché — négocier"
+            elif km_float > 150000:
+                reliability = "⚠️ Kilométrage élevé — inspection recommandée"
+        except Exception:
+            pass
+
         line = f"""
 Véhicule #{i} — {source}
   Titre      : {annee} {marque} {modele}
@@ -251,6 +266,7 @@ Véhicule #{i} — {source}
   VIN        : {niv}
   N° Stock   : {stock}
   Options    : {options}
+  Fiabilité  : {reliability}
   URL fiche  : {r.get('url', '')}
 """
         lines.append(line)
@@ -532,11 +548,29 @@ INSTRUCTIONS :
                 pass
 
             # Nettoyer le HTML parasite dans la réponse SerpAPI
-            base_response = strip_html(search_result.get("analysis", ""))
+            serp_response = strip_html(search_result.get("analysis", ""))
+
+            # Construire un prompt avec note géo + résultats SerpAPI
+            geo_prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+RECHERCHE DE L'UTILISATEUR : "{query}"
+
+INSTRUCTION : Aucun véhicule trouvé dans l'inventaire local. Élargis la recherche géographiquement — propose Québec, Lévis, Montréal comme alternatives proches.
+
+RÉSULTATS WEB TROUVÉS :
+{serp_response}
+"""
+            geo_response = client.models.generate_content(model="gemini-2.5-flash", contents=geo_prompt)
 
             result = {
                 "intent": "SEARCH",
-                "response": base_response + "\n\nSouhaitez-vous que je vérifie le VIN d'un de ces véhicules, ou voulez-vous les comparer entre eux ?",
+                "response": geo_response.text + "\n\nSouhaitez-vous que je vérifie le VIN d'un de ces véhicules, ou voulez-vous les comparer entre eux ?",
                 "urls_found": search_result.get("urls_found", []),
                 "scraped_count": search_result.get("scraped_count", 0),
                 "source": "serpapi"
