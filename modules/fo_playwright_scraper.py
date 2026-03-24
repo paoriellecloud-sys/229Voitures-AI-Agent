@@ -7,6 +7,7 @@ Intégration dans background_scraper.py
 import asyncio
 import json
 import logging
+import os
 import re
 import aiohttp
 from datetime import datetime
@@ -181,16 +182,31 @@ def normalize_vehicle(raw: dict) -> dict:
 
 async def scrape_forceoccasion_full() -> list:
     """
-    Fonction principale: parse les sitemaps XML pour collecter les IDs,
-    puis utilise aiohttp pour récupérer les détails JSON en parallèle.
+    Fonction principale: lit fo_vehicle_ids.json si disponible (/app/ ou dossier courant),
+    sinon fallback sur les sitemaps XML. Récupère les détails JSON en parallèle.
     Retourne une liste de véhicules normalisés.
     """
     logger.info("🚀 Démarrage du scraper Force Occasion (sitemaps XML + API JSON)")
 
-    vehicle_ids = await fetch_ids_from_sitemaps()
+    # Priorité : fichier local d'IDs (Railway /app/ ou dossier courant)
+    vehicle_ids = None
+    for ids_path in ["/app/fo_vehicle_ids.json", "fo_vehicle_ids.json"]:
+        if os.path.exists(ids_path):
+            try:
+                with open(ids_path, encoding="utf-8") as f:
+                    vehicle_ids = json.load(f)
+                logger.info(f"📂 {len(vehicle_ids)} IDs chargés depuis {ids_path} (fichier local)")
+            except Exception as e:
+                logger.warning(f"⚠️ Erreur lecture {ids_path}: {e} → fallback sitemaps")
+                vehicle_ids = None
+            break
 
     if not vehicle_ids:
-        logger.warning("⚠️ Aucun ID collecté depuis les sitemaps")
+        logger.info("📡 fo_vehicle_ids.json introuvable → fetch des sitemaps")
+        vehicle_ids = await fetch_ids_from_sitemaps()
+
+    if not vehicle_ids:
+        logger.warning("⚠️ Aucun ID collecté")
         return []
 
     logger.info(f"🔗 {len(vehicle_ids)} IDs collectés, récupération des détails JSON...")
