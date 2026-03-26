@@ -544,12 +544,38 @@ def handle_followup(user_id: str, intent_data: dict, history_str: str, context_s
 
 
 # =============================
+# TOKEN GUARD HELPERS
+# =============================
+
+def estimate_tokens(text: str) -> int:
+    """Estimation du nombre de tokens (~4 caractères par token)."""
+    return len(text) // 4
+
+
+def _short_history(session: dict, n: int = 10) -> str:
+    """Retourne l'historique des n derniers messages."""
+    result = ""
+    for msg in session["history"][-n:]:
+        role = "Utilisateur" if msg["role"] == "user" else "Agent"
+        result += f"{role}: {msg['content'][:200]}\n"
+    return result
+
+
+# =============================
 # SMART CHAT — MAIN ENTRY POINT
 # =============================
 
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
     context_summary, history_str = build_context_summary(user_id)
+
+    # ─── Guard token limit (base: SYSTEM_PROMPT + historique + contexte) ───
+    base_tokens = estimate_tokens(SYSTEM_PROMPT + history_str + context_summary)
+    if base_tokens > 25000:
+        print(f"[smart_chat] ⚠️  WARNING: prompt base ~{base_tokens} tokens (seuil 25 000)")
+    if base_tokens > 30000:
+        print(f"[smart_chat] 🔴 TRUNCATION: prompt base > 30 000 tokens → historique réduit à 10 messages")
+        history_str = _short_history(session, 10)
     session["history"].append({"role": "user", "content": message})
     intent_data = detect_intent(message, context_summary)
     intent = intent_data.get("intent", "CHAT")
@@ -634,6 +660,34 @@ INSTRUCTIONS :
 - NE PAS inventer de données — utilise seulement ce qui est fourni
 - NE PAS inclure de HTML brut dans ta réponse
 """
+            # Token guard — SEARCH cache
+            _tok = estimate_tokens(prompt)
+            if _tok > 25000:
+                print(f"[smart_chat/SEARCH-cache] ⚠️  WARNING: prompt ~{_tok} tokens (seuil 25 000)")
+            if _tok > 30000:
+                print(f"[smart_chat/SEARCH-cache] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
+                history_str = _short_history(session, 10)
+                prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+{cache_text}
+
+RECHERCHE DE L'UTILISATEUR : "{query}"
+
+INSTRUCTIONS :
+- Présente les véhicules trouvés en utilisant UNIQUEMENT les données réelles ci-dessus
+- Utilise le FORMAT DE PRÉSENTATION défini dans tes instructions
+- Compare le prix au prix du marché si disponible
+- Si le kilométrage > 100 000 km, suggère de vérifier le VIN
+- Termine avec une question concrète (vérifier VIN, voir plus de détails, comparer ?)
+- NE PAS inventer de données — utilise seulement ce qui est fourni
+- NE PAS inclure de HTML brut dans ta réponse
+"""
             response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
             result = {
                 "intent": "SEARCH",
@@ -663,6 +717,28 @@ INSTRUCTIONS :
 
             # Construire un prompt avec note géo + résultats SerpAPI
             geo_prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+RECHERCHE DE L'UTILISATEUR : "{query}"
+
+INSTRUCTION : Aucun véhicule trouvé dans l'inventaire local. Élargis la recherche géographiquement — propose Québec, Lévis, Montréal comme alternatives proches.
+
+RÉSULTATS WEB TROUVÉS :
+{serp_response}
+"""
+            # Token guard — SEARCH SerpAPI
+            _tok = estimate_tokens(geo_prompt)
+            if _tok > 25000:
+                print(f"[smart_chat/SEARCH-serp] ⚠️  WARNING: prompt ~{_tok} tokens (seuil 25 000)")
+            if _tok > 30000:
+                print(f"[smart_chat/SEARCH-serp] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
+                history_str = _short_history(session, 10)
+                geo_prompt = f"""
 {SYSTEM_PROMPT}
 
 Historique:
@@ -715,6 +791,32 @@ RÉSULTATS WEB TROUVÉS :
             learning_context = ""
 
         full_prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+{learning_context}
+
+Message de l'utilisateur: {message}
+
+INSTRUCTIONS :
+- Réponds directement sans préambule
+- Si l'utilisateur mentionne un modèle → utilise Google Search pour les prix actuels au Canada
+- Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
+- Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
+- Si la mémoire utilisateur contient un budget → l'utiliser comme référence
+- NE PAS inclure de HTML brut dans ta réponse
+"""
+        # Token guard — CHAT
+        _tok = estimate_tokens(full_prompt)
+        if _tok > 25000:
+            print(f"[smart_chat/CHAT] ⚠️  WARNING: prompt ~{_tok} tokens (seuil 25 000)")
+        if _tok > 30000:
+            print(f"[smart_chat/CHAT] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
+            history_str = _short_history(session, 10)
+            full_prompt = f"""
 {SYSTEM_PROMPT}
 
 Historique:
