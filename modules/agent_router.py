@@ -611,7 +611,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         }
         MOTS_SIMILAIRES = ["similaire", "pareil", "alternative", "autres options", "autres modeles", "comme ça", "du même genre", "equivalent"]
 
-        if any(mot in query.lower() for mot in MOTS_SIMILAIRES):
+        if any(mot in query.lower() for mot in MOTS_SIMILAIRES) and session["context"].get("last_listings"):
             dernier_vehicule = ""
             categorie = ""
             for msg in reversed(session["history"]):
@@ -630,7 +630,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 modeles_categorie = CATEGORIES_VEHICULES.get(categorie, [])
                 query = " ".join(modeles_categorie[:4]) + " occasion Quebec"
                 intent_data["query"] = query
-                print(f"[smart_chat] Recherche similaires → catégorie '{categorie}' → query: {query}")
+                print(f"[similaires] {dernier_vehicule} → catégorie {categorie} → nouvelle query: {query}")
 
         # ─── ÉTAPE 1 : Chercher dans l'inventaire local (Force Occasion) ───
         cache_results = search_inventory_cache(query, limit=5)
@@ -782,12 +782,16 @@ RÉSULTATS WEB TROUVÉS :
                 if mem_parts:
                     learning_context += f"\n\nMÉMOIRE UTILISATEUR:\n" + "\n".join(mem_parts)
 
-            good = get_similar_good_responses(message, limit=2)
+            good = get_similar_good_responses(message, limit=3)
             if good:
-                learning_context += "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES:\n"
+                learning_context += "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES (inspire-toi de ce style) :\n"
                 for g in good:
-                    learning_context += f"Q: {g['question']}\nA: {g['response'][:300]}...\n\n"
-        except Exception:
+                    q = g.get("question", g.get("query", ""))[:150]
+                    r = g.get("response", g.get("answer", ""))[:300]
+                    if q and r:
+                        learning_context += f"Q: {q}\nR: {r}\n\n"
+        except Exception as e:
+            print(f"[few_shot] skip: {e}")
             learning_context = ""
 
         full_prompt = f"""
@@ -849,4 +853,22 @@ INSTRUCTIONS :
         session["history"].append({"role": "assistant", "content": result["response"]})
     update_context(user_id, intent_data, result["response"] if isinstance(result.get("response"), str) else "")
     session["history"] = session["history"][-20:]
+
+    # ─── Mémoire persistante — sauvegarde finale ───
+    try:
+        import sys as _sys
+        _sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        from database import update_user_memory
+        memory_update = {}
+        if session["context"].get("budget"):
+            memory_update["budget"] = session["context"]["budget"]
+        if session["context"].get("preferred_make"):
+            memory_update["preferred_make"] = session["context"]["preferred_make"]
+        if session["context"].get("financing"):
+            memory_update["financing"] = session["context"]["financing"]
+        if memory_update:
+            update_user_memory(user_id, memory_update)
+    except Exception as e:
+        print(f"[memory_save] skip: {e}")
+
     return result
