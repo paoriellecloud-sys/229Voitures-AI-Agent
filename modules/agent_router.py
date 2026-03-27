@@ -544,16 +544,20 @@ Return ONLY the JSON, no explanation.
 
 def detect_intent(message: str, context_summary: str) -> dict:
     # ─── Détection F&I rapide avant appel Gemini ───
-    _msg = message.lower()
-    _FI_TERMS = ["finance", "financement", "location", "72 mois", "48 mois", "60 mois",
-                 "mensualité", "taux", "protection", "garantie prolongée", "f&i"]
-    _VEHICLE_MODELS = [
-        "rogue", "rav4", "cr-v", "crv", "escape", "tucson", "sportage", "equinox",
-        "civic", "corolla", "elantra", "camry", "accord", "f-150", "f150", "ram",
-        "silverado", "tacoma", "colorado", "pilot", "highlander", "pathfinder",
-        "seltos", "venue", "trax", "ioniq", "tesla", "bolt", "leaf", "outlander",
+    msg_lower = message.lower()
+    FI_KEYWORDS = [
+        "finance", "financement", "location", "mensualité", "paiement",
+        "72 mois", "60 mois", "48 mois", "36 mois", "taux", "crédit",
+        "garantie", "garantie prolongée", "protection", "assurance prêt",
     ]
-    if any(t in _msg for t in _FI_TERMS) and any(m in _msg for m in _VEHICLE_MODELS):
+    VEHICLE_BRANDS = [
+        "toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
+        "ford", "chevrolet", "nissan", "mazda", "volkswagen", "lexus",
+        "subaru", "mitsubishi", "jeep", "dodge", "ram", "gmc", "buick",
+    ]
+    has_fi = any(k in msg_lower for k in FI_KEYWORDS)
+    has_vehicle = any(b in msg_lower for b in VEHICLE_BRANDS)
+    if has_fi and has_vehicle:
         return {"intent": "GARANTIES", "urls": [], "vin": None, "query": message,
                 "site": None, "count": 3, "followup_action": None}
 
@@ -663,6 +667,65 @@ def _short_history(session: dict, n: int = 10) -> str:
 
 
 # =============================
+# RISK SCORE F&I
+# =============================
+
+def calculate_risk_score(user_data: dict, message: str) -> dict:
+    score = 0
+    factors = []
+    msg_lower = message.lower()
+
+    months_match = re.search(r'(\d+)\s*mois', msg_lower)
+    if months_match:
+        months = int(months_match.group(1))
+        if months >= 72:
+            score += 30
+            factors.append("financement long terme (72 mois+)")
+        elif months >= 60:
+            score += 20
+            factors.append("financement 60 mois")
+        elif months >= 48:
+            score += 10
+            factors.append("financement 48 mois")
+
+    if user_data.get("annual_km") and user_data["annual_km"] > 20000:
+        score += 20
+        factors.append("kilométrage élevé")
+
+    luxury = ["bmw", "audi", "mercedes", "lexus", "porsche", "volvo", "land rover"]
+    if any(b in msg_lower for b in luxury):
+        score += 25
+        factors.append("véhicule luxe (réparations coûteuses)")
+
+    year_match = re.search(r'20(\d{2})', msg_lower)
+    if year_match:
+        age = 2026 - (2000 + int(year_match.group(1)))
+        if age >= 5:
+            score += 20
+            factors.append(f"véhicule de {age} ans")
+        elif age >= 3:
+            score += 10
+            factors.append(f"véhicule de {age} ans")
+
+    reliable = ["toyota", "honda", "mazda"]
+    if any(b in msg_lower for b in reliable):
+        score -= 10
+        factors.append("marque fiable (risque réduit)")
+
+    score = max(0, min(score, 100))
+
+    if score >= 70:
+        level, emoji, decision = "ÉLEVÉ", "🔴", "Garantie fortement recommandée"
+    elif score >= 40:
+        level, emoji, decision = "MODÉRÉ", "🟡", "Garantie recommandée, pas la plus chère"
+    else:
+        level, emoji, decision = "FAIBLE", "🟢", "Garantie optionnelle"
+
+    return {"score": score, "level": level, "emoji": emoji,
+            "decision": decision, "factors": factors}
+
+
+# =============================
 # SMART CHAT — MAIN ENTRY POINT
 # =============================
 
@@ -707,7 +770,40 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     intent = intent_data.get("intent", "CHAT")
     result = {}
 
-    if intent == "FOLLOWUP":
+    if intent == "GARANTIES":
+        risk = calculate_risk_score(session["user_data"], message)
+        risk_context = f"""
+SCORE DE RISQUE CALCULÉ : {risk['emoji']} {risk['score']}/100 — Risque {risk['level']}
+Facteurs : {', '.join(risk['factors']) if risk['factors'] else 'aucun facteur détecté'}
+Décision recommandée : {risk['decision']}
+
+INSTRUCTION : Affiche ce score dans ta réponse sous cette forme exacte dans la section 💰 :
+📊 Score de risque : {risk['emoji']} {risk['score']}/100 — {risk['level']}
+Puis explique ce que ça signifie concrètement pour cet acheteur.
+"""
+        garanties_prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+{risk_context}
+
+Message de l'utilisateur: {message}
+
+INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯). Inclus le score 📊 dans la section 💰.
+"""
+        _tok = estimate_tokens(garanties_prompt)
+        if _tok > 25000:
+            print(f"[smart_chat/GARANTIES] ⚠️  WARNING: prompt ~{_tok} tokens")
+        garanties_response = client.models.generate_content(
+            model="gemini-2.5-flash", contents=garanties_prompt
+        )
+        result = {"intent": "GARANTIES", "response": garanties_response.text,
+                  "risk_score": risk["score"], "risk_level": risk["level"]}
+
+    elif intent == "FOLLOWUP":
         result = handle_followup(user_id, intent_data, history_str, context_summary)
 
     elif intent == "CHECK_VIN" and intent_data.get("vin"):
