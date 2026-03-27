@@ -65,6 +65,13 @@ def startup():
     except Exception as e:
         print(f"Learning tables error: {e}")
 
+    # Reset sessions corrompues > 24h
+    try:
+        from database import reset_old_sessions
+        reset_old_sessions()
+    except Exception as e:
+        print(f"reset_old_sessions error: {e}")
+
     # Init inventory cache
     try:
         from database import create_inventory_cache_table

@@ -332,6 +332,15 @@ def create_learning_tables():
         )
     """)
 
+    # User memory v2 — JSON blob (supports arbitrary fields like financing)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_memory_v2 (
+            user_id TEXT PRIMARY KEY,
+            memory  TEXT,
+            updated_at TEXT
+        )
+    """)
+
     # Pattern learning — frequent questions and best answers
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS learned_patterns (
@@ -417,42 +426,60 @@ def get_similar_good_responses(question: str, limit: int = 3) -> list:
 
 
 def update_user_memory(user_id: str, data: dict):
-    """Updates persistent user memory/preferences."""
+    """Updates persistent user memory (JSON blob — supports any field)."""
+    import json
+    from datetime import datetime
     conn = get_connection()
-    cursor = conn.cursor()
     try:
-        cursor.execute("SELECT id FROM user_memory WHERE user_id = ?", (user_id,))
-        existing = cursor.fetchone()
-        if existing:
-            fields = ', '.join([f"{k} = ?" for k in data.keys()])
-            values = list(data.values()) + [user_id]
-            cursor.execute(f"UPDATE user_memory SET {fields}, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", values)
+        row = conn.execute(
+            "SELECT memory FROM user_memory_v2 WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        if row:
+            current = json.loads(row[0]) if row[0] else {}
+            current.update(data)
+            conn.execute(
+                "UPDATE user_memory_v2 SET memory = ?, updated_at = ? WHERE user_id = ?",
+                (json.dumps(current), datetime.now().isoformat(), user_id)
+            )
         else:
-            data['user_id'] = user_id
-            fields = ', '.join(data.keys())
-            placeholders = ', '.join(['?' for _ in data])
-            cursor.execute(f"INSERT INTO user_memory ({fields}) VALUES ({placeholders})", list(data.values()))
+            conn.execute(
+                "INSERT INTO user_memory_v2 (user_id, memory, updated_at) VALUES (?, ?, ?)",
+                (user_id, json.dumps(data), datetime.now().isoformat())
+            )
         conn.commit()
     except Exception as e:
-        print(f"update_user_memory error: {e}")
+        print(f"[update_user_memory] error: {e}")
     finally:
         conn.close()
 
 
 def get_user_memory(user_id: str) -> dict:
-    """Gets persistent user memory/preferences."""
+    """Gets persistent user memory (JSON blob)."""
+    import json
     conn = get_connection()
-    cursor = conn.cursor()
     try:
-        cursor.execute("SELECT * FROM user_memory WHERE user_id = ?", (user_id,))
-        row = cursor.fetchone()
-        if row:
-            columns = [desc[0] for desc in cursor.description]
-            return dict(zip(columns, row))
+        row = conn.execute(
+            "SELECT memory FROM user_memory_v2 WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        if row and row[0]:
+            return json.loads(row[0])
         return {}
     except Exception as e:
-        print(f"get_user_memory error: {e}")
+        print(f"[get_user_memory] error: {e}")
         return {}
+    finally:
+        conn.close()
+
+
+def reset_old_sessions():
+    """Purge sessions SQLite > 24h (nettoyage préventif)."""
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM sessions WHERE created_at < datetime('now', '-1 day')")
+        conn.commit()
+        print("[database] Sessions > 24h supprimées")
+    except Exception as e:
+        print(f"[database] reset sessions error: {e}")
     finally:
         conn.close()
 

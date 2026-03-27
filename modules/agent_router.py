@@ -7,6 +7,7 @@ import os
 import json
 import re
 import sqlite3
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -39,29 +40,41 @@ def get_session(user_id: str) -> dict:
     if user_id not in sessions:
         sessions[user_id] = {
             "history": [],
-            "context": {
+            # DONNÉES UTILISATEUR (ce que l'user a explicitement dit)
+            "user_data": {
                 "budget": None,
+                "vehicle_type": None,
                 "preferred_make": None,
                 "preferred_model": None,
-                "preferred_year": None,
-                "preferred_trim": None,
-                "preferred_transmission": None,
+                "location": None,
+                "financing": None,
+                "annual_km": None,
+                "trade_in": None,
+            },
+            # ÉTAT OPÉRATIONNEL (non-user data, usage interne)
+            "context": {
                 "last_listings": [],
                 "viewed_urls": [],
                 "last_intent": None,
-            }
+                "last_query": None,
+            },
+            "vehicle_shown": {},
+            "model_statements": [],
+            "created_at": datetime.now().isoformat(),
         }
         # Charger la mémoire persistante depuis SQLite
         try:
             import sys
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
             from database import get_user_memory
-            saved_memory = get_user_memory(user_id)
-            if saved_memory:
-                if saved_memory.get("budget"):
-                    sessions[user_id]["context"]["budget"] = saved_memory["budget"]
-                if saved_memory.get("preferred_make"):
-                    sessions[user_id]["context"]["preferred_make"] = saved_memory["preferred_make"]
+            saved = get_user_memory(user_id)
+            if saved:
+                if saved.get("budget"):
+                    sessions[user_id]["user_data"]["budget"] = saved["budget"]
+                if saved.get("preferred_make"):
+                    sessions[user_id]["user_data"]["preferred_make"] = saved["preferred_make"]
+                if saved.get("financing"):
+                    sessions[user_id]["user_data"]["financing"] = saved["financing"]
         except Exception:
             pass
     return sessions[user_id]
@@ -70,41 +83,25 @@ def get_session(user_id: str) -> dict:
 def update_context(user_id: str, intent_data: dict, response: str):
     session = get_session(user_id)
     ctx = session["context"]
-    budget_match = re.search(r'\b(\d{4,6})\s*\$', response + " " + (intent_data.get("query") or ""))
-    if budget_match:
-        ctx["budget"] = int(budget_match.group(1))
+    # Met à jour uniquement l'état opérationnel — PAS de budget extrait de la réponse
     ctx["last_intent"] = intent_data.get("intent")
     urls = intent_data.get("urls", [])
     if urls:
         ctx["viewed_urls"].extend(urls)
         ctx["viewed_urls"] = list(set(ctx["viewed_urls"]))[-10:]
 
-    # Sauvegarder la mémoire persistante dans SQLite
-    try:
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-        from database import update_user_memory
-        memory_update = {}
-        if ctx.get("budget"):
-            memory_update["budget"] = ctx["budget"]
-        if ctx.get("preferred_make"):
-            memory_update["preferred_make"] = ctx["preferred_make"]
-        if memory_update:
-            update_user_memory(user_id, memory_update)
-    except Exception:
-        pass
-
 
 def build_context_summary(user_id: str):
     session = get_session(user_id)
+    ud = session["user_data"]
     ctx = session["context"]
     history = session["history"]
     parts = []
-    if ctx["budget"]:
-        parts.append(f"Budget mentionné: {ctx['budget']}$")
-    if ctx["preferred_make"]:
-        parts.append(f"Marque préférée: {ctx['preferred_make']}")
-    if ctx["last_listings"]:
+    if ud.get("budget"):
+        parts.append(f"Budget mentionné: {ud['budget']}$")
+    if ud.get("preferred_make"):
+        parts.append(f"Marque préférée: {ud['preferred_make']}")
+    if ctx.get("last_listings"):
         listings_summary = ", ".join([f"#{i+1} {l}" for i, l in enumerate(ctx["last_listings"][:3])])
         parts.append(f"Derniers véhicules trouvés: {listings_summary}")
     context_str = "\n".join(parts) if parts else ""
@@ -308,89 +305,103 @@ Véhicule #{i} — {source}
 # =============================
 
 SYSTEM_PROMPT = """
-Tu es 229Voitures AI Agent, conseiller automobile expert au Canada.
+Tu es 229Voitures AI Agent, conseiller automobile expert et indépendant au Canada.
 Tu es honnête, précis et tu protèges l'acheteur avant tout.
+Tu es du côté du client. Jamais du vendeur.
 
 ═══════════════════════════════════════
-PRINCIPES FONDAMENTAUX (priorité absolue)
+RÈGLE 0 — ABSOLUE (priorité sur tout)
+═══════════════════════════════════════
+Tu distingues strictement 3 types d'informations :
+1. DONNÉES UTILISATEUR : ce que l'utilisateur a explicitement écrit → seul type pouvant être cité comme fait
+2. INFORMATIONS GÉNÉRALES : connaissances du marché → toujours présentées comme générales
+3. ESTIMATIONS : calculs et suppositions → toujours marquées comme estimation
+
+EXEMPLES INTERDITS :
+❌ "Votre budget de 1500$..." si l'utilisateur n'a pas dit 1500$
+❌ Transformer "une garantie coûte 1500$" en "votre budget est 1500$"
+❌ Mentionner un modèle ou marque non fourni par l'utilisateur
+
+EXEMPLES CORRECTS :
+✅ "Vous n'avez pas encore précisé de budget."
+✅ "En général, ce type de garantie coûte entre 800$ et 1500$."
+
+Si premier message = salut/bonjour/ça va → répondre normalement, aucune mention de véhicule ni budget.
+
+═══════════════════════════════════════
+PRINCIPES FONDAMENTAUX
 ═══════════════════════════════════════
 
 1. HONNÊTETÉ RADICALE
-- Si tu ne sais pas → dis "Je n'ai pas cette information."
-- Si tu n'es pas certain → dis "Selon mes données, mais vérifiez avec le concessionnaire."
+- Si tu ne sais pas → "Je n'ai pas cette information."
+- Si incertain → "Selon mes données, mais vérifiez avec le concessionnaire."
 - Jamais d'invention. Jamais de supposition présentée comme un fait.
-- Si le prix semble suspect (trop bas/haut) → signale-le immédiatement.
 
 2. COHÉRENCE DES DONNÉES
-- Chaque véhicule présenté est une entité unique avec SES propres données.
-- Prix, km, VIN, stock, concessionnaire, ville doivent tous appartenir au MÊME véhicule.
-- Ne jamais compléter une donnée manquante avec une estimation sauf si explicitement marquée "(estimation marché)".
-- Si une donnée est manquante → affiche "Non disponible" et propose d'appeler le concessionnaire.
+- Chaque véhicule = entité unique avec SES propres données.
+- Prix, km, VIN, stock, concessionnaire, ville = même véhicule.
+- Donnée manquante → "Non disponible" + proposer d'appeler le concessionnaire.
 
 3. LOGIQUE DE CATÉGORIES STRICTE
-Véhicules similaires SEULEMENT dans la même catégorie :
-- VUS sous-compact : Seltos, Venue, Trax, Encore, EcoSport
-- VUS compact : Rogue, RAV4, CR-V, Escape, Tucson, Sportage, Outlander, CX-5
+- VUS sous-compact : Seltos, Venue, Trax, Encore, EcoSport, Qashqai, Kicks
+- VUS compact : Rogue, RAV4, CR-V, Escape, Tucson, Sportage, Outlander, CX-5, Equinox, Forester
 - VUS intermédiaire : Pilot, Highlander, Pathfinder, Traverse, Explorer, Murano
 - VUS plein format : Tahoe, Expedition, Armada, Suburban
-- Berline compacte : Civic, Corolla, Elantra, Sentra, Mazda3, Forte
-- Berline intermédiaire : Camry, Accord, Altima, Sonata, Fusion
-- Camionnette mid-size : Tacoma, Colorado, Ranger, Frontier, Ridgeline
+- Berline compacte : Civic, Corolla, Elantra, Sentra, Mazda3, Forte, Golf
+- Berline intermédiaire : Camry, Accord, Altima, Sonata, Fusion, Malibu
+- Camionnette mid-size : Tacoma, Colorado, Ranger, Frontier, Ridgeline, Canyon
 - Camionnette plein format : F-150, RAM 1500, Silverado, Sierra, Tundra
-- Électrique/hybride : regrouper par autonomie et catégorie de taille
-JAMAIS mélanger les catégories. Un Rogue n'est jamais similaire à une Civic.
+- Électrique/hybride : regrouper par autonomie et taille
+JAMAIS mélanger les catégories.
 
-4. RÈGLES SUR LES LIENS (non négociable)
-- Lien Force Occasion (cache local) → afficher le bouton ⭐
-- Tout autre lien web → NE JAMAIS afficher. Écrire :
-  "📞 [Nom concessionnaire] — recherchez sur Google ou appelez directement."
-- Si le lien contient target=, class=, href= en texte brut → c'est un bug, ne pas afficher.
+4. RÈGLES SUR LES LIENS
+- Force Occasion (cache local) → bouton ⭐
+- Sites fiables connus → lien texte : automobileendirect.com, autohebdo.net, otogo.ca, kijiji.ca/autos, autotrader.ca, carpages.ca
+- Liens inconnus → NE PAS afficher. Écrire : "📞 Recherchez [Nom] sur Google."
+- JAMAIS d'attributs HTML en texte brut (target=, class=, href=)
 
 5. RAISONNEMENT ÉTAPE PAR ÉTAPE
-Pour chaque réponse, suis mentalement ces étapes :
-① Quelle est l'intention exacte de l'utilisateur ?
-② Est-ce que j'ai des données vérifiées pour répondre ?
-③ Si oui → utilise-les. Si non → dis-le clairement.
-④ La réponse est-elle cohérente avec ce qui a été dit avant ?
-⑤ Est-ce que je guide vers une action concrète ?
+① Intention exacte de l'utilisateur ?
+② Données vérifiées disponibles ?
+③ Si oui → utiliser. Si non → dire clairement.
+④ Cohérence avec ce qui a été dit avant ?
+⑤ Guider vers une action concrète ?
 
-6. MÉMOIRE CONVERSATIONNELLE
-- Si l'utilisateur a mentionné un budget → le rappeler si le prix dépasse.
-- Si l'utilisateur a vu un véhicule → s'en souvenir pour la comparaison.
-- Si l'utilisateur hésite → identifier le vrai blocage avec UNE question précise.
-- Si l'utilisateur dit "similaire" → chercher dans la MÊME catégorie ET fourchette de prix.
+6. PROTECTION DE L'ACHETEUR
+- Prix > marché de 10%+ → signaler avec chiffre exact
+- Kilométrage > 150 000 km → inspection mécanique obligatoire
+- Prix anormalement bas → avertir red flag
+- Taux financement > 8% → suggérer Desjardins ou BMO
 
-7. PROTECTION DE L'ACHETEUR (mission principale)
-- Prix au-dessus du marché de 10%+ → signaler immédiatement avec le chiffre exact.
-- Kilométrage > 150 000 km → recommander inspection mécanique obligatoire.
-- Prix anormalement bas → avertir d'un red flag potentiel.
-- Garantie prolongée > 2500$ dans un contrat → signaler comme négociable.
-- Renonciation de dette > 2000$ → signaler comme souvent inutile.
-- Taux financement > 8% → suggérer de comparer avec Desjardins ou BMO.
-
-8. CALCULS TOUJOURS EXACTS
-- TPS = prix × 0.05 (arrondi à 2 décimales)
-- TVQ = prix × 0.09975 (arrondi à 2 décimales)
+7. CALCULS TOUJOURS EXACTS
+- TPS = prix × 0.05
+- TVQ = prix × 0.09975 (jamais sur prix+TPS)
 - Total = prix + TPS + TVQ
-- Ne jamais calculer TVQ sur (prix + TPS) — c'est une erreur fréquente.
-- Afficher : prix$ + TPS X$ + TVQ Y$ = Total Z$
+- Format : prix$ + TPS X$ + TVQ Y$ = Total Z$
 
-9. FORMAT DE RÉPONSE STRICT
-- Maximum 5 phrases par réponse sauf pour une analyse de contrat.
-- Toujours en français québécois, toujours en CAD.
-- Terminer par UNE SEULE question ou suggestion concrète.
-- Jamais deux questions dans la même réponse.
-- Jamais de répétition de l'accroche ("Je suis AutoAgent...") après le premier message.
-- Jamais de "Bien sûr !", "Absolument !", "Avec plaisir !" en début de réponse.
+8. FORMAT DE RÉPONSE
+- Maximum 5 phrases sauf analyse contrat
+- Toujours français québécois, toujours CAD
+- UNE seule question ou suggestion finale
+- Jamais "Bien sûr!", "Absolument!", "Avec plaisir!" en début
+- Jamais répéter l'intro après le premier message
 
-10. PRÉSENTATION VÉHICULE (format fixe)
+9. PRÉSENTATION VÉHICULE (format fixe)
 🚗 [Année] [Marque] [Modèle] [Version] — [Concessionnaire], [Ville]
 - Prix : [X]$ | Marché moyen : [Y]$ | [Sous/Au-dessus/Dans] la moyenne
 - Kilométrage : [X] km
 - Moteur : [X] | Transmission : [X] | Carburant : [X]
 - VIN : [X] | N° Stock : [X]
 💰 TPS [X]$ + TVQ [X]$ = Total [X]$
-🔗 ⭐ Force Occasion → (seulement si lien vérifié disponible)
+🔗 ⭐ Force Occasion → (seulement si lien vérifié)
+
+10. RÈGLE CONCESSIONNAIRE
+- Toujours le NOM EXACT du concessionnaire
+- Si non disponible → 🔎 Recherchez "[Marque] [Modèle] [Année] [km]km [Ville]" sur Google
+
+11. RÈGLE QUALITÉ MINIMALE
+Un véhicule ne peut être présenté que s'il a : prix + kilométrage + ville + nom concessionnaire OU lien direct.
+Sinon → rediriger : AutoHebdo.net · Otogo.ca · Kijiji.ca/autos
 
 ═══════════════════════════════════════
 CONNAISSANCES SPÉCIALISÉES
@@ -399,42 +410,79 @@ CONNAISSANCES SPÉCIALISÉES
 CONTRAT CCAQ :
 A=Prix véhicule | B=Accessoires | C=Prix vente
 D=Réduction | E=Prix après réduction | F=Échange
-H=Sous-total taxable | K=TPS | L=TVQ | M=Total véhicule
+H=Sous-total taxable | K=TPS | L=TVQ | M=Total
 P=Accessoires F&I | S=Total à payer | W=Solde livraison
 
-PRODUITS F&I TYPIQUES ET PRIX RAISONNABLES :
-- Garantie prolongée : 800-1500$ acceptable, > 2500$ à négocier
-- Renonciation de dette : souvent inutile, max 1500$ si budget serré
-- Protection peinture/tissu : 200-400$ acceptable, > 800$ excessif
-- Assurance crédit : comparer avec assurance vie personnelle
-
 MARCHÉ QUÉBÉCOIS 2025-2026 :
-- Taux financement bon crédit (700+) : 5.99% - 7.99%
-- Taux financement crédit moyen (600-699) : 8% - 14%
-- Dépréciation moyenne véhicule : 15-20% première année
-- Kilométrage annuel moyen Québec : 18 000 - 22 000 km/an
+- Taux financement bon crédit (700+) : 5.99%-7.99%
+- Taux financement crédit moyen : 8%-14%
+- Dépréciation moyenne : 15-20% première année
+- Kilométrage annuel moyen Québec : 18 000-22 000 km/an
 
-FLUX QUALIFICATIF CLIENT :
-Si l'utilisateur commence sans préciser ses besoins, poser ces questions dans l'ordre, UNE à la fois :
-1. Type de véhicule ? (VUS, berline, camionnette, électrique...)
-2. Utilisation principale ? (famille, travail, ville, longues distances)
+FLUX QUALIFICATIF CLIENT (une question à la fois) :
+1. Type de véhicule ?
+2. Utilisation principale ?
 3. Budget total ou mensuel ?
 4. Achat comptant ou financement ?
 5. Véhicule d'échange ?
 6. Préférence AWD pour l'hiver québécois ?
-7. Critères prioritaires ? (espace, fiabilité, consommation, technologie)
+7. Critères prioritaires ?
 
-RÈGLE CONCESSIONNAIRE :
-Toujours afficher le nom EXACT du concessionnaire. Si non disponible dans les données, écrire :
-🔎 Retrouvez ce véhicule : recherchez '[Marque] [Modèle] [Année] [km]km [Ville]' sur Google ou AutoHebdo.net
-JAMAIS écrire "Concessionnaire à [Ville]" sans le nom.
+═══════════════════════════════════════
+CONSEILLER GARANTIES ET PRODUITS F&I
+(UNIVERSEL — TOUTES MARQUES)
+═══════════════════════════════════════
 
-RÈGLE QUALITÉ MINIMALE :
-Un véhicule ne peut être présenté que s'il a AU MINIMUM : prix exact + kilométrage exact + ville exacte + nom concessionnaire OU lien direct.
-Si ces 4 éléments manquent → ne pas présenter de fiche. À la place écrire :
-"Je n'ai pas trouvé de [Marque Modèle Année] avec suffisamment de détails dans mon inventaire.
-🔎 Cherchez directement sur : AutoHebdo.net · Otogo.ca · Kijiji.ca/autos
-Si vous trouvez une annonce, envoyez-moi le lien et je l'analyse complètement."
+Tu aides les clients à comprendre ce qu'on leur propose en concession.
+
+ANALYSE DU PROFIL (si info manquante → hypothèse logique) :
+- Type véhicule : neuf / occasion / certifié
+- Motorisation : essence / hybride / électrique / luxe
+- Mode acquisition : achat / financement / location
+- Durée possession prévue
+- Kilométrage annuel
+- Tolérance au risque
+
+SCORING INTERNE (ne pas afficher) :
++30 financement | +25 long terme >48 mois | +20 km >20 000/an
++15 profil prudent | +10 occasion | +10 hybride/électrique/luxe
+-20 location | -15 court terme | -10 km <12 000/an
+0-30=faible | 31-60=modéré | 61-100=fortement recommandé
+
+LOGIQUE DÉCISIONNELLE PAR SITUATION :
+- Location → EWU + esthétique uniquement, jamais garantie mécanique
+- Financement → garantie prolongée + protection prêt
+- Véhicule usagé → garantie fortement recommandée
+- Luxe BMW/Audi/Mercedes/Porsche → garantie complète obligatoire
+- Électrique/hybride → produits spécifiques VÉ uniquement
+- Budget serré → garantie motopropulseur minimum seulement
+- Toyota/Honda/Mazda (fiables) → garantie intermédiaire suffisante
+- Marques moins fiables ou km élevé → garantie complète recommandée
+
+PRIX RAISONNABLES QUÉBEC 2025-2026 :
+- Garantie prolongée base : 800-1 500$
+- Garantie prolongée complète : 1 500-2 500$ (>2 500$ = négocier)
+- Protection prêt : 500-1 200$
+- Protection esthétique : 200-500$
+- EWU location : 300-600$
+- Renonciation de dette : max 1 500$, souvent inutile
+
+PIÈGES À DÉTECTER ET SIGNALER :
+🚩 "Offre valide aujourd'hui seulement" → pression artificielle
+🚩 Garantie financée dans le prêt → coût caché avec intérêts
+🚩 Bundle produits groupés → souvent désavantageux
+🚩 Plafond de remboursement caché
+🚩 Garantie prolongée en location → quasi inutile
+🚩 Prix gonflé ou flou sans détail de couverture
+
+FORMAT RÉPONSE GARANTIES :
+🧠 Analyse rapide : [profil en 1 phrase]
+💡 Ce que je recommande : [max 2 produits + raison]
+⚠️ Ce que tu peux éviter : [avec explication]
+💰 Est-ce que ça vaut le coup ? [coût vs risque concret]
+🎯 Conclusion : [1 phrase claire]
+
+RÈGLE ABSOLUE GARANTIES : Ne jamais recommander tous les produits. Toujours prioriser valeur vs coût. Toujours expliquer POURQUOI.
 """
 
 INTENT_PROMPT = """
@@ -528,7 +576,8 @@ def handle_followup(user_id: str, intent_data: dict, history_str: str, context_s
 
     elif action == "compare" and len(ctx["last_listings"]) >= 2:
         listings_text = "\n".join([f"#{i+1}: {l}" for i, l in enumerate(ctx["last_listings"][:3])])
-        prompt = f"{SYSTEM_PROMPT}\nCompare ces véhicules et recommande le meilleur. Budget: {ctx.get('budget', 'non précisé')}$\n{listings_text}\nMax 5 phrases en français."
+        budget_label = f"{session['user_data']['budget']}$" if session["user_data"].get("budget") else "non précisé"
+        prompt = f"{SYSTEM_PROMPT}\nCompare ces véhicules et recommande le meilleur. Budget: {budget_label}\n{listings_text}\nMax 5 phrases en français."
         response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
         return {"intent": "FOLLOWUP", "response": response.text}
 
@@ -541,6 +590,43 @@ def handle_followup(user_id: str, intent_data: dict, history_str: str, context_s
         prompt = f"{SYSTEM_PROMPT}\nHistorique:\n{history_str}\nContexte: {context_summary}\nContinue à aider l'utilisateur naturellement. Max 4 phrases en français."
         response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt, config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]))
         return {"intent": "FOLLOWUP", "response": response.text}
+
+
+# =============================
+# GUARDRAIL ANTI-HALLUCINATION
+# =============================
+
+def apply_guardrails(response: str, user_data: dict) -> str:
+    """Retire toute affirmation inventée sur le budget ou le modèle de l'utilisateur."""
+    BUDGET_PHRASES = [
+        "votre budget", "votre budget de", "ton budget",
+        "budget de", "budget mentionné", "budget indiqué",
+        "vous avez mentionné", "vous avez dit", "vous avez indiqué",
+        "comme vous l'avez précisé", "selon votre budget",
+    ]
+    if user_data.get("budget") is None:
+        for phrase in BUDGET_PHRASES:
+            if phrase in response.lower():
+                pattern = re.compile(
+                    rf'{re.escape(phrase)}[^.]*\d[\d\s,]*\s*\$[^.]*\.',
+                    re.IGNORECASE
+                )
+                response = pattern.sub(
+                    "Vous ne m'avez pas encore précisé de budget.",
+                    response
+                )
+                response = re.sub(
+                    rf'{re.escape(phrase)}\s+de\s+\d[\d\s,]*\s*\$',
+                    "un budget typique dans cette catégorie",
+                    response,
+                    flags=re.IGNORECASE
+                )
+    if user_data.get("preferred_model") is None:
+        MODEL_PHRASES = ["le modèle que vous avez choisi", "votre choix de"]
+        for phrase in MODEL_PHRASES:
+            if phrase in response.lower():
+                response = response.replace(phrase, "ce type de véhicule")
+    return response
 
 
 # =============================
@@ -567,6 +653,31 @@ def _short_history(session: dict, n: int = 10) -> str:
 
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
+
+    # ─── PART 3 : Extraction user_data stricte (uniquement ce que l'user a dit) ───
+    msg_lower = message.lower()
+    ud = session["user_data"]
+    _budget_patterns = [
+        r'(?:mon budget est|budget de|je veux dépenser|maximum)\s*(\d[\d\s,]*)\s*\$',
+        r'(\d[\d\s,]*)\s*\$\s*(?:de budget|max|maximum)',
+        r'autour de\s*(\d[\d\s,]*)\s*\$',
+    ]
+    for _bp in _budget_patterns:
+        _m = re.search(_bp, msg_lower)
+        if _m:
+            _amt = float(_m.group(1).replace(" ", "").replace(",", ""))
+            if 1000 < _amt < 200000:
+                ud["budget"] = _amt
+                print(f"[user_data] budget confirmé: {_amt}$")
+                break
+    if any(w in msg_lower for w in ["je finance", "financement", "je veux financer", "prêt auto"]):
+        ud["financing"] = "financement"
+    if any(w in msg_lower for w in ["je loue", "en location", "bail", "leasing"]):
+        ud["financing"] = "location"
+    _km = re.search(r'(\d[\d\s]*)\s*km\s*(?:par an|\/an|annuel)', msg_lower)
+    if _km:
+        ud["annual_km"] = int(_km.group(1).replace(" ", ""))
+
     context_summary, history_str = build_context_summary(user_id)
 
     # ─── Guard token limit (base: SYSTEM_PROMPT + historique + contexte) ───
@@ -765,34 +876,65 @@ RÉSULTATS WEB TROUVÉS :
 
     else:
         # ─── CHAT — conseils, fiabilité, prix, etc. ───
-        learning_context = ""
+        ud = session["user_data"]
+
+        # ─── PART 4 : Contexte utilisateur confirmé ───
+        confirmed_context = "\n\nCONTEXTE UTILISATEUR CONFIRMÉ (uniquement ce que l'utilisateur a explicitement dit) :\n"
+        _has_data = False
+        if ud.get("budget"):
+            confirmed_context += f"- Budget : {ud['budget']}$\n"
+            _has_data = True
+        if ud.get("preferred_make"):
+            confirmed_context += f"- Marque préférée : {ud['preferred_make']}\n"
+            _has_data = True
+        if ud.get("preferred_model"):
+            confirmed_context += f"- Modèle cherché : {ud['preferred_model']}\n"
+            _has_data = True
+        if ud.get("financing"):
+            confirmed_context += f"- Mode acquisition : {ud['financing']}\n"
+            _has_data = True
+        if ud.get("annual_km"):
+            confirmed_context += f"- Kilométrage annuel : {ud['annual_km']} km\n"
+            _has_data = True
+        if ud.get("location"):
+            confirmed_context += f"- Région : {ud['location']}\n"
+            _has_data = True
+        if not _has_data:
+            confirmed_context += "- Aucune donnée confirmée pour le moment.\n"
+        confirmed_context += "\nATTENTION : Ne jamais inventer ou supposer des données non listées ci-dessus.\n"
+
+        # ─── Mémoire persistante DB ───
+        user_memory_context = ""
         try:
             import sys
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-            from database import get_similar_good_responses, get_user_memory
-
-            user_mem = get_user_memory(user_id) if user_id else {}
+            from database import get_user_memory as _get_mem
+            user_mem = _get_mem(user_id) if user_id else {}
             if user_mem:
                 mem_parts = []
                 if user_mem.get('budget'): mem_parts.append(f"Budget connu: {user_mem['budget']}$")
                 if user_mem.get('preferred_make'): mem_parts.append(f"Marque préférée: {user_mem['preferred_make']}")
-                if user_mem.get('preferred_type'): mem_parts.append(f"Type préféré: {user_mem['preferred_type']}")
+                if user_mem.get('financing'): mem_parts.append(f"Mode acquisition: {user_mem['financing']}")
                 if user_mem.get('city'): mem_parts.append(f"Ville: {user_mem['city']}")
-                if user_mem.get('needs_awd'): mem_parts.append("Préfère AWD/4x4")
                 if mem_parts:
-                    learning_context += f"\n\nMÉMOIRE UTILISATEUR:\n" + "\n".join(mem_parts)
+                    user_memory_context = "\n\nMÉMOIRE UTILISATEUR:\n" + "\n".join(mem_parts)
+        except Exception as e:
+            print(f"[user_memory] skip: {e}")
 
+        # ─── PART 6 : Few-shot examples ───
+        few_shot_examples = ""
+        try:
+            from database import get_similar_good_responses
             good = get_similar_good_responses(message, limit=3)
-            if good:
-                learning_context += "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES (inspire-toi de ce style) :\n"
+            if good and len(good) > 0:
+                few_shot_examples = "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES (inspire-toi de ce style) :\n"
                 for g in good:
                     q = g.get("question", g.get("query", ""))[:150]
                     r = g.get("response", g.get("answer", ""))[:300]
                     if q and r:
-                        learning_context += f"Q: {q}\nR: {r}\n\n"
+                        few_shot_examples += f"Q: {q}\nR: {r}\n\n"
         except Exception as e:
             print(f"[few_shot] skip: {e}")
-            learning_context = ""
 
         full_prompt = f"""
 {SYSTEM_PROMPT}
@@ -801,7 +943,9 @@ Historique:
 {history_str}
 
 Contexte: {context_summary}
-{learning_context}
+{confirmed_context}
+{user_memory_context}
+{few_shot_examples}
 
 Message de l'utilisateur: {message}
 
@@ -810,7 +954,6 @@ INSTRUCTIONS :
 - Si l'utilisateur mentionne un modèle → utilise Google Search pour les prix actuels au Canada
 - Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
 - Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
-- Si la mémoire utilisateur contient un budget → l'utiliser comme référence
 - NE PAS inclure de HTML brut dans ta réponse
 """
         # Token guard — CHAT
@@ -827,7 +970,9 @@ Historique:
 {history_str}
 
 Contexte: {context_summary}
-{learning_context}
+{confirmed_context}
+{user_memory_context}
+{few_shot_examples}
 
 Message de l'utilisateur: {message}
 
@@ -836,7 +981,6 @@ INSTRUCTIONS :
 - Si l'utilisateur mentionne un modèle → utilise Google Search pour les prix actuels au Canada
 - Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
 - Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
-- Si la mémoire utilisateur contient un budget → l'utiliser comme référence
 - NE PAS inclure de HTML brut dans ta réponse
 """
         response = client.models.generate_content(
@@ -847,25 +991,26 @@ INSTRUCTIONS :
         result = {"intent": "CHAT", "response": response.text}
 
     response_text = result.get("response", "")
-    # Nettoyage final HTML sur toutes les réponses
+    # ─── PART 5 : Guardrail anti-hallucination + nettoyage HTML ───
     if isinstance(response_text, str):
+        response_text = apply_guardrails(response_text, session["user_data"])
         result["response"] = strip_html(response_text)
         session["history"].append({"role": "assistant", "content": result["response"]})
     update_context(user_id, intent_data, result["response"] if isinstance(result.get("response"), str) else "")
     session["history"] = session["history"][-20:]
 
-    # ─── Mémoire persistante — sauvegarde finale ───
+    # ─── PART 7 : Mémoire persistante — sauvegarde depuis user_data ───
     try:
         import sys as _sys
         _sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
         from database import update_user_memory
         memory_update = {}
-        if session["context"].get("budget"):
-            memory_update["budget"] = session["context"]["budget"]
-        if session["context"].get("preferred_make"):
-            memory_update["preferred_make"] = session["context"]["preferred_make"]
-        if session["context"].get("financing"):
-            memory_update["financing"] = session["context"]["financing"]
+        if session["user_data"].get("budget"):
+            memory_update["budget"] = session["user_data"]["budget"]
+        if session["user_data"].get("preferred_make"):
+            memory_update["preferred_make"] = session["user_data"]["preferred_make"]
+        if session["user_data"].get("financing"):
+            memory_update["financing"] = session["user_data"]["financing"]
         if memory_update:
             update_user_memory(user_id, memory_update)
     except Exception as e:
