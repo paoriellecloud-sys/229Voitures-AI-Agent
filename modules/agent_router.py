@@ -385,6 +385,7 @@ JAMAIS mélanger les catégories.
 - UNE seule question ou suggestion finale
 - Jamais "Bien sûr!", "Absolument!", "Avec plaisir!" en début
 - Jamais répéter l'intro après le premier message
+- Ne jamais afficher de section "Prochaines étapes suggérées" — terminer uniquement par UNE SEULE question concrète
 
 9. PRÉSENTATION VÉHICULE (format fixe)
 🚗 [Année] [Marque] [Modèle] [Version] — [Concessionnaire], [Ville]
@@ -542,6 +543,20 @@ Return ONLY the JSON, no explanation.
 # =============================
 
 def detect_intent(message: str, context_summary: str) -> dict:
+    # ─── Détection F&I rapide avant appel Gemini ───
+    _msg = message.lower()
+    _FI_TERMS = ["finance", "financement", "location", "72 mois", "48 mois", "60 mois",
+                 "mensualité", "taux", "protection", "garantie prolongée", "f&i"]
+    _VEHICLE_MODELS = [
+        "rogue", "rav4", "cr-v", "crv", "escape", "tucson", "sportage", "equinox",
+        "civic", "corolla", "elantra", "camry", "accord", "f-150", "f150", "ram",
+        "silverado", "tacoma", "colorado", "pilot", "highlander", "pathfinder",
+        "seltos", "venue", "trax", "ioniq", "tesla", "bolt", "leaf", "outlander",
+    ]
+    if any(t in _msg for t in _FI_TERMS) and any(m in _msg for m in _VEHICLE_MODELS):
+        return {"intent": "GARANTIES", "urls": [], "vin": None, "query": message,
+                "site": None, "count": 3, "followup_action": None}
+
     prompt = INTENT_PROMPT.format(message=message, context=context_summary)
     response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
     try:
@@ -802,7 +817,7 @@ INSTRUCTIONS :
             response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
             result = {
                 "intent": "SEARCH",
-                "response": response.text + "\n\nSouhaitez-vous vérifier le VIN d'un de ces véhicules ou les comparer entre eux ?",
+                "response": response.text,
                 "urls_found": [r["url"] for r in cache_results],
                 "scraped_count": len(cache_results),
                 "source": "inventory_cache"
@@ -868,7 +883,7 @@ RÉSULTATS WEB TROUVÉS :
 
             result = {
                 "intent": "SEARCH",
-                "response": geo_response.text + "\n\nSouhaitez-vous que je vérifie le VIN d'un de ces véhicules, ou voulez-vous les comparer entre eux ?",
+                "response": geo_response.text,
                 "urls_found": search_result.get("urls_found", []),
                 "scraped_count": search_result.get("scraped_count", 0),
                 "source": "serpapi"
