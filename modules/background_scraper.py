@@ -1,6 +1,8 @@
 import asyncio
 import sqlite3
 import os
+import json
+import time
 from datetime import datetime
 
 # Imports optionnels — ne pas bloquer si manquants
@@ -40,6 +42,64 @@ SCRAPE_TARGETS = [
 ]
 
 DB_PATH = os.environ.get("DB_PATH", "229voitures.db")
+IDS_FILE = os.path.join(os.path.dirname(__file__), "fo_vehicle_ids.json")
+
+
+# =============================
+# AUTO-REFRESH FO VEHICLE IDs
+# =============================
+
+def refresh_fo_ids():
+    """Scrape les sitemaps Force Occasion et met à jour fo_vehicle_ids.json."""
+    import requests
+    import re
+
+    sitemaps = [
+        "https://www.forceoccasion.ca/fr/sitemap.xml",
+        "https://www.forceoccasion.ca/fr/sitemap_newinventory.xml",
+        "https://www.forceoccasion.ca/fr/sitemap_demo.xml"
+    ]
+
+    all_ids = set()
+    for url in sitemaps:
+        try:
+            headers = {"User-Agent": "Mozilla/5.0"}
+            r = requests.get(url, headers=headers, timeout=15)
+            if r.status_code == 200:
+                matches = re.findall(r'-id(\d+)', r.text)
+                all_ids.update(matches)
+                print(f"[refresh_ids] {url} → {len(matches)} IDs")
+        except Exception as e:
+            print(f"[refresh_ids] Erreur {url}: {e}")
+
+    if len(all_ids) > 100:
+        ids_list = sorted(list(all_ids))
+        with open(IDS_FILE, "w") as f:
+            json.dump(ids_list, f)
+        print(f"[refresh_ids] ✅ {len(ids_list)} IDs sauvegardés dans fo_vehicle_ids.json")
+        return len(ids_list)
+    else:
+        print(f"[refresh_ids] ⚠️ Seulement {len(all_ids)} IDs trouvés — garde l'ancien fichier")
+        return 0
+
+
+def check_and_refresh_fo_ids():
+    """Vérifie l'âge de fo_vehicle_ids.json et rafraîchit si > 24h ou absent."""
+    if os.path.exists(IDS_FILE):
+        age_hours = (time.time() - os.path.getmtime(IDS_FILE)) / 3600
+        print(f"[fo_vehicle_ids.json] Âge: {age_hours:.1f}h")
+        if age_hours > 24:
+            print(f"[fo_vehicle_ids.json] > 24h → tentative de refresh automatique")
+            count = refresh_fo_ids()
+            if count > 0:
+                print(f"[fo_vehicle_ids.json] ✅ Refresh réussi: {count} IDs")
+            else:
+                print(f"[fo_vehicle_ids.json] ⚠️ Refresh échoué — utilise l'ancien fichier")
+        else:
+            print(f"[fo_vehicle_ids.json] OK — pas besoin de refresh")
+    else:
+        print(f"[fo_vehicle_ids.json] Fichier absent → refresh obligatoire")
+        refresh_fo_ids()
 
 
 # =============================
@@ -78,6 +138,10 @@ async def run_scrape_job():
     """Main background scraping job — runs every 6 hours."""
     print(f"\n[{datetime.now()}] Starting background scrape job...")
     init_inventory_cache()
+
+    # 0. Refresh des IDs Force Occasion si nécessaire (> 24h ou absent)
+    print(f"\n[{datetime.now()}] === Vérification fo_vehicle_ids.json ===")
+    check_and_refresh_fo_ids()
 
     # 1. Force Occasion en premier — Playwright infinite scroll
     print(f"\n[{datetime.now()}] === Force Occasion Scraper (Playwright) ===")
