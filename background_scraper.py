@@ -67,6 +67,18 @@ async def scrape_target(query: str, source: str):
                 }
                 save_to_cache(vehicle_data)
                 print(f"  ✅ Saved: {url[:60]}")
+                try:
+                    from alert_service import check_alerts_for_vehicle
+                    check_alerts_for_vehicle({
+                        "title": result.get("title", ""),
+                        "price": scraped.get("price", 0),
+                        "mileage": scraped.get("mileage", 0),
+                        "city": scraped.get("city", ""),
+                        "vehicle_id": url,
+                        "url": url,
+                    })
+                except Exception as e:
+                    print(f"[alert_check] skip: {e}")
             else:
                 print(f"  ❌ Failed: {url[:60]} — {scraped.get('error', '')}")
             await asyncio.sleep(2)
@@ -113,6 +125,29 @@ async def run_scrape_job():
         print(f"[{datetime.now()}] ⚠️ SerpAPI non disponible — skip AutoHebdo/Otogo")
 
     print(f"[{datetime.now()}] Background scrape job completed.")
+
+    # Récapitulatif hebdomadaire — tous les lundis
+    try:
+        if datetime.now().weekday() == 0:
+            from lead_service import get_leads_stats
+            from database import get_connection as _gc
+            from email_service import send_weekly_recap_email
+            _stats = get_leads_stats()
+            _conn = _gc()
+            _vehicles = _conn.execute("SELECT COUNT(*) FROM inventory_cache").fetchone()[0]
+            _alerts = _conn.execute("SELECT COUNT(*) FROM user_alerts WHERE active=1").fetchone()[0]
+            _users = _conn.execute("SELECT COUNT(*) FROM registered_users").fetchone()[0]
+            _conn.close()
+            send_weekly_recap_email("paorielle229@gmail.com", {
+                "week": datetime.now().strftime("%d %B %Y"),
+                "leads_week": _stats.get("this_week", 0),
+                "leads_month": _stats.get("this_month", 0),
+                "alerts": _alerts,
+                "users": _users,
+                "vehicles": _vehicles,
+            })
+    except Exception as e:
+        print(f"[recap] skip: {e}")
 
 
 def start_background_scraper():

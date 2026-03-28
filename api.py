@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from database import *
@@ -20,8 +21,13 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, confu
 from dotenv import load_dotenv
 
 from modules.vin_checker import get_vehicle_report
+from alert_service import save_alert, get_user_alerts
+from lead_service import create_lead, get_leads_stats
+from auth_service import request_magic_link, verify_magic_link
 
 load_dotenv()
+
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin229voitures2026")
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -257,6 +263,90 @@ def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_us
     """
     result = smart_chat(request.message, user_id=current_user["username"])
     return result
+
+
+# =============================
+# DASHBOARD & ADMIN
+# =============================
+
+def verify_admin(authorization: str = Header(None)):
+    if not authorization or authorization != f"Bearer {ADMIN_TOKEN}":
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    return True
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page():
+    with open("dashboard.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@app.get("/admin/stats")
+async def admin_stats(authorized: bool = Depends(verify_admin)):
+    conn = get_connection()
+    try:
+        stats = get_leads_stats()
+        stats["total_leads"] = stats.get("total", 0)
+        stats["leads_this_month"] = stats.get("this_month", 0)
+        stats["leads_this_week"] = stats.get("this_week", 0)
+        stats["by_dealer"] = stats.get("by_dealer", [])
+        stats["recent_leads"] = stats.get("recent", [])
+        stats["total_alerts"] = conn.execute("SELECT COUNT(*) FROM user_alerts WHERE active=1").fetchone()[0]
+        stats["total_users"] = conn.execute("SELECT COUNT(*) FROM registered_users").fetchone()[0]
+        stats["total_vehicles"] = conn.execute("SELECT COUNT(*) FROM inventory_cache").fetchone()[0]
+        return stats
+    finally:
+        conn.close()
+
+
+# =============================
+# ALERTES
+# =============================
+
+@app.post("/alerts/create")
+async def create_alert_endpoint(data: dict, current_user: dict = Depends(get_current_user)):
+    success = save_alert(current_user["username"], data.get("email", ""), data.get("criteria", {}))
+    if success:
+        return {"status": "success", "message": "Alerte créée"}
+    raise HTTPException(status_code=500, detail="Erreur création alerte")
+
+
+@app.get("/alerts/list")
+async def list_alerts_endpoint(current_user: dict = Depends(get_current_user)):
+    return {"alerts": get_user_alerts(current_user["username"])}
+
+
+# =============================
+# LEADS
+# =============================
+
+@app.post("/leads/create")
+async def create_lead_endpoint(data: dict):
+    success = create_lead(data)
+    if success:
+        return {"status": "success", "message": "Lead envoyé"}
+    raise HTTPException(status_code=500, detail="Erreur création lead")
+
+
+# =============================
+# AUTH MAGIC LINK
+# =============================
+
+@app.post("/auth/magic-link")
+async def magic_link_request(data: dict):
+    email = data.get("email", "")
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Email invalide")
+    success = request_magic_link(email)
+    return {"status": "success" if success else "error"}
+
+
+@app.get("/auth/magic")
+async def magic_link_verify(token: str):
+    result = verify_magic_link(token)
+    if result["success"]:
+        return {"status": "success", "user_id": result["user_id"], "email": result["email"]}
+    raise HTTPException(status_code=401, detail=result["error"])
 
 
 # =============================

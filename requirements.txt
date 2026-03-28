@@ -24,3 +24,4 @@ pydantic
 python-slugify
 tenacity
 websockets
+resend

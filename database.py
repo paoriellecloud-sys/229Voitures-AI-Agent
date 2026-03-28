@@ -341,6 +341,78 @@ def create_learning_tables():
         )
     """)
 
+    # Alertes email utilisateur
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            email TEXT NOT NULL,
+            brand TEXT,
+            model TEXT,
+            year_min INTEGER,
+            year_max INTEGER,
+            price_max REAL,
+            km_max INTEGER,
+            city TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            active INTEGER DEFAULT 1
+        )
+    """)
+
+    # Alertes déjà envoyées (déduplication)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sent_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            alert_id INTEGER NOT NULL,
+            vehicle_id TEXT NOT NULL,
+            sent_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(alert_id, vehicle_id)
+        )
+    """)
+
+    # Leads clients
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS leads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            phone TEXT,
+            vehicle_title TEXT NOT NULL,
+            vehicle_price REAL,
+            vehicle_url TEXT,
+            dealer_name TEXT,
+            dealer_email TEXT,
+            message TEXT,
+            status TEXT DEFAULT 'new',
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    # Magic links authentification
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS magic_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            user_id TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    # Utilisateurs inscrits
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS registered_users (
+            user_id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            last_login TEXT
+        )
+    """)
+
     # Pattern learning — frequent questions and best answers
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS learned_patterns (

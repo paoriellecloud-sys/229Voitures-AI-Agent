@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>229Voitures — Dashboard Admin</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Arial, sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
+.header { background: #111; border-bottom: 2px solid #f5c800; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+.logo { background: #f5c800; color: #0a0a0a; font-weight: 900; font-size: 18px; padding: 8px 12px; border-radius: 8px; }
+.header h1 { color: #f5c800; font-size: 18px; }
+.header span { color: #666; font-size: 13px; }
+.container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.stat-card { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; text-align: center; }
+.stat-card .number { font-size: 36px; font-weight: 900; color: #f5c800; }
+.stat-card .label { color: #888; font-size: 13px; margin-top: 4px; }
+.section { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+.section h2 { color: #f5c800; font-size: 16px; margin-bottom: 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #1a1a1a; color: #888; padding: 10px 12px; text-align: left; font-weight: 500; }
+td { padding: 10px 12px; border-bottom: 1px solid #1a1a1a; color: #ccc; }
+tr:hover td { background: #151515; }
+.badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+.badge.new { background: #f5c800; color: #0a0a0a; }
+.badge.contacted { background: #2ecc71; color: #fff; }
+.refresh-btn { background: #f5c800; color: #0a0a0a; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; margin-left: auto; }
+.dealer-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.dealer-bar .name { color: #ccc; font-size: 13px; width: 200px; }
+.dealer-bar .bar { background: #222; border-radius: 4px; flex: 1; height: 8px; }
+.dealer-bar .fill { background: #f5c800; border-radius: 4px; height: 8px; }
+.dealer-bar .count { color: #f5c800; font-weight: bold; font-size: 13px; width: 30px; text-align: right; }
+.loading { color: #666; text-align: center; padding: 40px; }
+</style>
+</head>
+<body>
+<div class="header">
+    <div class="logo">229</div>
+    <div>
+        <h1>229 VOITURES — Dashboard Admin</h1>
+        <span id="last-update">Chargement...</span>
+    </div>
+    <button class="refresh-btn" onclick="loadDashboard()">↻ Actualiser</button>
+</div>
+<div class="container">
+    <div class="stats-grid" id="stats-grid">
+        <div class="loading">Chargement des statistiques...</div>
+    </div>
+    <div class="section">
+        <h2>💰 Leads par concessionnaire</h2>
+        <div id="dealer-bars"><div class="loading">Chargement...</div></div>
+    </div>
+    <div class="section">
+        <h2>📋 Leads récents</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th><th>Client</th><th>Téléphone</th><th>Véhicule</th>
+                    <th>Prix</th><th>Concessionnaire</th><th>Statut</th><th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="leads-table"><tr><td colspan="8" class="loading">Chargement...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+<script>
+const API_URL = 'https://229voitures-ai-agent-production.up.railway.app';
+let ADMIN_TOKEN = localStorage.getItem('admin_token');
+if (!ADMIN_TOKEN) {
+    ADMIN_TOKEN = prompt('Token admin :');
+    if (ADMIN_TOKEN) localStorage.setItem('admin_token', ADMIN_TOKEN);
+}
+
+async function loadDashboard() {
+    try {
+        const res = await fetch(`${API_URL}/admin/stats`, {
+            headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+        });
+        if (!res.ok) {
+            if (res.status === 401) {
+                localStorage.removeItem('admin_token');
+                alert('Token invalide');
+            }
+            return;
+        }
+        const data = await res.json();
+
+        document.getElementById('stats-grid').innerHTML = `
+            <div class="stat-card"><div class="number">${data.total_leads ?? 0}</div><div class="label">Total leads</div></div>
+            <div class="stat-card"><div class="number">${data.leads_this_month ?? 0}</div><div class="label">Ce mois-ci</div></div>
+            <div class="stat-card"><div class="number">${data.leads_this_week ?? 0}</div><div class="label">Cette semaine</div></div>
+            <div class="stat-card"><div class="number">${data.total_alerts ?? 0}</div><div class="label">Alertes actives</div></div>
+            <div class="stat-card"><div class="number">${data.total_users ?? 0}</div><div class="label">Utilisateurs inscrits</div></div>
+            <div class="stat-card"><div class="number">${data.total_vehicles ?? 0}</div><div class="label">Véhicules en cache</div></div>
+        `;
+
+        const dealers = data.by_dealer || [];
+        const maxCount = Math.max(...dealers.map(d => d.count), 1);
+        document.getElementById('dealer-bars').innerHTML = dealers.length
+            ? dealers.map(d => `
+                <div class="dealer-bar">
+                    <div class="name">${d.dealer}</div>
+                    <div class="bar"><div class="fill" style="width:${(d.count/maxCount)*100}%"></div></div>
+                    <div class="count">${d.count}</div>
+                </div>`).join('')
+            : '<p style="color:#666;padding:12px">Aucun lead pour le moment</p>';
+
+        const leads = data.recent_leads || [];
+        document.getElementById('leads-table').innerHTML = leads.length
+            ? leads.map(l => `
+                <tr>
+                    <td>${l.id}</td>
+                    <td><strong>${l.name}</strong><br><span style="color:#666">${l.email}</span></td>
+                    <td>${l.phone || '—'}</td>
+                    <td>${l.vehicle}</td>
+                    <td style="color:#f5c800">${l.price ? Number(l.price).toLocaleString('fr-CA') + ' $' : '—'}</td>
+                    <td>${l.dealer || '—'}</td>
+                    <td><span class="badge ${l.status}">${l.status === 'new' ? 'Nouveau' : 'Contacté'}</span></td>
+                    <td style="color:#666">${l.date ? l.date.substring(0,10) : '—'}</td>
+                </tr>`).join('')
+            : '<tr><td colspan="8" style="text-align:center;color:#666;padding:20px">Aucun lead pour le moment</td></tr>';
+
+        document.getElementById('last-update').textContent = 'Mis à jour : ' + new Date().toLocaleTimeString('fr-CA');
+    } catch(e) {
+        console.error(e);
+        document.getElementById('stats-grid').innerHTML = '<div class="loading">Erreur de connexion au serveur</div>';
+    }
+}
+
+loadDashboard();
+setInterval(loadDashboard, 60000);
+</script>
+</body>
+</html>

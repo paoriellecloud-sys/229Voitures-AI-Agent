@@ -543,8 +543,18 @@ Return ONLY the JSON, no explanation.
 # =============================
 
 def detect_intent(message: str, context_summary: str) -> dict:
-    # ─── Détection F&I rapide avant appel Gemini ───
+    # ─── Détection alerte email avant appel Gemini ───
     msg_lower = message.lower()
+    ALERT_KEYWORDS = [
+        "alerte", "alertez-moi", "notifie", "notifiez",
+        "avertis", "préviens", "quand disponible",
+        "m'avertir", "me notifier", "surveille",
+    ]
+    if any(k in msg_lower for k in ALERT_KEYWORDS):
+        return {"intent": "CREATE_ALERT", "urls": [], "vin": None, "query": message,
+                "site": None, "count": 3, "followup_action": None}
+
+    # ─── Détection F&I rapide avant appel Gemini ───
     FI_KEYWORDS = [
         "finance", "financement", "location", "mensualité", "paiement",
         "72 mois", "60 mois", "48 mois", "36 mois", "taux", "crédit",
@@ -770,7 +780,37 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     intent = intent_data.get("intent", "CHAT")
     result = {}
 
-    if intent == "GARANTIES":
+    if intent == "CREATE_ALERT":
+        criteria = {}
+        _brands = ["toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
+                   "ford", "nissan", "mazda", "subaru", "chevrolet", "dodge", "ram", "jeep", "gmc"]
+        for brand in _brands:
+            if brand in message.lower():
+                criteria["brand"] = brand
+                break
+        _year = re.search(r'20(\d{2})', message)
+        if _year:
+            y = 2000 + int(_year.group(1))
+            criteria["year_min"] = y - 1
+            criteria["year_max"] = y + 1
+        _price = re.search(r'(\d[\d\s]*)\s*\$', message)
+        if _price:
+            criteria["price_max"] = float(_price.group(1).replace(" ", ""))
+        _cities = ["montreal", "montréal", "québec", "laval", "longueuil",
+                   "gatineau", "sherbrooke", "lévis", "trois-rivières"]
+        for city in _cities:
+            if city in message.lower():
+                criteria["city"] = city
+                break
+        session["context"]["pending_alert"] = criteria
+        result = {
+            "intent": "CREATE_ALERT",
+            "response": "Je vais créer une alerte pour vous ! Pour vous envoyer l'email, j'ai besoin de votre adresse courriel. Quelle est-elle ?",
+            "needs_email": True,
+            "criteria": criteria,
+        }
+
+    elif intent == "GARANTIES":
         risk = calculate_risk_score(session["user_data"], message)
         risk_context = f"""
 SCORE DE RISQUE CALCULÉ : {risk['emoji']} {risk['score']}/100 — Risque {risk['level']}
