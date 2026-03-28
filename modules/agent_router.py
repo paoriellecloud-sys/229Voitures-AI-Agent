@@ -336,6 +336,42 @@ COHÉRENCE CONVERSATIONNELLE
 - Cette règle s'applique à TOUS les véhicules, TOUTES les marques, TOUTES les situations.
 
 ═══════════════════════════════════════
+RÈGLE SUGGESTIONS PROACTIVES
+═══════════════════════════════════════
+
+L'agent suggère proactivement le contact concessionnaire SEULEMENT dans ces situations précises :
+
+DÉCLENCHER la suggestion quand :
+- L'utilisateur a vu les détails d'un véhicule spécifique ET pose des questions précises dessus (équipements, garantie, disponibilité)
+- L'utilisateur exprime un intérêt clair : "je l'aime bien", "ça m'intéresse", "c'est dans mon budget", "pas mal"
+- L'utilisateur demande comment aller plus loin
+- L'utilisateur a comparé plusieurs véhicules et semble avoir choisi
+- L'utilisateur pose une question à laquelle seul le concessionnaire peut répondre (disponibilité exacte, essai routier, reprise véhicule)
+
+NE PAS déclencher la suggestion quand :
+- L'utilisateur est encore en phase de recherche générale
+- L'utilisateur vient juste de commencer la conversation
+- L'utilisateur pose une question technique ou sur les garanties
+- L'utilisateur n'a pas encore vu de véhicule spécifique
+- La suggestion a déjà été faite dans cette conversation
+
+FORMAT DE LA SUGGESTION (naturel, pas insistant) :
+Ajoute à la fin de ta réponse, sur une nouvelle ligne :
+"💬 Souhaitez-vous que je vous mette en contact avec [Nom concessionnaire] pour ce véhicule ?"
+
+Si le concessionnaire est inconnu :
+"💬 Souhaitez-vous être mis en contact avec ce concessionnaire ?"
+
+RÈGLE : Une seule suggestion par conversation. Si l'utilisateur dit non → ne plus proposer.
+
+═══════════════════════════════════════
+CAPACITÉ LEADS
+═══════════════════════════════════════
+Quand l'utilisateur veut contacter un concessionnaire, NE PAS dire que tu ne peux pas.
+Tu PEUX collecter les coordonnées et envoyer la demande automatiquement.
+Déclenche toujours le processus de collecte.
+
+═══════════════════════════════════════
 PRINCIPES FONDAMENTAUX
 ═══════════════════════════════════════
 
@@ -403,6 +439,11 @@ JAMAIS mélanger les catégories.
 - Jamais répéter l'introduction après le premier message
 - Jamais afficher "Prochaines étapes suggérées" comme section
 - Jamais deux questions dans la même réponse
+Mots et expressions INTERDITS en début de réponse :
+"Excellent!", "Excellent choix!", "Parfait!", "Super!", "Très bien!",
+"Bien sûr!", "Absolument!", "Avec plaisir!", "Certainement!",
+"C'est une excellente nouvelle", "Je suis ravi"
+→ Commencer directement par l'information utile.
 
 9. PRÉSENTATION VÉHICULE (format fixe obligatoire)
 🚗 [Année] [Marque] [Modèle] [Version] — [Concessionnaire], [Ville]
@@ -577,6 +618,17 @@ def detect_intent(message: str, context_summary: str) -> dict:
     ]
     if any(k in msg_lower for k in ALERT_KEYWORDS):
         return {"intent": "CREATE_ALERT", "urls": [], "vin": None, "query": message,
+                "site": None, "count": 3, "followup_action": None}
+
+    # ─── Détection contact/lead avant appel Gemini ───
+    CONTACT_KEYWORDS = [
+        "contacter", "contacter la concession", "contacter le concessionnaire",
+        "prendre rendez-vous", "rendez-vous", "appeler", "je veux acheter",
+        "comment acheter", "comment contacter", "envoyer un message",
+        "je suis intéressé", "intéressé par ce véhicule", "aller voir",
+    ]
+    if any(k in msg_lower for k in CONTACT_KEYWORDS):
+        return {"intent": "LEAD_REQUEST", "urls": [], "vin": None, "query": message,
                 "site": None, "count": 3, "followup_action": None}
 
     # ─── Détection F&I rapide avant appel Gemini ───
@@ -835,6 +887,40 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             "criteria": criteria,
         }
 
+    elif intent == "LEAD_REQUEST":
+        last_listings = session["context"].get("last_listings", [])
+        vehicle_title = session["context"].get("last_query", "véhicule")
+        vehicle_price = 0
+        vehicle_url = ""
+        dealer_name = ""
+        if last_listings:
+            v = last_listings[0] if isinstance(last_listings, list) else last_listings
+            if isinstance(v, dict):
+                vehicle_title = v.get("title", vehicle_title)
+                vehicle_price = v.get("price", 0)
+                vehicle_url = v.get("url", "")
+                dealer_name = v.get("dealer", "")
+            elif isinstance(v, str):
+                vehicle_url = v
+        session["context"]["pending_lead"] = {
+            "vehicle_title": vehicle_title,
+            "vehicle_price": vehicle_price,
+            "vehicle_url": vehicle_url,
+            "dealer_name": dealer_name,
+        }
+        result = {
+            "intent": "LEAD_REQUEST",
+            "response": (
+                f"Je vais vous mettre en contact avec le concessionnaire pour le {vehicle_title}.\n\n"
+                "Pour envoyer votre demande, j'ai besoin de :\n"
+                "• Votre prénom et nom\n"
+                "• Votre numéro de téléphone\n"
+                "• Votre email\n"
+                "• Un message optionnel\n\n"
+                "Commençons — quel est votre nom complet ?"
+            ),
+        }
+
     elif intent == "GARANTIES":
         risk = calculate_risk_score(session["user_data"], message)
         risk_context = f"""
@@ -1054,91 +1140,103 @@ RÉSULTATS WEB TROUVÉS :
         # ─── CHAT — conseils, fiabilité, prix, etc. ───
         ud = session["user_data"]
 
-        # ─── PART 4 : Contexte utilisateur confirmé ───
-        confirmed_context = "\n\nCONTEXTE UTILISATEUR CONFIRMÉ (uniquement ce que l'utilisateur a explicitement dit) :\n"
-        _has_data = False
-        if ud.get("budget"):
-            confirmed_context += f"- Budget : {ud['budget']}$\n"
-            _has_data = True
-        if ud.get("preferred_make"):
-            confirmed_context += f"- Marque préférée : {ud['preferred_make']}\n"
-            _has_data = True
-        if ud.get("preferred_model"):
-            confirmed_context += f"- Modèle cherché : {ud['preferred_model']}\n"
-            _has_data = True
-        if ud.get("financing"):
-            confirmed_context += f"- Mode acquisition : {ud['financing']}\n"
-            _has_data = True
-        if ud.get("annual_km"):
-            confirmed_context += f"- Kilométrage annuel : {ud['annual_km']} km\n"
-            _has_data = True
-        if ud.get("location"):
-            confirmed_context += f"- Région : {ud['location']}\n"
-            _has_data = True
-        if not _has_data:
-            confirmed_context += "- Aucune donnée confirmée pour le moment.\n"
-        confirmed_context += "\nATTENTION : Ne jamais inventer ou supposer des données non listées ci-dessus.\n"
+        # ─── Collecte progressive lead en cours ───
+        pending_lead = session["context"].get("pending_lead")
+        if pending_lead and not pending_lead.get("name"):
+            if re.search(r'^[A-Za-zÀ-ÿ\s\-]{3,40}$', message.strip()):
+                session["context"]["pending_lead"]["name"] = message.strip()
+                result = {
+                    "intent": "LEAD_COLLECT",
+                    "response": f"Merci {message.strip().split()[0]} ! Quel est votre numéro de téléphone ?",
+                }
+        elif pending_lead and pending_lead.get("name") and not pending_lead.get("phone"):
+            session["context"]["pending_lead"]["phone"] = message.strip()
+            result = {
+                "intent": "LEAD_COLLECT",
+                "response": "Parfait. Quelle est votre adresse email ?",
+            }
+        elif pending_lead and pending_lead.get("phone") and not pending_lead.get("email"):
+            if "@" in message:
+                session["context"]["pending_lead"]["email"] = message.strip()
+                lead_data = dict(session["context"]["pending_lead"])
+                lead_data["user_id"] = user_id
+                try:
+                    import sys as _sys2
+                    _sys2.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+                    from lead_service import create_lead
+                    create_lead(lead_data)
+                    dealer = lead_data.get("dealer_name") or "le concessionnaire"
+                    result = {
+                        "intent": "LEAD_SENT",
+                        "response": (
+                            f"✅ Votre demande a été envoyée à {dealer} pour le {lead_data.get('vehicle_title')}.\n\n"
+                            "Ils vont vous contacter sous 24-48h. En attendant, souhaitez-vous que je vérifie l'historique VIN de ce véhicule ?"
+                        ),
+                    }
+                    session["context"]["pending_lead"] = None
+                except Exception as e:
+                    print(f"[lead_collect] error: {e}")
+                    result = {"intent": "LEAD_ERROR", "response": "Une erreur s'est produite. Contactez directement le concessionnaire."}
 
-        # ─── Mémoire persistante DB ───
-        user_memory_context = ""
-        try:
-            import sys
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-            from database import get_user_memory as _get_mem
-            user_mem = _get_mem(user_id) if user_id else {}
-            if user_mem:
-                mem_parts = []
-                if user_mem.get('budget'): mem_parts.append(f"Budget connu: {user_mem['budget']}$")
-                if user_mem.get('preferred_make'): mem_parts.append(f"Marque préférée: {user_mem['preferred_make']}")
-                if user_mem.get('financing'): mem_parts.append(f"Mode acquisition: {user_mem['financing']}")
-                if user_mem.get('city'): mem_parts.append(f"Ville: {user_mem['city']}")
-                if mem_parts:
-                    user_memory_context = "\n\nMÉMOIRE UTILISATEUR:\n" + "\n".join(mem_parts)
-        except Exception as e:
-            print(f"[user_memory] skip: {e}")
+        if not result:
+            # ─── PART 4 : Contexte utilisateur confirmé ───
+            confirmed_context = "\n\nCONTEXTE UTILISATEUR CONFIRMÉ (uniquement ce que l'utilisateur a explicitement dit) :\n"
+            _has_data = False
+            if ud.get("budget"):
+                confirmed_context += f"- Budget : {ud['budget']}$\n"
+                _has_data = True
+            if ud.get("preferred_make"):
+                confirmed_context += f"- Marque préférée : {ud['preferred_make']}\n"
+                _has_data = True
+            if ud.get("preferred_model"):
+                confirmed_context += f"- Modèle cherché : {ud['preferred_model']}\n"
+                _has_data = True
+            if ud.get("financing"):
+                confirmed_context += f"- Mode acquisition : {ud['financing']}\n"
+                _has_data = True
+            if ud.get("annual_km"):
+                confirmed_context += f"- Kilométrage annuel : {ud['annual_km']} km\n"
+                _has_data = True
+            if ud.get("location"):
+                confirmed_context += f"- Région : {ud['location']}\n"
+                _has_data = True
+            if not _has_data:
+                confirmed_context += "- Aucune donnée confirmée pour le moment.\n"
+            confirmed_context += "\nATTENTION : Ne jamais inventer ou supposer des données non listées ci-dessus.\n"
 
-        # ─── PART 6 : Few-shot examples ───
-        few_shot_examples = ""
-        try:
-            from database import get_similar_good_responses
-            good = get_similar_good_responses(message, limit=3)
-            if good and len(good) > 0:
-                few_shot_examples = "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES (inspire-toi de ce style) :\n"
-                for g in good:
-                    q = g.get("question", g.get("query", ""))[:150]
-                    r = g.get("response", g.get("answer", ""))[:300]
-                    if q and r:
-                        few_shot_examples += f"Q: {q}\nR: {r}\n\n"
-        except Exception as e:
-            print(f"[few_shot] skip: {e}")
+            # ─── Mémoire persistante DB ───
+            user_memory_context = ""
+            try:
+                import sys
+                sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+                from database import get_user_memory as _get_mem
+                user_mem = _get_mem(user_id) if user_id else {}
+                if user_mem:
+                    mem_parts = []
+                    if user_mem.get('budget'): mem_parts.append(f"Budget connu: {user_mem['budget']}$")
+                    if user_mem.get('preferred_make'): mem_parts.append(f"Marque préférée: {user_mem['preferred_make']}")
+                    if user_mem.get('financing'): mem_parts.append(f"Mode acquisition: {user_mem['financing']}")
+                    if user_mem.get('city'): mem_parts.append(f"Ville: {user_mem['city']}")
+                    if mem_parts:
+                        user_memory_context = "\n\nMÉMOIRE UTILISATEUR:\n" + "\n".join(mem_parts)
+            except Exception as e:
+                print(f"[user_memory] skip: {e}")
 
-        full_prompt = f"""
-{SYSTEM_PROMPT}
+            # ─── PART 6 : Few-shot examples ───
+            few_shot_examples = ""
+            try:
+                from database import get_similar_good_responses
+                good = get_similar_good_responses(message, limit=3)
+                if good and len(good) > 0:
+                    few_shot_examples = "\n\nEXEMPLES DE BONNES RÉPONSES PASSÉES (inspire-toi de ce style) :\n"
+                    for g in good:
+                        q = g.get("question", g.get("query", ""))[:150]
+                        r = g.get("response", g.get("answer", ""))[:300]
+                        if q and r:
+                            few_shot_examples += f"Q: {q}\nR: {r}\n\n"
+            except Exception as e:
+                print(f"[few_shot] skip: {e}")
 
-Historique:
-{history_str}
-
-Contexte: {context_summary}
-{confirmed_context}
-{user_memory_context}
-{few_shot_examples}
-
-Message de l'utilisateur: {message}
-
-INSTRUCTIONS :
-- Réponds directement sans préambule
-- Si l'utilisateur mentionne un modèle → utilise Google Search pour les prix actuels au Canada
-- Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
-- Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
-- NE PAS inclure de HTML brut dans ta réponse
-"""
-        # Token guard — CHAT
-        _tok = estimate_tokens(full_prompt)
-        if _tok > 25000:
-            print(f"[smart_chat/CHAT] ⚠️  WARNING: prompt ~{_tok} tokens (seuil 25 000)")
-        if _tok > 30000:
-            print(f"[smart_chat/CHAT] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
-            history_str = _short_history(session, 10)
             full_prompt = f"""
 {SYSTEM_PROMPT}
 
@@ -1159,12 +1257,39 @@ INSTRUCTIONS :
 - Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
 - NE PAS inclure de HTML brut dans ta réponse
 """
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=full_prompt,
-            config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
-        )
-        result = {"intent": "CHAT", "response": response.text}
+            # Token guard — CHAT
+            _tok = estimate_tokens(full_prompt)
+            if _tok > 25000:
+                print(f"[smart_chat/CHAT] ⚠️  WARNING: prompt ~{_tok} tokens (seuil 25 000)")
+            if _tok > 30000:
+                print(f"[smart_chat/CHAT] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
+                history_str = _short_history(session, 10)
+                full_prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+{confirmed_context}
+{user_memory_context}
+{few_shot_examples}
+
+Message de l'utilisateur: {message}
+
+INSTRUCTIONS :
+- Réponds directement sans préambule
+- Si l'utilisateur mentionne un modèle → utilise Google Search pour les prix actuels au Canada
+- Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
+- Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
+- NE PAS inclure de HTML brut dans ta réponse
+"""
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=full_prompt,
+                config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+            )
+            result = {"intent": "CHAT", "response": response.text}
 
     response_text = result.get("response", "")
     # ─── PART 5 : Guardrail anti-hallucination + nettoyage HTML ───
