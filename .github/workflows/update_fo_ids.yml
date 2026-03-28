@@ -1,0 +1,40 @@
+name: Update Force Occasion IDs
+
+on:
+  schedule:
+    - cron: '0 10 * * 1'  # Lundi
+    - cron: '0 10 * * 4'  # Jeudi
+    - cron: '0 10 * * 6'  # Samedi
+  workflow_dispatch:
+
+jobs:
+  update-ids:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 lxml
+
+      - name: Run get_fo_ids.py
+        run: python get_fo_ids.py
+
+      - name: Check if file changed
+        id: check
+        run: |
+          git diff --quiet fo_vehicle_ids.json || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push if changed
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add fo_vehicle_ids.json
+          git commit -m "Auto-update FO vehicle IDs - $(date '+%Y-%m-%d')"
+          git push
