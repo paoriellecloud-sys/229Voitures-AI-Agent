@@ -116,8 +116,80 @@ def build_context_summary(user_id: str):
 # INVENTORY CACHE SEARCH
 # =============================
 
-def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
+STOPWORDS_FR = {
+    "recherche", "cherche", "trouve", "montre", "propose", "liste",
+    "donne", "veux", "voudrais", "aimerais", "besoin", "occasion",
+    "usagé", "usagée", "voiture", "auto", "automobile", "vehicule",
+    "véhicule", "dans", "pour", "avec", "sans", "sous", "entre",
+    "environ", "autour", "Quebec", "Québec", "Canada", "province",
+}
+
+
+def _run_cache_sql(cursor, conditions: list, params: list, limit: int) -> list:
+    sql = f"""
+        SELECT url, source, title, price, mileage, year, make, model,
+               city, province, dealer_name, dealer_phone, vin, color,
+               transmission, drivetrain, fuel_type, engine, trim,
+               avg_market_price, price_diff, price_status,
+               tps, tvq, total_taxes, total_with_taxes,
+               options, vehicle_id, raw_content, scraped_at
+        FROM inventory_cache
+        WHERE {" AND ".join(conditions)}
+        ORDER BY scraped_at DESC
+        LIMIT ?
+    """
+    params_copy = list(params) + [limit]
+    cursor.execute(sql, params_copy)
+    return cursor.fetchall()
+
+
+def _rows_to_dicts(rows) -> list[dict]:
+    results = []
+    for row in rows:
+        results.append({
+            "url":              row["url"],
+            "source":           row["source"],
+            "title":            row["title"],
+            "price":            row["price"],
+            "mileage":          row["mileage"],
+            "year":             row["year"],
+            "make":             row["make"],
+            "model":            row["model"],
+            "city":             row["city"],
+            "province":         row["province"],
+            "dealer_name":      row["dealer_name"],
+            "dealer_phone":     row["dealer_phone"],
+            "vin":              row["vin"],
+            "color":            row["color"],
+            "transmission":     row["transmission"],
+            "drivetrain":       row["drivetrain"],
+            "fuel_type":        row["fuel_type"],
+            "engine":           row["engine"],
+            "trim":             row["trim"],
+            "avg_market_price": row["avg_market_price"],
+            "price_diff":       row["price_diff"],
+            "price_status":     row["price_status"],
+            "tps":              row["tps"],
+            "tvq":              row["tvq"],
+            "total_taxes":      row["total_taxes"],
+            "total_with_taxes": row["total_with_taxes"],
+            "options":          row["options"],
+            "vehicle_id":       row["vehicle_id"],
+            "raw_content":      row["raw_content"],
+            "scraped_at":       row["scraped_at"],
+        })
+    return results
+
+
+def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = None) -> list[dict]:
+    """
+    Recherche flexible dans inventory_cache.
+    1. Essai strict (AND) avec vehicle_filter ou query nettoyée
+    2. Si 0 résultat → essai souple (OR) sur les 2 premiers mots-clés véhicule
+    3. Si toujours 0 → essai sur make/model directement
+    """
     try:
+        print(f"[search_inventory_cache] DB_PATH={DB_PATH}")
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -138,71 +210,56 @@ def search_inventory_cache(query: str, limit: int = 5) -> list[dict]:
         """)
         conn.commit()
 
-        keywords = [k.strip() for k in query.lower().split() if len(k.strip()) > 2]
+        # Choisir la meilleure source de termes de recherche
+        search_text = vehicle_filter or query
+        raw_kw = [k.strip() for k in search_text.lower().split() if len(k.strip()) > 2]
+        # Filtrer les stopwords français/génériques
+        keywords = [k for k in raw_kw if k not in {s.lower() for s in STOPWORDS_FR}]
+        if not keywords:
+            keywords = raw_kw  # garde les originaux si tout filtré
 
+        print(f"[search_inventory_cache] query={repr(query)} | vehicle_filter={repr(vehicle_filter)} | keywords={keywords}")
+
+        # ── Essai 1 : AND strict sur max 3 mots-clés véhicule ──────────────
+        kw_strict = keywords[:3]
         conditions = []
         params = []
-        for kw in keywords[:5]:
-            conditions.append("(LOWER(title) LIKE ? OR LOWER(raw_content) LIKE ?)")
-            params.extend([f"%{kw}%", f"%{kw}%"])
+        for kw in kw_strict:
+            conditions.append("(LOWER(title) LIKE ? OR LOWER(make) LIKE ? OR LOWER(model) LIKE ?)")
+            params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
 
-        if not conditions:
-            conn.close()
-            return []
+        rows = []
+        if conditions:
+            rows = _run_cache_sql(cursor, conditions, params, limit)
+            print(f"[search_inventory_cache] Essai AND strict ({kw_strict}) → {len(rows)} résultat(s)")
 
-        sql = f"""
-            SELECT url, source, title, price, mileage, year, make, model,
-                   city, province, dealer_name, dealer_phone, vin, color,
-                   transmission, drivetrain, fuel_type, engine, trim,
-                   avg_market_price, price_diff, price_status,
-                   tps, tvq, total_taxes, total_with_taxes,
-                   options, vehicle_id, raw_content, scraped_at
-            FROM inventory_cache
-            WHERE {" AND ".join(conditions)}
-            ORDER BY scraped_at DESC
-            LIMIT ?
-        """
-        params.append(limit)
-        cursor.execute(sql, params)
-        rows = cursor.fetchall()
+        # ── Essai 2 : OR sur les 2 premiers mots-clés si 0 résultat ────────
+        if not rows and len(keywords) >= 1:
+            kw_or = keywords[:2]
+            or_parts = []
+            or_params = []
+            for kw in kw_or:
+                or_parts.append("LOWER(title) LIKE ?")
+                or_parts.append("LOWER(make) LIKE ?")
+                or_parts.append("LOWER(model) LIKE ?")
+                or_params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+            rows = _run_cache_sql(cursor, [f"({' OR '.join(or_parts)})"], or_params, limit)
+            print(f"[search_inventory_cache] Essai OR souple ({kw_or}) → {len(rows)} résultat(s)")
+
+        # ── Essai 3 : raw_content si toujours 0 ────────────────────────────
+        if not rows and keywords:
+            kw_raw = keywords[0]
+            rows = _run_cache_sql(
+                cursor,
+                ["(LOWER(title) LIKE ? OR LOWER(raw_content) LIKE ?)"],
+                [f"%{kw_raw}%", f"%{kw_raw}%"],
+                limit
+            )
+            print(f"[search_inventory_cache] Essai raw_content ({kw_raw}) → {len(rows)} résultat(s)")
+
         conn.close()
+        results = _rows_to_dicts(rows)
 
-        results = []
-        for row in rows:
-            results.append({
-                "url":            row["url"],
-                "source":         row["source"],
-                "title":          row["title"],
-                "price":          row["price"],
-                "mileage":        row["mileage"],
-                "year":           row["year"],
-                "make":           row["make"],
-                "model":          row["model"],
-                "city":           row["city"],
-                "province":       row["province"],
-                "dealer_name":    row["dealer_name"],
-                "dealer_phone":   row["dealer_phone"],
-                "vin":            row["vin"],
-                "color":          row["color"],
-                "transmission":   row["transmission"],
-                "drivetrain":     row["drivetrain"],
-                "fuel_type":      row["fuel_type"],
-                "engine":         row["engine"],
-                "trim":           row["trim"],
-                "avg_market_price": row["avg_market_price"],
-                "price_diff":     row["price_diff"],
-                "price_status":   row["price_status"],
-                "tps":            row["tps"],
-                "tvq":            row["tvq"],
-                "total_taxes":    row["total_taxes"],
-                "total_with_taxes": row["total_with_taxes"],
-                "options":        row["options"],
-                "vehicle_id":     row["vehicle_id"],
-                "raw_content":    row["raw_content"],
-                "scraped_at":     row["scraped_at"],
-            })
-
-        print(f"[search_inventory_cache] query={repr(query)} → {len(results)} résultat(s)")
         for r in results[:3]:
             print(f"  • {r.get('year','')} {r.get('make','')} {r.get('model','')} | {r.get('price','?')}$ | {r.get('city','?')} | {r.get('url','?')[:60]}")
 
@@ -1006,7 +1063,8 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
                 print(f"[similaires] {dernier_vehicule} → catégorie {categorie} → nouvelle query: {query}")
 
         # ─── ÉTAPE 1 : Chercher dans l'inventaire local (Force Occasion) ───
-        cache_results = search_inventory_cache(query, limit=5)
+        vehicle_filter = intent_data.get("vehicle_filter")
+        cache_results = search_inventory_cache(query, limit=5, vehicle_filter=vehicle_filter)
 
         if cache_results:
             cache_text = format_cache_results_for_prompt(cache_results)

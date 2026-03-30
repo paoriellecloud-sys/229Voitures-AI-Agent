@@ -11,9 +11,23 @@ DB_PATH = os.environ.get("DB_PATH", "/home/ubuntu/data/229voitures.db")
 
 def get_cache_stats():
     """Retourne les statistiques du cache inventory_cache."""
+    print(f"[get_cache_stats] DB_PATH={DB_PATH}")
     try:
         conn = sqlite3.connect(DB_PATH)
+
+        # Vérifier que la table existe
+        tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()]
+        print(f"[get_cache_stats] Tables dans DB: {tables}")
+
+        if "inventory_cache" not in tables:
+            print(f"[get_cache_stats] ⚠️  Table inventory_cache ABSENTE dans {DB_PATH}")
+            conn.close()
+            return {"total": 0, "fresh": 0, "sources": 0}
+
         total = conn.execute("SELECT COUNT(*) FROM inventory_cache").fetchone()[0]
+        print(f"[get_cache_stats] total={total}")
         try:
             fresh = conn.execute(
                 "SELECT COUNT(*) FROM inventory_cache WHERE scraped_at >= datetime('now', '-7 days')"
