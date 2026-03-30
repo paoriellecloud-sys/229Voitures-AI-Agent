@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-DB_PATH = os.environ.get("DB_PATH", "229voitures.db")
+DB_PATH = os.environ.get("DB_PATH", "/home/ubuntu/data/229voitures.db")
 
 sessions = {}
 
