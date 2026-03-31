@@ -25,3 +25,5 @@ python-slugify
 tenacity
 websockets
 resend
+thefuzz
+python-Levenshtein

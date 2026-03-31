@@ -1325,6 +1325,32 @@ RÉSULTATS WEB TROUVÉS :
         # ─── CHAT — conseils, fiabilité, prix, etc. ───
         ud = session["user_data"]
 
+        # ─── Pipeline rule-based (fuzzy match, financement, analyse) ───
+        try:
+            import sys as _pipe_sys
+            _pipe_sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+            from core.pipeline import process as pipeline_process
+
+            class _PipeState:
+                def __init__(self, sess):
+                    self.stage = sess["context"].get("pipeline_stage", "results")
+                    self.last_results = sess["context"].get("last_results", [])
+                    self.selected_vehicle = sess["context"].get("selected_vehicle")
+
+            _state = _PipeState(session)
+            _pipe_response = pipeline_process(message, _state, [])
+
+            # Persister les changements d'état
+            session["context"]["pipeline_stage"] = _state.stage
+            if _state.selected_vehicle:
+                session["context"]["selected_vehicle"] = _state.selected_vehicle
+
+            if _pipe_response:
+                print(f"[pipeline] Réponse directe (stage={_state.stage})")
+                result = {"intent": "PIPELINE", "response": _pipe_response}
+        except Exception as _pe:
+            print(f"[pipeline] skip: {_pe}")
+
         # ─── Collecte progressive lead en cours ───
         pending_lead = session["context"].get("pending_lead")
         if pending_lead and not pending_lead.get("name"):
