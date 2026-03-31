@@ -19,6 +19,63 @@ sessions = {}
 
 
 # =============================
+# SESSION PERSISTANCE SQLite
+# =============================
+
+def _get_session_db_conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            user_id TEXT PRIMARY KEY,
+            history TEXT,
+            user_data TEXT,
+            context TEXT,
+            updated_at TEXT
+        )
+    """)
+    conn.commit()
+    return conn
+
+
+def save_session(user_id: str, session: dict):
+    try:
+        conn = _get_session_db_conn()
+        conn.execute("""
+            INSERT OR REPLACE INTO sessions (user_id, history, user_data, context, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            user_id,
+            json.dumps(session.get("history", []), ensure_ascii=False),
+            json.dumps(session.get("user_data", {}), ensure_ascii=False),
+            json.dumps(session.get("context", {}), ensure_ascii=False),
+            datetime.now().isoformat(),
+        ))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[save_session] Erreur: {e}")
+
+
+def load_session(user_id: str) -> dict | None:
+    try:
+        conn = _get_session_db_conn()
+        row = conn.execute(
+            "SELECT history, user_data, context FROM sessions WHERE user_id = ?",
+            (user_id,)
+        ).fetchone()
+        conn.close()
+        if row:
+            return {
+                "history":    json.loads(row[0] or "[]"),
+                "user_data":  json.loads(row[1] or "{}"),
+                "context":    json.loads(row[2] or "{}"),
+            }
+    except Exception as e:
+        print(f"[load_session] Erreur: {e}")
+    return None
+
+
+# =============================
 # NETTOYAGE HTML
 # =============================
 
@@ -38,45 +95,60 @@ def strip_html(text: str) -> str:
 
 def get_session(user_id: str) -> dict:
     if user_id not in sessions:
-        sessions[user_id] = {
-            "history": [],
-            # DONNÉES UTILISATEUR (ce que l'user a explicitement dit)
-            "user_data": {
-                "budget": None,
-                "vehicle_type": None,
-                "preferred_make": None,
-                "preferred_model": None,
-                "location": None,
-                "financing": None,
-                "annual_km": None,
-                "trade_in": None,
-            },
-            # ÉTAT OPÉRATIONNEL (non-user data, usage interne)
-            "context": {
-                "last_listings": [],
-                "viewed_urls": [],
-                "last_intent": None,
-                "last_query": None,
-            },
-            "vehicle_shown": {},
-            "model_statements": [],
-            "created_at": datetime.now().isoformat(),
-        }
-        # Charger la mémoire persistante depuis SQLite
-        try:
-            import sys
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-            from database import get_user_memory
-            saved = get_user_memory(user_id)
-            if saved:
-                if saved.get("budget"):
-                    sessions[user_id]["user_data"]["budget"] = saved["budget"]
-                if saved.get("preferred_make"):
-                    sessions[user_id]["user_data"]["preferred_make"] = saved["preferred_make"]
-                if saved.get("financing"):
-                    sessions[user_id]["user_data"]["financing"] = saved["financing"]
-        except Exception:
-            pass
+        # ── Essayer de charger depuis SQLite (survive aux restarts) ──
+        persisted = load_session(user_id)
+        if persisted:
+            sessions[user_id] = {
+                "history":         persisted["history"],
+                "user_data":       {
+                    "budget": None, "vehicle_type": None,
+                    "preferred_make": None, "preferred_model": None,
+                    "location": None, "financing": None,
+                    "annual_km": None, "trade_in": None,
+                    **persisted.get("user_data", {}),
+                },
+                "context": {
+                    "last_listings": [], "last_results": [],
+                    "viewed_urls": [], "last_intent": None, "last_query": None,
+                    **persisted.get("context", {}),
+                },
+                "vehicle_shown": {},
+                "model_statements": [],
+                "created_at": datetime.now().isoformat(),
+            }
+            print(f"[get_session] Session restaurée depuis SQLite pour {user_id} ({len(persisted['history'])} messages)")
+        else:
+            sessions[user_id] = {
+                "history": [],
+                "user_data": {
+                    "budget": None, "vehicle_type": None,
+                    "preferred_make": None, "preferred_model": None,
+                    "location": None, "financing": None,
+                    "annual_km": None, "trade_in": None,
+                },
+                "context": {
+                    "last_listings": [], "last_results": [],
+                    "viewed_urls": [], "last_intent": None, "last_query": None,
+                },
+                "vehicle_shown": {},
+                "model_statements": [],
+                "created_at": datetime.now().isoformat(),
+            }
+            # Charger la mémoire persistante depuis SQLite
+            try:
+                import sys
+                sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+                from database import get_user_memory
+                saved = get_user_memory(user_id)
+                if saved:
+                    if saved.get("budget"):
+                        sessions[user_id]["user_data"]["budget"] = saved["budget"]
+                    if saved.get("preferred_make"):
+                        sessions[user_id]["user_data"]["preferred_make"] = saved["preferred_make"]
+                    if saved.get("financing"):
+                        sessions[user_id]["user_data"]["financing"] = saved["financing"]
+            except Exception:
+                pass
     return sessions[user_id]
 
 
@@ -101,14 +173,29 @@ def build_context_summary(user_id: str):
         parts.append(f"Budget mentionné: {ud['budget']}$")
     if ud.get("preferred_make"):
         parts.append(f"Marque préférée: {ud['preferred_make']}")
-    if ctx.get("last_listings"):
+    if ud.get("location"):
+        parts.append(f"Région: {ud['location']}")
+    if ud.get("financing"):
+        parts.append(f"Mode acquisition: {ud['financing']}")
+    # Résumé complet des derniers véhicules présentés (titre + prix + dealer + ville)
+    last_results = ctx.get("last_results", [])
+    if last_results:
+        parts.append("VÉHICULES PRÉSENTÉS DANS CETTE CONVERSATION :")
+        for i, r in enumerate(last_results[:5], 1):
+            titre = r.get("title", "")
+            prix  = r.get("price", "")
+            ville = r.get("city", "")
+            dealer = r.get("dealer_name", "")
+            url   = r.get("url", "")
+            parts.append(f"  #{i} {titre} — {prix}$ — {dealer}, {ville} — {url}")
+    elif ctx.get("last_listings"):
         listings_summary = ", ".join([f"#{i+1} {l}" for i, l in enumerate(ctx["last_listings"][:3])])
-        parts.append(f"Derniers véhicules trouvés: {listings_summary}")
+        parts.append(f"Derniers véhicules trouvés (URLs): {listings_summary}")
     context_str = "\n".join(parts) if parts else ""
     history_str = ""
-    for msg in history[-6:]:
+    for msg in history[-10:]:
         role = "Utilisateur" if msg["role"] == "user" else "Agent"
-        history_str += f"{role}: {msg['content'][:200]}\n"
+        history_str += f"{role}: {msg['content'][:500]}\n"
     return context_str, history_str
 
 
@@ -1105,6 +1192,10 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         if cache_results:
             cache_text = format_cache_results_for_prompt(cache_results)
             session["context"]["last_listings"] = [r["url"] for r in cache_results]
+            session["context"]["last_results"] = [
+                {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
+                for r in cache_results
+            ]
 
             prompt = f"""
 {SYSTEM_PROMPT}
@@ -1273,6 +1364,44 @@ RÉSULTATS WEB TROUVÉS :
                     result = {"intent": "LEAD_ERROR", "response": "Une erreur s'est produite. Contactez directement le concessionnaire."}
 
         if not result:
+            # ─── CHAT : chercher dans inventaire si véhicule mentionné ───
+            CHAT_VEHICLE_KEYWORDS = [
+                "toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
+                "ford", "chevrolet", "nissan", "mazda", "volkswagen", "vw", "lexus",
+                "subaru", "mitsubishi", "jeep", "dodge", "ram", "gmc", "buick",
+                "civic", "corolla", "camry", "accord", "rav4", "crv", "cr-v",
+                "rogue", "tucson", "elantra", "sentra", "altima", "forester",
+                "seltos", "venue", "qashqai", "escape", "equinox", "trax",
+                "sportage", "outlander", "cx-5", "cx5", "tiguan", "golf",
+                "f-150", "f150", "silverado", "sierra", "ram 1500", "tundra",
+                "tacoma", "colorado", "ranger", "frontier",
+                "sienna", "odyssey", "carnival", "pacifica",
+                "model 3", "model y", "ioniq", "leaf", "bolt",
+                "pilot", "highlander", "pathfinder", "traverse", "explorer",
+                "tahoe", "expedition", "yukon", "suburban",
+                "charger", "challenger", "mustang", "camaro",
+            ]
+            chat_vehicle_query = None
+            for kw in CHAT_VEHICLE_KEYWORDS:
+                if kw in msg_lower:
+                    chat_vehicle_query = kw
+                    break
+
+            chat_inventory_text = ""
+            if chat_vehicle_query:
+                print(f"[smart_chat/CHAT] Véhicule détecté: '{chat_vehicle_query}' → recherche inventaire")
+                chat_cache = search_inventory_cache(chat_vehicle_query, limit=3)
+                if chat_cache:
+                    chat_inventory_text = "\n\n" + format_cache_results_for_prompt(chat_cache)
+                    # Mettre à jour last_results si pas encore de résultats dans la session
+                    if not session["context"].get("last_results"):
+                        session["context"]["last_listings"] = [r["url"] for r in chat_cache]
+                        session["context"]["last_results"] = [
+                            {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
+                            for r in chat_cache
+                        ]
+                    print(f"[smart_chat/CHAT] {len(chat_cache)} véhicule(s) trouvé(s) dans inventaire → injecté dans prompt")
+
             # ─── PART 4 : Contexte utilisateur confirmé ───
             confirmed_context = "\n\nCONTEXTE UTILISATEUR CONFIRMÉ (uniquement ce que l'utilisateur a explicitement dit) :\n"
             _has_data = False
@@ -1331,26 +1460,29 @@ RÉSULTATS WEB TROUVÉS :
             except Exception as e:
                 print(f"[few_shot] skip: {e}")
 
-            full_prompt = f"""
-{SYSTEM_PROMPT}
+            def _build_chat_prompt(h_str):
+                return f"""{SYSTEM_PROMPT}
 
 Historique:
-{history_str}
+{h_str}
 
 Contexte: {context_summary}
 {confirmed_context}
 {user_memory_context}
 {few_shot_examples}
+{chat_inventory_text}
 
 Message de l'utilisateur: {message}
 
 INSTRUCTIONS :
 - Réponds directement sans préambule
-- Si l'utilisateur mentionne un modèle → utilise Google Search pour les prix actuels au Canada
+- Si des véhicules de l'inventaire sont fournis ci-dessus, utilise ces données réelles en priorité
+- Si l'utilisateur mentionne un modèle sans données inventaire disponibles → utilise Google Search pour les prix actuels au Canada
 - Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
 - Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
 - NE PAS inclure de HTML brut dans ta réponse
 """
+            full_prompt = _build_chat_prompt(history_str)
             # Token guard — CHAT
             _tok = estimate_tokens(full_prompt)
             if _tok > 25000:
@@ -1358,26 +1490,7 @@ INSTRUCTIONS :
             if _tok > 30000:
                 print(f"[smart_chat/CHAT] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
                 history_str = _short_history(session, 10)
-                full_prompt = f"""
-{SYSTEM_PROMPT}
-
-Historique:
-{history_str}
-
-Contexte: {context_summary}
-{confirmed_context}
-{user_memory_context}
-{few_shot_examples}
-
-Message de l'utilisateur: {message}
-
-INSTRUCTIONS :
-- Réponds directement sans préambule
-- Si l'utilisateur mentionne un modèle → utilise Google Search pour les prix actuels au Canada
-- Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
-- Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
-- NE PAS inclure de HTML brut dans ta réponse
-"""
+                full_prompt = _build_chat_prompt(history_str)
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=full_prompt,
@@ -1410,5 +1523,8 @@ INSTRUCTIONS :
             update_user_memory(user_id, memory_update)
     except Exception as e:
         print(f"[memory_save] skip: {e}")
+
+    # ─── Persistance session SQLite ───
+    save_session(user_id, sessions.get(user_id, {}))
 
     return result
