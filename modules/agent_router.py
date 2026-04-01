@@ -161,6 +161,15 @@ def update_context(user_id: str, intent_data: dict, response: str):
     if urls:
         ctx["viewed_urls"].extend(urls)
         ctx["viewed_urls"] = list(set(ctx["viewed_urls"]))[-10:]
+    # Tracker si la suggestion de contact a déjà été faite
+    CONTACT_SUGGESTION_PHRASES = [
+        "souhaitez-vous que je vous mette en contact",
+        "souhaitez-vous être mis en contact",
+        "voulez-vous que je vous mette en contact",
+        "souhaitez-vous contacter",
+    ]
+    if isinstance(response, str) and any(p in response.lower() for p in CONTACT_SUGGESTION_PHRASES):
+        ctx["contact_suggestion_made"] = True
 
 
 def build_context_summary(user_id: str):
@@ -191,6 +200,8 @@ def build_context_summary(user_id: str):
     elif ctx.get("last_listings"):
         listings_summary = ", ".join([f"#{i+1} {l}" for i, l in enumerate(ctx["last_listings"][:3])])
         parts.append(f"Derniers véhicules trouvés (URLs): {listings_summary}")
+    if ctx.get("contact_suggestion_made"):
+        parts.append("STATUT CONTACT : La suggestion de mise en contact a DÉJÀ été faite dans cette conversation. NE PAS la reposer. Si l'utilisateur dit oui/ok/d'accord → passer directement à la collecte des coordonnées.")
     context_str = "\n".join(parts) if parts else ""
     history_str = ""
     for msg in history[-10:]:
@@ -452,6 +463,17 @@ SYSTEM_PROMPT = """
 Tu es 229Voitures AI Agent, conseiller automobile expert et indépendant au Canada.
 Tu es honnête, précis et tu protèges l'acheteur avant tout.
 Tu es du côté du client. Jamais du vendeur.
+
+═══════════════════════════════════════
+RÈGLE ANTI-HALLUCINATION VÉHICULES — PRIORITÉ ABSOLUE #1
+═══════════════════════════════════════
+❌ NE JAMAIS présenter une fiche véhicule (prix, km, concessionnaire, VIN, stock) qui n'a PAS été fournie dans ce prompt entre les marqueurs "=== VÉHICULES DISPONIBLES ===" et "=== FIN DES DONNÉES FORCE OCCASION ==="
+❌ NE JAMAIS compléter des champs manquants par invention — afficher "Non disponible"
+❌ NE JAMAIS utiliser Google Search ou toute source externe pour générer des annonces de véhicules à vendre
+❌ NE JAMAIS présenter un véhicule "trouvé sur internet" ou "disponible sur AutoTrader" sans données réelles fournies dans ce prompt
+✅ Seules les données entre les marqueurs ci-dessus sont des faits vérifiés
+✅ Si aucun bloc "VÉHICULES DISPONIBLES" n'est présent → ce modèle n'est PAS dans l'inventaire, le dire honnêtement
+✅ Si un champ est absent dans les données → "Non disponible", jamais d'invention
 
 ═══════════════════════════════════════
 RÈGLE 0 — ABSOLUE (priorité sur tout)
@@ -733,54 +755,57 @@ RÈGLE ABSOLUE GARANTIES : Ne jamais recommander tous les produits. Toujours exp
 """
 
 INTENT_PROMPT = """
-Analyze this user message and return ONLY a JSON object with the intent and extracted data.
+Analyse ce message utilisateur et retourne UNIQUEMENT un objet JSON avec l'intention et les données extraites.
 
 Message: "{message}"
-Conversation context: {context}
+Contexte conversation: {context}
 
-Return exactly this JSON format:
+Retourne exactement ce format JSON :
 {{
   "intent": "CHAT" | "SEARCH" | "ANALYZE_URL" | "COMPARE_URLS" | "CHECK_VIN" | "FOLLOWUP",
   "urls": [],
   "vin": null,
   "query": null,
   "site": null,
-  "count": 2,
+  "count": 3,
   "followup_action": null,
   "vehicle_filter": null
 }}
 
-Intent rules:
+Règles d'intention :
 
-- CHAT: Use for ALL evaluation and advice questions:
-  * "bonne affaire?", "c'est bien?", "fiable?", "vaut la peine?", "recommandes-tu?"
-  * "problemes connus", "rappels", "historique de fiabilite"
-  * "X$ c'est raisonnable?", "trop cher?", "bon prix?"
-  * Negotiation advice, cost of ownership questions
-  IMPORTANT: For evaluation questions, answer the question FIRST directly,
-  then offer to search for listings as a follow-up suggestion.
+- CHAT : Pour TOUTES les questions d'évaluation, conseil et information générale :
+  * "bonne affaire?", "c'est bien?", "fiable?", "vaut la peine?", "tu recommandes?"
+  * "problèmes connus", "rappels", "historique de fiabilité", "coût entretien"
+  * "X$ c'est raisonnable?", "trop cher?", "bon prix?", négociation
+  * Questions sur garanties, financement, consommation, assurance
+  * Salutations, remerciements, questions générales
 
-- SEARCH: ONLY when user EXPLICITLY wants to find/list vehicles.
-  Requires keywords: trouve, cherche, montre, propose, liste, donne moi
-  Also trigger SEARCH for: "je recherche", "je cherche", "je veux trouver"
-  Examples → SEARCH:
-  - "Trouve moi un Toyota RAV4 2021" → SEARCH
-  - "Cherche des Honda CRV sous 25000" → SEARCH
-  - "je recherche une Seltos 2022 au quebec" → SEARCH
-  - "Montre moi des Kia Seltos au Quebec" → SEARCH
+- SEARCH : SEULEMENT quand l'utilisateur veut EXPLICITEMENT trouver/lister des véhicules.
+  Mots déclencheurs obligatoires : trouve, cherche, montre, propose, liste, donne-moi, affiche
+  Aussi déclencher SEARCH pour : "je recherche", "je cherche", "je veux trouver", "j'ai besoin d'un"
+  Exemples → SEARCH :
+  - "Trouve moi un Toyota RAV4 2021" → SEARCH, vehicle_filter="toyota rav4 2021"
+  - "Cherche des Honda CRV sous 25000$" → SEARCH, vehicle_filter="honda crv"
+  - "je recherche une Seltos 2022 au Québec" → SEARCH, vehicle_filter="kia seltos 2022"
+  - "Montre moi des Kia Seltos" → SEARCH, vehicle_filter="kia seltos"
 
-- ANALYZE_URL: message contains exactly 1 URL
-- COMPARE_URLS: message contains 2+ URLs
-- CHECK_VIN: message contains a VIN (17 alphanumeric characters)
-- FOLLOWUP: user responds to a previous suggestion (ex: "le 2", "oui", "compare-les", "verifie le vin")
+- ANALYZE_URL : le message contient exactement 1 URL
+- COMPARE_URLS : le message contient 2 URL ou plus
+- CHECK_VIN : le message contient un VIN (17 caractères alphanumériques)
+- FOLLOWUP : l'utilisateur répond à une suggestion précédente
+  * Sélection : "le premier", "le 2", "celui-là", "ce véhicule", "le moins cher" → followup_action="select_listing"
+  * Comparaison : "compare-les", "lequel est le mieux?", "compare" → followup_action="compare"
+  * VIN : "vérifie le VIN", "check le VIN", "rapport VIN" → followup_action="check_vin"
+  * Plus : "montre-m'en plus", "d'autres options?" → followup_action="more_results"
 
-For SEARCH extract:
-- query: exact vehicle search terms (make, model, year, trim, budget, location)
-- vehicle_filter: specific make+model being searched (ex: "Kia Seltos 2022")
-- site: dealer domain if mentioned, null otherwise
-- count: number of results requested (default 3)
+Pour SEARCH extraire :
+- query : termes de recherche exacts (marque, modèle, année, version, budget, ville)
+- vehicle_filter : marque + modèle spécifique (ex: "kia seltos 2022")
+- site : domaine concessionnaire si mentionné, null sinon
+- count : nombre de résultats demandés (défaut 3)
 
-Return ONLY the JSON, no explanation.
+Retourne UNIQUEMENT le JSON, aucune explication.
 """
 
 
@@ -848,33 +873,77 @@ def handle_followup(user_id: str, intent_data: dict, history_str: str, context_s
     session = get_session(user_id)
     ctx = session["context"]
     action = intent_data.get("followup_action")
+    # Données structurées en priorité sur les simples URLs
+    last_results = ctx.get("last_results", [])
 
-    if action == "select_listing" and ctx["last_listings"]:
-        listings_text = "\n".join([f"#{i+1}: {l}" for i, l in enumerate(ctx["last_listings"])])
-        prompt = f"{SYSTEM_PROMPT}\nHistorique:\n{history_str}\nContexte: {context_summary}\nAnnonces:\n{listings_text}\nL'utilisateur a sélectionné une annonce. Identifie laquelle et résume-la. Propose: vérifier VIN, comparer, ou contacter le concessionnaire. Max 4 phrases en français."
+    if action == "select_listing" and last_results:
+        # Passe les données réelles (pas des URLs) pour que Gemini ne puisse pas inventer
+        vehicles_text = format_cache_results_for_prompt(
+            [{**r, "raw_content": ""} for r in last_results]  # strip raw_content pour économiser tokens
+        )
+        prompt = f"""{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+{vehicles_text}
+
+INSTRUCTION : L'utilisateur a sélectionné un des véhicules présentés ci-dessus. Identifie lequel d'après l'historique, résume SES données exactes, et propose : vérifier le VIN, comparer avec un autre, ou contacter le concessionnaire. Utilise UNIQUEMENT les données fournies ci-dessus."""
         response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
         return {"intent": "FOLLOWUP", "response": response.text}
 
     elif action == "check_vin":
-        prompt = f"{SYSTEM_PROMPT}\nHistorique:\n{history_str}\nL'utilisateur veut vérifier le VIN. Demande-lui le numéro VIN. Max 2 phrases en français."
+        prompt = f"{SYSTEM_PROMPT}\nHistorique:\n{history_str}\nL'utilisateur veut vérifier le VIN. Demande-lui le numéro VIN (17 caractères alphanumériques). Max 2 phrases en français."
         response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
         return {"intent": "FOLLOWUP", "response": response.text}
 
-    elif action == "compare" and len(ctx["last_listings"]) >= 2:
-        listings_text = "\n".join([f"#{i+1}: {l}" for i, l in enumerate(ctx["last_listings"][:3])])
+    elif action == "compare" and len(last_results) >= 2:
+        vehicles_text = format_cache_results_for_prompt(
+            [{**r, "raw_content": ""} for r in last_results[:3]]
+        )
         budget_label = f"{session['user_data']['budget']}$" if session["user_data"].get("budget") else "non précisé"
-        prompt = f"{SYSTEM_PROMPT}\nCompare ces véhicules et recommande le meilleur. Budget: {budget_label}\n{listings_text}\nMax 5 phrases en français."
+        prompt = f"""{SYSTEM_PROMPT}
+
+Budget utilisateur: {budget_label}
+
+{vehicles_text}
+
+INSTRUCTION : Compare ces véhicules RÉELS et recommande le meilleur selon le rapport qualité/prix. Utilise UNIQUEMENT les données fournies. Max 5 phrases."""
         response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
         return {"intent": "FOLLOWUP", "response": response.text}
 
     elif action == "more_results":
-        last_query = ctx.get("last_query", "véhicule occasion Canada")
-        result = search_and_analyze(query=last_query, count=3)
-        return {"intent": "SEARCH", "response": result.get("analysis", ""), "urls_found": result.get("urls_found", []), "scraped_count": result.get("scraped_count", 0)}
+        # Cherche dans l'inventaire, pas sur le web
+        last_query = ctx.get("last_query", "")
+        if last_query:
+            more = search_inventory_cache(last_query, limit=3)
+            if more:
+                more_text = format_cache_results_for_prompt(more)
+                prompt = f"""{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+{more_text}
+
+INSTRUCTION : Voici d'autres véhicules de l'inventaire pour "{last_query}". Présente-les avec leurs données réelles."""
+                response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+                return {"intent": "FOLLOWUP", "response": response.text}
+        return {"intent": "FOLLOWUP", "response": "Je n'ai pas d'autres véhicules correspondants dans l'inventaire. Souhaitez-vous élargir la recherche à un autre modèle ou une autre région ?"}
 
     else:
-        prompt = f"{SYSTEM_PROMPT}\nHistorique:\n{history_str}\nContexte: {context_summary}\nContinue à aider l'utilisateur naturellement. Max 4 phrases en français."
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt, config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())]))
+        # Catch-all : réponse contextuelle SANS GoogleSearch (évite la dérive)
+        prompt = f"""{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+INSTRUCTION : Continue à aider l'utilisateur. Si l'historique montre des véhicules présentés, utilise ces données. Ne présente aucun véhicule qui n'est pas dans le contexte. Max 4 phrases en français."""
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
         return {"intent": "FOLLOWUP", "response": response.text}
 
 
@@ -1033,7 +1102,15 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         print(f"[smart_chat] 🔴 TRUNCATION: prompt base > 30 000 tokens → historique réduit à 10 messages")
         history_str = _short_history(session, 10)
     session["history"].append({"role": "user", "content": message})
-    intent_data = detect_intent(message, context_summary)
+
+    # ─── Détection affirmative après suggestion de contact (évite la boucle) ───
+    _AFFIRMATIVES = {"oui", "oi", "yes", "ok", "d'accord", "ouais", "yep", "allons-y", "allez", "bien sûr", "avec plaisir"}
+    if message.strip().lower() in _AFFIRMATIVES and session["context"].get("contact_suggestion_made"):
+        print(f"[smart_chat] Réponse affirmative après suggestion contact → forcer LEAD_REQUEST")
+        intent_data = {"intent": "LEAD_REQUEST", "urls": [], "vin": None, "query": message,
+                       "site": None, "count": 3, "followup_action": None}
+    else:
+        intent_data = detect_intent(message, context_summary)
     intent = intent_data.get("intent", "CHAT")
     result = {}
 
@@ -1068,18 +1145,26 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         }
 
     elif intent == "LEAD_REQUEST":
+        last_results = session["context"].get("last_results", [])
         last_listings = session["context"].get("last_listings", [])
         vehicle_title = session["context"].get("last_query", "véhicule")
         vehicle_price = 0
         vehicle_url = ""
         dealer_name = ""
-        if last_listings:
+        # Priorité : last_results contient les données complètes (titre, prix, concessionnaire)
+        if last_results:
+            v = last_results[0]
+            vehicle_title = v.get("title", vehicle_title)
+            vehicle_price = v.get("price", 0)
+            vehicle_url = v.get("url", "")
+            dealer_name = v.get("dealer_name", "")
+        elif last_listings:
             v = last_listings[0] if isinstance(last_listings, list) else last_listings
             if isinstance(v, dict):
                 vehicle_title = v.get("title", vehicle_title)
                 vehicle_price = v.get("price", 0)
                 vehicle_url = v.get("url", "")
-                dealer_name = v.get("dealer", "")
+                dealer_name = v.get("dealer_name", v.get("dealer", ""))
             elif isinstance(v, str):
                 vehicle_url = v
         session["context"]["pending_lead"] = {
@@ -1256,25 +1341,32 @@ INSTRUCTIONS :
             }
 
         else:
-            # ─── ÉTAPE 2 : Fallback — recherche web via SerpAPI ───
-            print(f"[smart_chat] Aucun résultat local pour '{query}' → fallback SerpAPI")
-            search_result = search_and_analyze(
-                query=query,
-                site=intent_data.get("site"),
-                count=intent_data.get("count", 3)
-            )
-            session["context"]["last_listings"] = search_result.get("urls_found", [])
+            # ─── ÉTAPE 2 : Aucun résultat local → recherche alternatives inventaire ───
+            print(f"[smart_chat] Aucun résultat local pour '{query}' → recherche alternatives")
 
             try:
-                log_search(query=query, intent="SEARCH", results_count=search_result.get("scraped_count", 0))
+                log_search(query=query, intent="SEARCH", results_count=0)
             except Exception:
                 pass
 
-            # Nettoyer le HTML parasite dans la réponse SerpAPI
-            serp_response = strip_html(search_result.get("analysis", ""))
+            # Chercher des alternatives dans l'inventaire (mots-clés élargis)
+            alt_results = []
+            keywords_alt = [k.strip() for k in query.lower().split() if len(k.strip()) > 2
+                            and k.strip() not in {s.lower() for s in STOPWORDS_FR}]
+            for kw in keywords_alt[:2]:
+                alt_results = search_inventory_cache(kw, limit=3)
+                if alt_results:
+                    print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
+                    break
 
-            # Construire un prompt avec note géo + résultats SerpAPI
-            geo_prompt = f"""
+            if alt_results:
+                alt_text = format_cache_results_for_prompt(alt_results)
+                session["context"]["last_listings"] = [r["url"] for r in alt_results]
+                session["context"]["last_results"] = [
+                    {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
+                    for r in alt_results
+                ]
+                no_stock_prompt = f"""
 {SYSTEM_PROMPT}
 
 Historique:
@@ -1284,41 +1376,51 @@ Contexte: {context_summary}
 
 RECHERCHE DE L'UTILISATEUR : "{query}"
 
-INSTRUCTION : Aucun véhicule trouvé dans l'inventaire local. Élargis la recherche géographiquement — propose Québec, Lévis, Montréal comme alternatives proches.
+RÉSULTAT DE RECHERCHE : Ce modèle exact n'est PAS disponible dans l'inventaire de nos concessionnaires partenaires.
 
-RÉSULTATS WEB TROUVÉS :
-{serp_response}
+ALTERNATIVES DISPONIBLES EN INVENTAIRE :
+{alt_text}
+
+INSTRUCTIONS :
+- Dis CLAIREMENT et HONNÊTEMENT que le modèle exact demandé n'est pas en stock
+- Présente ces alternatives RÉELLES de l'inventaire comme suggestions
+- N'invente AUCUN véhicule supplémentaire
+- Ne présente QUE les véhicules ci-dessus
+- Propose à l'utilisateur de créer une alerte email pour être notifié si le modèle arrive en inventaire
 """
-            # Token guard — SEARCH SerpAPI
-            _tok = estimate_tokens(geo_prompt)
-            if _tok > 25000:
-                print(f"[smart_chat/SEARCH-serp] ⚠️  WARNING: prompt ~{_tok} tokens (seuil 25 000)")
+            else:
+                no_stock_prompt = f"""
+{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+RECHERCHE DE L'UTILISATEUR : "{query}"
+
+RÉSULTAT DE RECHERCHE : Aucun véhicule trouvé dans l'inventaire pour cette recherche.
+
+INSTRUCTIONS STRICTES :
+- Dis HONNÊTEMENT qu'on n'a pas ce modèle en stock chez nos concessionnaires partenaires
+- NE PAS inventer de véhicules ou d'annonces
+- NE PAS chercher sur internet pour présenter des fiches
+- Propose : (1) créer une alerte email, (2) élargir la recherche à d'autres modèles similaires, (3) consulter directement AutoHebdo.net ou Kijiji Autos
+- Demande si l'utilisateur veut qu'on cherche un modèle similaire dans notre inventaire
+"""
+
+            _tok = estimate_tokens(no_stock_prompt)
             if _tok > 30000:
-                print(f"[smart_chat/SEARCH-serp] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
                 history_str = _short_history(session, 10)
-                geo_prompt = f"""
-{SYSTEM_PROMPT}
+                no_stock_prompt = no_stock_prompt.replace(history_str, _short_history(session, 10))
 
-Historique:
-{history_str}
-
-Contexte: {context_summary}
-
-RECHERCHE DE L'UTILISATEUR : "{query}"
-
-INSTRUCTION : Aucun véhicule trouvé dans l'inventaire local. Élargis la recherche géographiquement — propose Québec, Lévis, Montréal comme alternatives proches.
-
-RÉSULTATS WEB TROUVÉS :
-{serp_response}
-"""
-            geo_response = client.models.generate_content(model="gemini-2.5-flash", contents=geo_prompt)
-
+            no_stock_response = client.models.generate_content(model="gemini-2.5-flash", contents=no_stock_prompt)
             result = {
                 "intent": "SEARCH",
-                "response": geo_response.text,
-                "urls_found": search_result.get("urls_found", []),
-                "scraped_count": search_result.get("scraped_count", 0),
-                "source": "serpapi"
+                "response": no_stock_response.text,
+                "urls_found": [r["url"] for r in alt_results] if alt_results else [],
+                "scraped_count": len(alt_results),
+                "source": "inventory_cache_alternatives"
             }
 
     else:
@@ -1391,15 +1493,36 @@ RÉSULTATS WEB TROUVÉS :
 
         if not result:
             # ─── CHAT : chercher dans inventaire si véhicule mentionné ───
-            CHAT_VEHICLE_KEYWORDS = [
-                "toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
-                "ford", "chevrolet", "nissan", "mazda", "volkswagen", "vw", "lexus",
-                "subaru", "mitsubishi", "jeep", "dodge", "ram", "gmc", "buick",
+            # Marques → modèles associés pour enrichir la recherche
+            CHAT_BRAND_MODELS = {
+                "toyota": ["rav4", "corolla", "camry", "highlander", "tundra", "tacoma", "sienna", "prius"],
+                "honda": ["civic", "accord", "crv", "cr-v", "pilot", "odyssey", "ridgeline"],
+                "bmw": ["x1", "x2", "x3", "x4", "x5", "x6", "x7", "330", "430", "530", "630", "730", "m3", "m5"],
+                "audi": ["a3", "a4", "a5", "a6", "q3", "q5", "q7", "q8"],
+                "mercedes": ["c300", "e300", "glc", "gle", "gls", "cla", "gla"],
+                "hyundai": ["elantra", "tucson", "sonata", "santa fe", "ioniq", "kona"],
+                "kia": ["seltos", "sportage", "sorento", "telluride", "forte", "stinger", "niro"],
+                "ford": ["f-150", "f150", "escape", "explorer", "edge", "bronco", "mustang"],
+                "chevrolet": ["equinox", "traverse", "silverado", "tahoe", "suburban", "blazer", "trax", "trax"],
+                "nissan": ["rogue", "sentra", "altima", "murano", "pathfinder", "qashqai", "frontier", "titan"],
+                "mazda": ["mazda3", "cx-5", "cx5", "cx-30", "cx-9", "mx-5"],
+                "volkswagen": ["tiguan", "atlas", "golf", "jetta", "passat", "id.4"],
+                "vw": ["tiguan", "atlas", "golf", "jetta"],
+                "lexus": ["rx", "nx", "es", "ux", "gx", "lx"],
+                "subaru": ["forester", "outback", "crosstrek", "impreza", "wrx", "ascent"],
+                "mitsubishi": ["outlander", "rvr", "eclipse cross"],
+                "jeep": ["grand cherokee", "wrangler", "compass", "renegade", "gladiator"],
+                "dodge": ["charger", "challenger", "durango"],
+                "ram": ["1500", "2500", "promaster"],
+                "gmc": ["sierra", "yukon", "terrain", "acadia", "canyon"],
+                "buick": ["enclave", "encore", "envision"],
+            }
+            CHAT_MODEL_ONLY = [
                 "civic", "corolla", "camry", "accord", "rav4", "crv", "cr-v",
                 "rogue", "tucson", "elantra", "sentra", "altima", "forester",
                 "seltos", "venue", "qashqai", "escape", "equinox", "trax",
                 "sportage", "outlander", "cx-5", "cx5", "tiguan", "golf",
-                "f-150", "f150", "silverado", "sierra", "ram 1500", "tundra",
+                "f-150", "f150", "silverado", "sierra", "tundra",
                 "tacoma", "colorado", "ranger", "frontier",
                 "sienna", "odyssey", "carnival", "pacifica",
                 "model 3", "model y", "ioniq", "leaf", "bolt",
@@ -1407,11 +1530,30 @@ RÉSULTATS WEB TROUVÉS :
                 "tahoe", "expedition", "yukon", "suburban",
                 "charger", "challenger", "mustang", "camaro",
             ]
+
             chat_vehicle_query = None
-            for kw in CHAT_VEHICLE_KEYWORDS:
-                if kw in msg_lower:
-                    chat_vehicle_query = kw
+            # Stratégie : détecter marque + modèle ensemble pour une recherche plus précise
+            brand_found = None
+            model_found = None
+            for brand in CHAT_BRAND_MODELS:
+                if brand in msg_lower:
+                    brand_found = brand
+                    for model in CHAT_BRAND_MODELS[brand]:
+                        if model in msg_lower:
+                            model_found = model
+                            break
                     break
+            if not brand_found:
+                for model in CHAT_MODEL_ONLY:
+                    if model in msg_lower:
+                        model_found = model
+                        break
+            if brand_found and model_found:
+                chat_vehicle_query = f"{brand_found} {model_found}"
+            elif brand_found:
+                chat_vehicle_query = brand_found
+            elif model_found:
+                chat_vehicle_query = model_found
 
             chat_inventory_text = ""
             if chat_vehicle_query:
@@ -1486,6 +1628,25 @@ RÉSULTATS WEB TROUVÉS :
             except Exception as e:
                 print(f"[few_shot] skip: {e}")
 
+            # GoogleSearch activé seulement pour les conseils généraux (fiabilité, prix marché)
+            # DÉSACTIVÉ quand un véhicule est mentionné pour éviter l'hallucination d'annonces inventées
+            _chat_has_vehicle_data = bool(chat_inventory_text)
+            _chat_needs_search = not chat_vehicle_query  # pas de marque/modèle détecté → conseil général
+
+            _vehicle_instructions = ""
+            if chat_vehicle_query and _chat_has_vehicle_data:
+                _vehicle_instructions = (
+                    "- Des véhicules RÉELS sont fournis dans ce prompt — utilise UNIQUEMENT ces données\n"
+                    "- NE PAS chercher d'autres véhicules ou annonces\n"
+                )
+            elif chat_vehicle_query and not _chat_has_vehicle_data:
+                _vehicle_instructions = (
+                    "- Ce modèle n'est PAS dans notre inventaire actuel\n"
+                    "- NE PAS présenter de fiche véhicule inventée ou trouvée sur internet\n"
+                    "- Tu peux donner des informations générales sur la fiabilité/valeur de ce modèle\n"
+                    "- Propose de lancer une recherche dans notre inventaire ou de créer une alerte\n"
+                )
+
             def _build_chat_prompt(h_str):
                 return f"""{SYSTEM_PROMPT}
 
@@ -1502,9 +1663,7 @@ Message de l'utilisateur: {message}
 
 INSTRUCTIONS :
 - Réponds directement sans préambule
-- Si des véhicules de l'inventaire sont fournis ci-dessus, utilise ces données réelles en priorité
-- Si l'utilisateur mentionne un modèle sans données inventaire disponibles → utilise Google Search pour les prix actuels au Canada
-- Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
+{_vehicle_instructions}- Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
 - Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
 - NE PAS inclure de HTML brut dans ta réponse
 """
@@ -1517,11 +1676,22 @@ INSTRUCTIONS :
                 print(f"[smart_chat/CHAT] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
                 history_str = _short_history(session, 10)
                 full_prompt = _build_chat_prompt(history_str)
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
-            )
+
+            if _chat_needs_search:
+                # Conseil général (garanties, financement, comparaison générique) → GoogleSearch OK
+                print(f"[smart_chat/CHAT] GoogleSearch activé (pas de marque/modèle spécifique)")
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=full_prompt,
+                    config=types.GenerateContentConfig(tools=[types.Tool(google_search=types.GoogleSearch())])
+                )
+            else:
+                # Véhicule détecté → PAS de GoogleSearch (risque d'hallucination d'annonces)
+                print(f"[smart_chat/CHAT] GoogleSearch DÉSACTIVÉ (véhicule détecté: '{chat_vehicle_query}', inventaire: {_chat_has_vehicle_data})")
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=full_prompt
+                )
             result = {"intent": "CHAT", "response": response.text}
 
     response_text = result.get("response", "")
