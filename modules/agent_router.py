@@ -381,73 +381,96 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
         if not prix or not titre:
             continue
 
-        annee          = r.get("year", "")
-        marque         = r.get("make", "")
-        modele         = r.get("model", "")
-        prix_marche    = r.get("avg_market_price", "")
-        km             = r.get("mileage", "")
-        ville          = r.get("city", "")
-        province       = r.get("province", "")
-        concessionnaire = r.get("dealer_name", "")
-        telephone      = r.get("dealer_phone", "")
-        transmission   = r.get("transmission", "")
-        moteur         = r.get("engine", "")
-        carburant      = r.get("fuel_type", "")
-        traction       = r.get("drivetrain", "")
-        couleur        = r.get("color", "")
-        niv            = r.get("vin", "")
-        stock          = r.get("vehicle_id", "")
+        annee           = r.get("year", "") or "Non disponible"
+        marque          = r.get("make", "") or "Non disponible"
+        modele          = r.get("model", "") or "Non disponible"
+        version         = r.get("trim", "") or "Non disponible"
+        km              = r.get("mileage", "") or "Non disponible"
+        ville           = r.get("city", "") or "Non disponible"
+        province        = r.get("province", "") or ""
+        concessionnaire = r.get("dealer_name", "") or "Non disponible"
+        telephone       = r.get("dealer_phone", "") or "Non disponible"
+        transmission    = r.get("transmission", "") or "Non disponible"
+        moteur          = r.get("engine", "") or "Non disponible"
+        carburant       = r.get("fuel_type", "") or "Non disponible"
+        traction        = r.get("drivetrain", "") or "Non disponible"
+        couleur         = r.get("color", "") or "Non disponible"
+        niv             = r.get("vin", "") or "Non disponible"
+        fo_id           = r.get("vehicle_id", "") or ""
+        options         = (r.get("options", "") or "")[:200] or "Non disponible"
+        source          = r.get("source", "")
+
+        # CORRECTION 1 — Lien direct : utiliser le champ url de la DB (jamais un lien générique)
+        url_annonce = r.get("url", "") or ""
+
+        # CORRECTION 2 — Taxes : utiliser les valeurs déjà calculées dans la DB
         tps            = r.get("tps", "")
         tvq            = r.get("tvq", "")
-        options        = (r.get("options", "") or "")[:200]
-        source         = r.get("source", "")
-
-        if prix and not tps:
+        total_with_taxes = r.get("total_with_taxes", "")
+        if not tps or not tvq:
             try:
                 prix_num = float(str(prix).replace(",", "").replace("$", "").strip())
                 tps = round(prix_num * 0.05, 2)
                 tvq = round(prix_num * 0.09975, 2)
-                total_taxes = round(prix_num + tps + tvq, 2)
+                total_with_taxes = round(prix_num + tps + tvq, 2)
             except Exception:
-                total_taxes = ""
-        else:
+                total_with_taxes = "Non disponible"
+        elif not total_with_taxes:
             try:
                 prix_num = float(str(prix).replace(",", "").replace("$", "").strip())
-                total_taxes = round(prix_num + float(str(tps).replace(",","")) + float(str(tvq).replace(",","")), 2)
+                total_with_taxes = round(prix_num + float(str(tps)) + float(str(tvq)), 2)
             except Exception:
-                total_taxes = ""
+                total_with_taxes = "Non disponible"
 
-        # Score de fiabilité
-        reliability = "✅ Données cohérentes"
+        # CORRECTION 3 — Prix marché : utiliser avg_market_price, price_diff, price_status de la DB
+        prix_marche  = r.get("avg_market_price", "") or ""
+        price_diff   = r.get("price_diff", "") or ""
+        price_status = r.get("price_status", "") or ""
+
+        # Statut prix lisible
+        if price_status and prix_marche:
+            statut_prix = f"{price_status} (marché moy: {prix_marche}$, écart: {price_diff}$)"
+        elif prix_marche:
+            statut_prix = f"Marché moyen: {prix_marche}$"
+        else:
+            statut_prix = "Non disponible"
+
+        # Score fiabilité
+        reliability = "Données cohérentes"
         try:
             prix_float = float(str(prix).replace(",", "").replace("$", "").strip())
-            km_float = float(str(km)) if km else 0
+            km_float = float(str(km)) if km != "Non disponible" else 0
             prix_marche_float = float(str(prix_marche)) if prix_marche else 0
             if prix_marche_float > 0 and prix_float < prix_marche_float * 0.85:
-                reliability = "⚠️ Prix suspect — vérifier l'état du véhicule"
+                reliability = "PRIX SUSPECT — vérifier l'état du véhicule"
             elif prix_marche_float > 0 and prix_float > prix_marche_float * 1.15:
-                reliability = "💡 Prix au-dessus du marché — négocier"
+                reliability = "Prix au-dessus du marché — négocier"
             elif km_float > 150000:
-                reliability = "⚠️ Kilométrage élevé — inspection recommandée"
+                reliability = "Kilométrage élevé — inspection recommandée"
         except Exception:
             pass
 
         line = f"""
 Véhicule #{i} — {source}
-  Titre      : {annee} {marque} {modele}
-  Prix       : {prix}$ (marché moyen: {prix_marche}$)
-  Taxes QC   : TPS {tps}$ + TVQ {tvq}$ = Total estimé {total_taxes}$
-  Kilométrage: {km} km
-  Localisation: {ville}, {province}
-  Concessionnaire: {concessionnaire} | Tél: {telephone}
-  Moteur     : {moteur} | Transmission: {transmission}
-  Carburant  : {carburant} | Traction: {traction}
-  Couleur    : {couleur}
-  VIN        : {niv}
-  N° Stock   : {stock}
-  Options    : {options}
-  Fiabilité  : {reliability}
-  URL fiche  : {r.get('url', '')}
+  Titre         : {annee} {marque} {modele} {version}
+  Prix          : {prix}$
+  Statut prix   : {statut_prix}
+  Taxes QC      : TPS {tps}$ + TVQ {tvq}$ = Total {total_with_taxes}$
+  Kilométrage   : {km} km
+  Localisation  : {ville}, {province}
+  Concessionnaire: {concessionnaire}
+  Téléphone     : {telephone}
+  Moteur        : {moteur}
+  Transmission  : {transmission}
+  Carburant     : {carburant}
+  Traction      : {traction}
+  Couleur       : {couleur}
+  VIN           : {niv}
+  ID Force Occasion: {fo_id}
+  N° Stock concessionnaire: Non disponible
+  Options       : {options}
+  Fiabilité     : {reliability}
+  LIEN ANNONCE  : {url_annonce}
 """
         lines.append(line)
 
@@ -648,13 +671,22 @@ Mots et expressions INTERDITS en début de réponse :
 → Commencer directement par l'information utile.
 
 9. PRÉSENTATION VÉHICULE (format fixe obligatoire)
+Utilise UNIQUEMENT les données fournies dans le bloc VÉHICULES DISPONIBLES — ne jamais inventer.
+
 🚗 [Année] [Marque] [Modèle] [Version] — [Concessionnaire], [Ville]
-- Prix : [X]$ | Marché moyen : [Y]$ | [Sous/Au-dessus/Dans] la moyenne
-- Kilométrage : [X] km
-- Moteur : [X] | Transmission : [X] | Carburant : [X]
-- VIN : [X] | N° Stock : [X]
-💰 TPS [X]$ + TVQ [X]$ = Total [X]$
-🔗 [lien si disponible et vérifié]
+- Prix : [X]$ | [Statut prix depuis le champ "Statut prix"] | Marché moyen : [avg_market_price]$
+- Kilométrage : [mileage] km
+- Moteur : [engine] | Transmission : [transmission] | Carburant : [fuel_type] | Traction : [drivetrain]
+- Couleur : [color]
+- VIN : [vin]
+- ID Force Occasion : [vehicle_id] | N° Stock concessionnaire : Non disponible
+💰 TPS [tps]$ + TVQ [tvq]$ = Total [total_with_taxes]$
+🔗 ⭐ Voir l'annonce → [LIEN ANNONCE — champ url, lien direct Force Occasion]
+
+RÈGLES LIEN :
+- Utilise TOUJOURS le champ "LIEN ANNONCE" fourni dans les données → c'est le lien direct vers la fiche
+- Ne jamais afficher un lien générique vers forceoccasion.ca sans l'ID
+- Si le champ LIEN ANNONCE est vide → écrire "Lien non disponible"
 
 10. RÈGLE CONCESSIONNAIRE
 - Toujours afficher le NOM EXACT du concessionnaire tel que disponible dans les données
