@@ -1152,7 +1152,75 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     intent = intent_data.get("intent", "CHAT")
     result = {}
 
-    if intent == "CREATE_ALERT":
+    # ─── Collecte progressive lead — priorité absolue sur tout autre intent ───
+    _pending = session["context"].get("pending_lead")
+    if _pending:
+        _pl_name  = _pending.get("name", "")
+        _pl_phone = _pending.get("phone", "")
+        _pl_email = _pending.get("email", "")
+        # Tous les champs présents → create_lead immédiatement
+        if _pl_name and _pl_phone and _pl_email and "@" in _pl_email:
+            _lead_data = dict(_pending)
+            _lead_data["user_id"] = user_id
+            try:
+                import sys as _sys2
+                _sys2.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+                from lead_service import create_lead
+                create_lead(_lead_data)
+                dealer = _lead_data.get("dealer_name") or "le concessionnaire"
+                result = {
+                    "intent": "LEAD_SENT",
+                    "response": (
+                        f"✅ Votre demande a été envoyée à {dealer}. "
+                        f"Vous recevrez une confirmation à {_pl_email}. "
+                        f"Le concessionnaire va vous contacter au {_pl_phone} dans les 24-48h."
+                    ),
+                }
+                session["context"]["pending_lead"] = None
+            except Exception as e:
+                print(f"[lead_collect] error: {e}")
+                result = {"intent": "LEAD_ERROR", "response": "Une erreur s'est produite. Contactez directement le concessionnaire."}
+        # Collecte nom
+        elif not _pl_name:
+            if re.search(r'^[A-Za-zÀ-ÿ\s\-]{3,40}$', message.strip()):
+                session["context"]["pending_lead"]["name"] = message.strip()
+                result = {
+                    "intent": "LEAD_COLLECT",
+                    "response": f"Merci {message.strip().split()[0]} ! Quel est votre numéro de téléphone ?",
+                }
+        # Collecte téléphone
+        elif not _pl_phone:
+            session["context"]["pending_lead"]["phone"] = message.strip()
+            result = {
+                "intent": "LEAD_COLLECT",
+                "response": "Parfait. Quelle est votre adresse email ?",
+            }
+        # Collecte email → create_lead
+        elif not _pl_email:
+            if "@" in message:
+                session["context"]["pending_lead"]["email"] = message.strip()
+                _lead_data = dict(session["context"]["pending_lead"])
+                _lead_data["user_id"] = user_id
+                try:
+                    import sys as _sys3
+                    _sys3.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+                    from lead_service import create_lead
+                    create_lead(_lead_data)
+                    dealer = _lead_data.get("dealer_name") or "le concessionnaire"
+                    result = {
+                        "intent": "LEAD_SENT",
+                        "response": (
+                            f"✅ Votre demande a été envoyée à {dealer}. "
+                            f"Vous recevrez une confirmation à {message.strip()}. "
+                            f"Le concessionnaire va vous contacter au {_pl_phone} dans les 24-48h."
+                        ),
+                    }
+                    session["context"]["pending_lead"] = None
+                except Exception as e:
+                    print(f"[lead_collect] error: {e}")
+                    result = {"intent": "LEAD_ERROR", "response": "Une erreur s'est produite. Contactez directement le concessionnaire."}
+
+    if not result and intent == "CREATE_ALERT":
         criteria = {}
         _brands = ["toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
                    "ford", "nissan", "mazda", "subaru", "chevrolet", "dodge", "ram", "jeep", "gmc"]
@@ -1182,10 +1250,15 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             "criteria": criteria,
         }
 
-    elif intent == "LEAD_REQUEST":
+    elif not result and intent == "LEAD_REQUEST":
         last_results = session["context"].get("last_results", [])
         last_listings = session["context"].get("last_listings", [])
-        vehicle_title = session["context"].get("last_query", "véhicule")
+        # Priorité : véhicule sélectionné > dernier résultat > dernière requête
+        _sel = session["context"].get("selected_vehicle")
+        vehicle_title = (
+            (_sel.get("title") if isinstance(_sel, dict) else None)
+            or session["context"].get("last_query", "véhicule")
+        )
         vehicle_price = 0
         vehicle_url = ""
         dealer_name = ""
@@ -1224,7 +1297,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             ),
         }
 
-    elif intent == "GARANTIES":
+    elif not result and intent == "GARANTIES":
         risk = calculate_risk_score(session["user_data"], message)
         risk_context = f"""
 SCORE DE RISQUE CALCULÉ : {risk['emoji']} {risk['score']}/100 — Risque {risk['level']}
@@ -1257,21 +1330,21 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         result = {"intent": "GARANTIES", "response": garanties_response.text,
                   "risk_score": risk["score"], "risk_level": risk["level"]}
 
-    elif intent == "FOLLOWUP":
+    elif not result and intent == "FOLLOWUP":
         result = handle_followup(user_id, intent_data, history_str, context_summary)
 
-    elif intent == "CHECK_VIN" and intent_data.get("vin"):
+    elif not result and intent == "CHECK_VIN" and intent_data.get("vin"):
         result = {"intent": "CHECK_VIN", "response": get_vehicle_report(intent_data["vin"])}
 
-    elif intent == "COMPARE_URLS" and len(intent_data.get("urls", [])) >= 2:
+    elif not result and intent == "COMPARE_URLS" and len(intent_data.get("urls", [])) >= 2:
         compare_result = compare_listings(intent_data["urls"][0], intent_data["urls"][1])
         result = {"intent": "COMPARE_URLS", "response": compare_result.get("comparison", ""), "urls": intent_data["urls"]}
 
-    elif intent == "ANALYZE_URL" and len(intent_data.get("urls", [])) >= 1:
+    elif not result and intent == "ANALYZE_URL" and len(intent_data.get("urls", [])) >= 1:
         analyze_result = analyze_listing(intent_data["urls"][0])
         result = {"intent": "ANALYZE_URL", "response": analyze_result.get("analysis", ""), "url": intent_data["urls"][0], "scraped": analyze_result.get("scraped", False)}
 
-    elif intent == "SEARCH" and intent_data.get("query"):
+    elif not result and intent == "SEARCH" and intent_data.get("query"):
         query = intent_data["query"]
         session["context"]["last_query"] = query
 
@@ -1461,7 +1534,7 @@ INSTRUCTIONS STRICTES :
                 "source": "inventory_cache_alternatives"
             }
 
-    else:
+    elif not result:
         # ─── CHAT — conseils, fiabilité, prix, etc. ───
         ud = session["user_data"]
 
@@ -1490,47 +1563,6 @@ INSTRUCTIONS STRICTES :
                 result = {"intent": "PIPELINE", "response": _pipe_response}
         except Exception as _pe:
             print(f"[pipeline] skip: {_pe}")
-
-        # ─── Collecte progressive lead en cours ───
-        pending_lead = session["context"].get("pending_lead")
-        if pending_lead and not pending_lead.get("name"):
-            if re.search(r'^[A-Za-zÀ-ÿ\s\-]{3,40}$', message.strip()):
-                session["context"]["pending_lead"]["name"] = message.strip()
-                result = {
-                    "intent": "LEAD_COLLECT",
-                    "response": f"Merci {message.strip().split()[0]} ! Quel est votre numéro de téléphone ?",
-                }
-        elif pending_lead and pending_lead.get("name") and not pending_lead.get("phone"):
-            session["context"]["pending_lead"]["phone"] = message.strip()
-            result = {
-                "intent": "LEAD_COLLECT",
-                "response": "Parfait. Quelle est votre adresse email ?",
-            }
-        elif pending_lead and pending_lead.get("phone") and not pending_lead.get("email"):
-            if "@" in message:
-                session["context"]["pending_lead"]["email"] = message.strip()
-                lead_data = dict(session["context"]["pending_lead"])
-                lead_data["user_id"] = user_id
-                try:
-                    import sys as _sys2
-                    _sys2.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-                    from lead_service import create_lead
-                    create_lead(lead_data)
-                    dealer = lead_data.get("dealer_name") or "le concessionnaire"
-                    email_conf = lead_data.get('email', '')
-                    phone_conf = lead_data.get('phone', '')
-                    result = {
-                        "intent": "LEAD_SENT",
-                        "response": (
-                            f"✅ Votre demande a été envoyée à {dealer}. "
-                            f"Vous recevrez une confirmation à {email_conf}. "
-                            f"Le concessionnaire va vous contacter au {phone_conf} dans les 24-48h."
-                        ),
-                    }
-                    session["context"]["pending_lead"] = None
-                except Exception as e:
-                    print(f"[lead_collect] error: {e}")
-                    result = {"intent": "LEAD_ERROR", "response": "Une erreur s'est produite. Contactez directement le concessionnaire."}
 
         if not result:
             # ─── CHAT : chercher dans inventaire si véhicule mentionné ───
