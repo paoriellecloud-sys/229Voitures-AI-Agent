@@ -532,6 +532,24 @@ COHÉRENCE CONVERSATIONNELLE
 - Cette règle s'applique à TOUS les véhicules, TOUTES les marques, TOUTES les situations.
 
 ═══════════════════════════════════════
+RÉSOLUTION DES RÉFÉRENCES IMPLICITES (obligatoire)
+═══════════════════════════════════════
+Quand l'utilisateur dit "ce véhicule", "celui-là", "le même", "celui de Val-Bélair", "le moins cher", "le premier", "l'autre", "celui avec le moteur 3.5L" → TOUJOURS chercher dans l'historique de la conversation pour identifier le véhicule exact référencé.
+
+Processus mental obligatoire :
+① Lis les 5 derniers messages de la conversation
+② Identifie tous les véhicules mentionnés avec leurs caractéristiques
+③ Associe la référence implicite au bon véhicule
+④ Utilise SES données exactes pour répondre
+
+EXEMPLES :
+- "le véhicule de Val-Bélair" → cherche dans l'historique quel véhicule était à Val-Bélair
+- "celui à 36 957$" → cherche le véhicule avec ce prix exact
+- "celui avec le moins de km" → identifie le véhicule au kilométrage le plus bas présenté
+- "ce véhicule-là" → le dernier véhicule discuté en détail
+- JAMAIS répondre "je n'ai pas ce véhicule" si le véhicule a été présenté dans cette conversation
+
+═══════════════════════════════════════
 RÈGLE VIN — COHÉRENCE CONVERSATION
 ═══════════════════════════════════════
 Si tu as présenté un véhicule avec un VIN dans cette conversation et que l'utilisateur mentionne ce VIN — c'est le même véhicule. Ne jamais dire "je n'ai pas ce VIN dans mon inventaire" pour un véhicule déjà présenté dans cette conversation.
@@ -1720,6 +1738,27 @@ INSTRUCTIONS STRICTES :
                     "- Propose de lancer une recherche dans notre inventaire ou de créer une alerte\n"
                 )
 
+            # ─── Résumé des véhicules présentés dans la conversation ───
+            vehicles_shown = []
+            for _msg in session["history"]:
+                if _msg["role"] == "assistant" and "Force Occasion" in _msg.get("content", ""):
+                    _vins    = re.findall(r'VIN\s*:\s*([A-Z0-9]{17})', _msg["content"])
+                    _prices  = re.findall(r'Prix\s*:\s*([\d\s]+(?:\.\d+)?)\s*\$', _msg["content"])
+                    _dealers = re.findall(r'—\s*([^,\n]+),\s*([^\n•]+)', _msg["content"])
+                    for _i, _vin in enumerate(_vins):
+                        vehicles_shown.append({
+                            "vin":    _vin,
+                            "price":  _prices[_i] if _i < len(_prices) else "",
+                            "dealer": _dealers[_i][0].strip() if _i < len(_dealers) else "",
+                        })
+            if vehicles_shown:
+                vehicles_context = "\n\nVÉHICULES PRÉSENTÉS DANS CETTE CONVERSATION :\n"
+                for _v in vehicles_shown[-6:]:
+                    vehicles_context += f"- VIN: {_v['vin']} | Prix: {_v['price']}$ | Concessionnaire: {_v['dealer']}\n"
+                vehicles_context += "\nSi l'utilisateur fait référence à l'un de ces véhicules, utilise ces données exactes.\n"
+            else:
+                vehicles_context = ""
+
             def _build_chat_prompt(h_str):
                 return f"""{SYSTEM_PROMPT}
 
@@ -1731,7 +1770,7 @@ Contexte: {context_summary}
 {user_memory_context}
 {few_shot_examples}
 {chat_inventory_text}
-
+{vehicles_context}
 Message de l'utilisateur: {message}
 
 INSTRUCTIONS :
