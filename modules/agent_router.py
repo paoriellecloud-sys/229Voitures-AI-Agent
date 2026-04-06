@@ -230,7 +230,7 @@ def _run_cache_sql(cursor, conditions: list, params: list, limit: int) -> list:
                transmission, drivetrain, fuel_type, engine, trim,
                avg_market_price, price_diff, price_status,
                tps, tvq, total_taxes, total_with_taxes,
-               options, vehicle_id, raw_content, scraped_at
+               options, vehicle_id, stock_number, raw_content, scraped_at
         FROM inventory_cache
         WHERE {" AND ".join(conditions)}
         ORDER BY scraped_at DESC
@@ -273,6 +273,7 @@ def _rows_to_dicts(rows) -> list[dict]:
             "total_with_taxes": row["total_with_taxes"],
             "options":          row["options"],
             "vehicle_id":       row["vehicle_id"],
+            "stock_number":     row["stock_number"],
             "raw_content":      row["raw_content"],
             "scraped_at":       row["scraped_at"],
         })
@@ -302,11 +303,16 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
                 avg_market_price REAL, price_diff REAL, price_status TEXT,
                 tps REAL, tvq REAL, total_taxes REAL, total_with_taxes REAL,
                 options TEXT, description TEXT, highway_consumption TEXT, city_consumption TEXT,
-                photos TEXT, url TEXT, json_url TEXT, raw_content TEXT, scraped_at TEXT,
+                photos TEXT, url TEXT, json_url TEXT, raw_content TEXT, stock_number TEXT, scraped_at TEXT,
                 UNIQUE(source, vehicle_id)
             )
         """)
         conn.commit()
+        try:
+            cursor.execute("ALTER TABLE inventory_cache ADD COLUMN stock_number TEXT")
+            conn.commit()
+        except Exception:
+            pass  # colonne déjà présente
 
         # Choisir la meilleure source de termes de recherche
         search_text = vehicle_filter or query
@@ -397,6 +403,7 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
         couleur         = r.get("color", "") or "Non disponible"
         niv             = r.get("vin", "") or "Non disponible"
         fo_id           = r.get("vehicle_id", "") or ""
+        stock_number    = r.get("stock_number", "") or "Non disponible"
         options         = (r.get("options", "") or "")[:200] or "Non disponible"
         source          = r.get("source", "")
 
@@ -467,7 +474,7 @@ Véhicule #{i} — {source}
   Couleur       : {couleur}
   VIN           : {niv}
   ID Force Occasion: {fo_id}
-  N° Stock concessionnaire: Non disponible
+  N° Stock concessionnaire: {stock_number}
   Options       : {options}
   Fiabilité     : {reliability}
   LIEN ANNONCE  : {url_annonce}
@@ -525,33 +532,31 @@ COHÉRENCE CONVERSATIONNELLE
 - Cette règle s'applique à TOUS les véhicules, TOUTES les marques, TOUTES les situations.
 
 ═══════════════════════════════════════
+RÈGLE VIN — COHÉRENCE CONVERSATION
+═══════════════════════════════════════
+Si tu as présenté un véhicule avec un VIN dans cette conversation et que l'utilisateur mentionne ce VIN — c'est le même véhicule. Ne jamais dire "je n'ai pas ce VIN dans mon inventaire" pour un véhicule déjà présenté dans cette conversation.
+
+═══════════════════════════════════════
 RÈGLE SUGGESTIONS PROACTIVES
 ═══════════════════════════════════════
 
-L'agent suggère proactivement le contact concessionnaire SEULEMENT dans ces situations précises :
-
-DÉCLENCHER la suggestion quand :
-- L'utilisateur a vu les détails d'un véhicule spécifique ET pose des questions précises dessus (équipements, garantie, disponibilité)
-- L'utilisateur exprime un intérêt clair : "je l'aime bien", "ça m'intéresse", "c'est dans mon budget", "pas mal"
-- L'utilisateur demande comment aller plus loin
-- L'utilisateur a comparé plusieurs véhicules et semble avoir choisi
-- L'utilisateur pose une question à laquelle seul le concessionnaire peut répondre (disponibilité exacte, essai routier, reprise véhicule)
-
-NE PAS déclencher la suggestion quand :
-- L'utilisateur est encore en phase de recherche générale
-- L'utilisateur vient juste de commencer la conversation
-- L'utilisateur pose une question technique ou sur les garanties
-- L'utilisateur n'a pas encore vu de véhicule spécifique
-- La suggestion a déjà été faite dans cette conversation
-
-FORMAT DE LA SUGGESTION (naturel, pas insistant) :
-Ajoute à la fin de ta réponse, sur une nouvelle ligne :
+Après avoir présenté les détails d'un véhicule spécifique, si l'utilisateur montre un intérêt clair, ajoute naturellement à la fin de ta réponse :
 "💬 Souhaitez-vous que je vous mette en contact avec [Nom concessionnaire] pour ce véhicule ?"
 
-Si le concessionnaire est inconnu :
-"💬 Souhaitez-vous être mis en contact avec ce concessionnaire ?"
+DÉCLENCHER la suggestion quand :
+- L'utilisateur a vu les détails d'UN véhicule spécifique
+- L'utilisateur pose des questions sur CE véhicule (garantie, kilométrage, prix)
+- L'utilisateur exprime un intérêt : "pas mal", "intéressant", "c'est dans mon budget"
+- L'utilisateur demande un rapport VIN sur un véhicule spécifique
+- L'utilisateur compare 2 véhicules et semble pencher vers un
 
-RÈGLE : Une seule suggestion par conversation. Si l'utilisateur dit non → ne plus proposer.
+NE PAS déclencher la suggestion quand :
+- L'utilisateur est encore en recherche générale
+- La suggestion a déjà été faite dans cette conversation
+- L'utilisateur vient de refuser le contact
+- L'utilisateur pose une question générale
+
+RÈGLE : Une seule suggestion par conversation. Si non → ne plus proposer.
 
 ═══════════════════════════════════════
 CAPACITÉ LEADS
@@ -667,6 +672,7 @@ JAMAIS mélanger les catégories.
 Mots et expressions INTERDITS en début de réponse :
 "Excellent!", "Excellent choix!", "Parfait!", "Super!", "Très bien!",
 "Bien sûr!", "Absolument!", "Avec plaisir!", "Certainement!",
+"Absolument!", "Je comprends parfaitement", "Bien entendu", "Tout à fait!",
 "C'est une excellente nouvelle", "Je suis ravi"
 → Commencer directement par l'information utile.
 
@@ -1511,11 +1517,14 @@ INSTRUCTIONS STRICTES :
                     from lead_service import create_lead
                     create_lead(lead_data)
                     dealer = lead_data.get("dealer_name") or "le concessionnaire"
+                    email_conf = lead_data.get('email', '')
+                    phone_conf = lead_data.get('phone', '')
                     result = {
                         "intent": "LEAD_SENT",
                         "response": (
-                            f"✅ Votre demande a été envoyée à {dealer} pour le {lead_data.get('vehicle_title')}.\n\n"
-                            "Ils vont vous contacter sous 24-48h. En attendant, souhaitez-vous que je vérifie l'historique VIN de ce véhicule ?"
+                            f"✅ Votre demande a été envoyée à {dealer}. "
+                            f"Vous recevrez une confirmation à {email_conf}. "
+                            f"Le concessionnaire va vous contacter au {phone_conf} dans les 24-48h."
                         ),
                     }
                     session["context"]["pending_lead"] = None
