@@ -58,9 +58,11 @@
     padding: 14px 24px;
     background: var(--bg);
     border-bottom: 2px solid var(--accent);
-    position: sticky;
+    position: fixed;
     top: 0;
-    z-index: 100;
+    left: 0;
+    right: 0;
+    z-index: 1000;
   }
 
   .logo {
@@ -139,6 +141,7 @@
   .app {
     display: flex;
     flex: 1;
+    margin-top: 62px;
     height: calc(100vh - 62px);
     overflow: hidden;
   }
