@@ -839,6 +839,11 @@
 <script>
 const API = 'https://229voitures.ca';
 let token = null;
+const userId = sessionStorage.getItem('user_id') || (() => {
+  const id = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+  sessionStorage.setItem('user_id', id);
+  return id;
+})();
 
 function setStatus(on, label) {
   document.getElementById('status-dot').className = 'status-dot' + (on ? ' online' : '');
@@ -1250,7 +1255,7 @@ async function sendMessage() {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + token
       },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({ message: text, session_id: userId })
     });
 
     removeTyping();

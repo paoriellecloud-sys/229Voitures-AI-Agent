@@ -251,6 +251,7 @@ def ai_vehicle_expert(data: dict, current_user: dict = Depends(get_current_user)
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: str = ""
 
 
 @app.post("/agent/chat")
@@ -261,7 +262,10 @@ def chat_agent(request: ChatRequest, current_user: dict = Depends(get_current_us
     Handles: general chat, vehicle search, URL analysis, URL comparison, VIN check.
     Example: {"message": "Trouve moi 2 Kia Seltos LX 2021 chez Force Occasion"}
     """
-    result = smart_chat(request.message, user_id=current_user["username"])
+    # Combine username + session_id pour isoler chaque onglet/browser du même compte
+    base = current_user["username"]
+    user_id = f"{base}_{request.session_id}" if request.session_id else base
+    result = smart_chat(request.message, user_id=user_id)
     return result
 
 
