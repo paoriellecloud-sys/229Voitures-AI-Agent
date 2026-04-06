@@ -549,6 +549,13 @@ EXEMPLES :
 - "ce véhicule-là" → le dernier véhicule discuté en détail
 - JAMAIS répondre "je n'ai pas ce véhicule" si le véhicule a été présenté dans cette conversation
 
+RÉFÉRENCES ORDINALES :
+- "le premier" → premier véhicule présenté dans la dernière liste
+- "le deuxième" → deuxième véhicule présenté dans la dernière liste
+- "le troisième" → troisième véhicule présenté dans la dernière liste
+- "le dernier" → dernier véhicule présenté
+Compte les véhicules dans l'ordre où ils apparaissent dans ta dernière réponse.
+
 ═══════════════════════════════════════
 RÈGLE VIN — COHÉRENCE CONVERSATION
 ═══════════════════════════════════════
@@ -1121,6 +1128,29 @@ def calculate_risk_score(user_data: dict, message: str) -> dict:
 # SMART CHAT — MAIN ENTRY POINT
 # =============================
 
+def extract_lead_info(message: str) -> dict:
+    """Extrait nom, téléphone et email depuis un message libre (multi-ligne ou inline)."""
+    info = {}
+    # Email
+    email_match = re.search(r'[\w\.\-]+@[\w\.\-]+\.\w+', message)
+    if email_match:
+        info["email"] = email_match.group(0)
+    # Téléphone (10-15 chiffres, tolère espaces/tirets/parenthèses)
+    phone_match = re.search(r'[\+]?[\d\s\-\(\)]{10,17}', message)
+    if phone_match:
+        phone_clean = re.sub(r'[\s\-\(\)]', '', phone_match.group(0))
+        if len(phone_clean) >= 10:
+            info["phone"] = phone_match.group(0).strip()
+    # Nom (ligne contenant uniquement lettres/espaces/tirets, sans @ ni chiffres)
+    for line in message.strip().split('\n'):
+        line = line.strip()
+        line = re.sub(r'^(nom|name|prénom)\s*:\s*', '', line, flags=re.IGNORECASE)
+        if re.match(r'^[A-Za-zÀ-ÿ\s\-]{3,50}$', line) and '@' not in line:
+            info["name"] = line.title()
+            break
+    return info
+
+
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
 
@@ -1173,6 +1203,16 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     # ─── Collecte progressive lead — priorité absolue sur tout autre intent ───
     _pending = session["context"].get("pending_lead")
     if _pending:
+        # Extraire toutes les infos disponibles dans le message (multi-ligne ou inline)
+        _extracted = extract_lead_info(message)
+        if _extracted.get("name") and not _pending.get("name"):
+            session["context"]["pending_lead"]["name"] = _extracted["name"]
+        if _extracted.get("phone") and not _pending.get("phone"):
+            session["context"]["pending_lead"]["phone"] = _extracted["phone"]
+        if _extracted.get("email") and not _pending.get("email"):
+            session["context"]["pending_lead"]["email"] = _extracted["email"]
+        # Relire après mise à jour
+        _pending  = session["context"]["pending_lead"]
         _pl_name  = _pending.get("name", "")
         _pl_phone = _pending.get("phone", "")
         _pl_email = _pending.get("email", "")
@@ -1198,45 +1238,22 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             except Exception as e:
                 print(f"[lead_collect] error: {e}")
                 result = {"intent": "LEAD_ERROR", "response": "Une erreur s'est produite. Contactez directement le concessionnaire."}
-        # Collecte nom
+        # Champ(s) manquant(s) → demander le suivant
         elif not _pl_name:
-            if re.search(r'^[A-Za-zÀ-ÿ\s\-]{3,40}$', message.strip()):
-                session["context"]["pending_lead"]["name"] = message.strip()
-                result = {
-                    "intent": "LEAD_COLLECT",
-                    "response": f"Merci {message.strip().split()[0]} ! Quel est votre numéro de téléphone ?",
-                }
-        # Collecte téléphone
-        elif not _pl_phone:
-            session["context"]["pending_lead"]["phone"] = message.strip()
             result = {
                 "intent": "LEAD_COLLECT",
-                "response": "Parfait. Quelle est votre adresse email ?",
+                "response": "Quel est votre nom complet ?",
             }
-        # Collecte email → create_lead
+        elif not _pl_phone:
+            result = {
+                "intent": "LEAD_COLLECT",
+                "response": "Quel est votre numéro de téléphone ?",
+            }
         elif not _pl_email:
-            if "@" in message:
-                session["context"]["pending_lead"]["email"] = message.strip()
-                _lead_data = dict(session["context"]["pending_lead"])
-                _lead_data["user_id"] = user_id
-                try:
-                    import sys as _sys3
-                    _sys3.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-                    from lead_service import create_lead
-                    create_lead(_lead_data)
-                    dealer = _lead_data.get("dealer_name") or "le concessionnaire"
-                    result = {
-                        "intent": "LEAD_SENT",
-                        "response": (
-                            f"✅ Votre demande a été envoyée à {dealer}. "
-                            f"Vous recevrez une confirmation à {message.strip()}. "
-                            f"Le concessionnaire va vous contacter au {_pl_phone} dans les 24-48h."
-                        ),
-                    }
-                    session["context"]["pending_lead"] = None
-                except Exception as e:
-                    print(f"[lead_collect] error: {e}")
-                    result = {"intent": "LEAD_ERROR", "response": "Une erreur s'est produite. Contactez directement le concessionnaire."}
+            result = {
+                "intent": "LEAD_COLLECT",
+                "response": "Quelle est votre adresse email ?",
+            }
 
     if not result and intent == "CREATE_ALERT":
         criteria = {}
@@ -1261,12 +1278,32 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 criteria["city"] = city
                 break
         session["context"]["pending_alert"] = criteria
-        result = {
-            "intent": "CREATE_ALERT",
-            "response": "Je vais créer une alerte pour vous ! Pour vous envoyer l'email, j'ai besoin de votre adresse courriel. Quelle est-elle ?",
-            "needs_email": True,
-            "criteria": criteria,
-        }
+        _alert_email = re.search(r'[\w\.\-]+@[\w\.\-]+\.\w+', message)
+        if _alert_email:
+            try:
+                import sys as _sys_alert
+                _sys_alert.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+                from alert_service import save_alert
+                save_alert(user_id, _alert_email.group(0), criteria)
+                result = {
+                    "intent": "CREATE_ALERT",
+                    "response": f"✅ Alerte créée ! Vous recevrez un email à {_alert_email.group(0)} dès qu'un véhicule correspondant à vos critères sera disponible.",
+                }
+            except Exception as e:
+                print(f"[create_alert] error: {e}")
+                result = {
+                    "intent": "CREATE_ALERT",
+                    "response": "Je vais créer une alerte pour vous ! Pour vous envoyer l'email, j'ai besoin de votre adresse courriel. Quelle est-elle ?",
+                    "needs_email": True,
+                    "criteria": criteria,
+                }
+        else:
+            result = {
+                "intent": "CREATE_ALERT",
+                "response": "Pour créer votre alerte, j'ai besoin de votre adresse email. Quelle est-elle ?",
+                "needs_email": True,
+                "criteria": criteria,
+            }
 
     elif not result and intent == "LEAD_REQUEST":
         last_results = session["context"].get("last_results", [])
