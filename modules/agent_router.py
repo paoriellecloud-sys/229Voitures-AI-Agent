@@ -1327,7 +1327,6 @@ Concess.     : {v.get('dealer_name', 'N/D')}
 Ville        : {v.get('city', 'N/D')}
 N° Stock     : {v.get('stock_number', 'N/D')}
 Marché moyen : {v.get('avg_market_price', 'N/D')} $
-URL          : {v.get('url', 'N/D')}
 
 RÈGLES :
 - Ne jamais afficher "Non disponible" si la donnée est listée ci-dessus
