@@ -17,7 +17,7 @@ def build_fo_url(v: dict) -> str:
     if not fo_id:
         return stored_url or "https://www.forceoccasion.ca"
     marque = (v.get("make") or v.get("marque") or "").strip().replace(" ", "-")
-    modele = (v.get("model") or v.get("modele") or "").strip().replace(" ", "_")
+    modele = (v.get("model") or v.get("modele") or "").strip().replace("-", "").replace(" ", "_")
     annee  = str(v.get("year") or v.get("annee") or "").strip()
     if marque and modele and annee:
         return f"https://www.forceoccasion.ca/occasion/{marque}-{modele}-{annee}-id{fo_id}.html"
