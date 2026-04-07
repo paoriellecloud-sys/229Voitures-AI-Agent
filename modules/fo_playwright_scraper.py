@@ -172,6 +172,7 @@ def normalize_vehicle(raw: dict) -> dict:
         'description': safe('fulldesc'),
         'highway_consumption': safe('highwayConsumption'),
         'city_consumption': safe('cityConsumption'),
+        'stock_number': safe('no_stock') or safe('real_stock_no'),
         'photos': json.dumps(raw.get('photos', [])),
         'similars': json.dumps(raw.get('similars', [])),
         'url': f"https://www.forceoccasion.ca/fiche/{vehicle_id}",
@@ -242,11 +243,16 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
             avg_market_price REAL, price_diff REAL, price_status TEXT,
             tps REAL, tvq REAL, total_taxes REAL, total_with_taxes REAL,
             options TEXT, description TEXT, highway_consumption TEXT, city_consumption TEXT,
-            photos TEXT, url TEXT, json_url TEXT, raw_content TEXT, scraped_at TEXT,
+            photos TEXT, url TEXT, json_url TEXT, raw_content TEXT, stock_number TEXT, scraped_at TEXT,
             UNIQUE(source, vehicle_id)
         )
     """)
     db_conn.commit()
+    try:
+        db_conn.execute("ALTER TABLE inventory_cache ADD COLUMN stock_number TEXT")
+        db_conn.commit()
+    except Exception:
+        pass  # colonne déjà présente
 
     vehicles = await scrape_forceoccasion_full()
 
@@ -272,9 +278,9 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
                  avg_market_price, price_diff, price_status,
                  tps, tvq, total_taxes, total_with_taxes,
                  options, description, highway_consumption, city_consumption,
-                 photos, url, json_url, raw_content, scraped_at)
+                 photos, url, json_url, raw_content, stock_number, scraped_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(source, vehicle_id) DO UPDATE SET
                     title=excluded.title,
                     price=excluded.price,
@@ -288,6 +294,7 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
                     options=excluded.options,
                     photos=excluded.photos,
                     raw_content=excluded.raw_content,
+                    stock_number=excluded.stock_number,
                     scraped_at=excluded.scraped_at
             """, (
                 v['source'], v['vehicle_id'], v['title'], v['price'], v['mileage'],
@@ -297,7 +304,7 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
                 v['avg_market_price'], v['price_diff'], v['price_status'],
                 v['tps'], v['tvq'], v['total_taxes'], v['total_with_taxes'],
                 v['options'], v['description'], v['highway_consumption'], v['city_consumption'],
-                v['photos'], v['url'], v['json_url'], raw_content, v['scraped_at']
+                v['photos'], v['url'], v['json_url'], raw_content, v.get('stock_number', ''), v['scraped_at']
             ))
             saved += 1
         except Exception as e:
