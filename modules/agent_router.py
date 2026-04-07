@@ -90,6 +90,23 @@ def strip_html(text: str) -> str:
     return text.strip()
 
 
+def remove_vehicle_bullets(text: str) -> str:
+    """Supprime les listes bullets de véhicules dans la réponse Gemini.
+    Les fiches HTML les remplacent — le texte ne doit contenir qu'une courte analyse."""
+    vehicle_patterns = [
+        r'^\s*[•\*\-]\s*(Prix|Kilométrage|Moteur|Transmission|Carburant|Traction|Couleur|VIN|Concessionnaire|Localisation|Options|Fiabilité|Taxes|TPS|TVQ|Stock|LIEN)',
+        r'^\s*[•\*\-]\s*\d{4}\s+\w+',
+        r'🚗|★\s+\d{4}|LIEN ANNONCE|ID Force Occasion|N°\s*Stock',
+        r'^\s*Prix\s*:\s*[\d\s\u00a0]+\$',
+        r'^\s*Taxes\s*QC\s*:',
+        r'^\s*(TPS|TVQ|Total avec taxes)\s*:',
+    ]
+    lines = text.split('\n')
+    clean_lines = [l for l in lines if not any(re.search(p, l) for p in vehicle_patterns)]
+    result = re.sub(r'\n{3,}', '\n\n', '\n'.join(clean_lines))
+    return result.strip()
+
+
 # =============================
 # SESSION MANAGEMENT
 # =============================
@@ -702,12 +719,22 @@ Mots et expressions INTERDITS en début de réponse :
 "C'est une excellente nouvelle", "Je suis ravi"
 → Commencer directement par l'information utile.
 
-9. PRÉSENTATION VÉHICULE
+9. PRÉSENTATION VÉHICULE — RÈGLE ABSOLUE
 Les fiches véhicules sont générées automatiquement en HTML — NE PAS les reformater dans ta réponse texte.
-- Ne jamais répéter prix, kilométrage, moteur, transmission, traction, VIN, lien ou taxes dans ton texte
-- Ta réponse doit contenir UNIQUEMENT une courte analyse (1 à 3 phrases) : points forts, conseil d'achat, ou ce qui distingue les options
-- Si kilométrage > 100 000 km : mentionner brièvement de vérifier le VIN
-- Terminer avec une question concrète (ex. : vérifier le VIN, voir les détails, comparer ?)
+
+FORMAT CORRECT (quand des véhicules sont trouvés) :
+1. UNE seule phrase d'introduction (ex : "J'ai trouvé 3 MINI qui correspondent à votre recherche.")
+2. NE PAS lister les véhicules — les fiches HTML s'en chargent
+3. Tu peux ajouter UNE courte analyse comparative après (1-2 phrases max)
+4. Terminer par UNE question de suivi concrète
+
+FORMAT STRICTEMENT INTERDIT :
+• 2024 Toyota Corolla — Prix : X$...
+★ 2022 Ford Bronco...
+- Prix : X$ | Kilométrage : Y km...
+🚗 [Marque] [Modèle]...
+
+NE JAMAIS inclure dans ta réponse texte : Prix, Kilométrage, Moteur, Transmission, Traction, VIN, Concessionnaire, TPS, TVQ, Taxes, LIEN ANNONCE, ID Force Occasion, N° Stock.
 
 10. RÈGLE CONCESSIONNAIRE
 - Toujours afficher le NOM EXACT du concessionnaire tel que disponible dans les données
@@ -1842,7 +1869,7 @@ INSTRUCTIONS :
     # ─── PART 5 : Guardrail anti-hallucination + nettoyage HTML ───
     if isinstance(response_text, str):
         response_text = apply_guardrails(response_text, session["user_data"])
-        clean_text = strip_html(response_text)
+        clean_text = remove_vehicle_bullets(strip_html(response_text))
         # Réassembler : fiches HTML structurées + texte Gemini nettoyé
         html_cards = result.pop("_html_cards", "") or ""
         result["response"] = clean_text

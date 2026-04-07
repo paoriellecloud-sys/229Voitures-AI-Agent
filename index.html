@@ -995,7 +995,7 @@ function addMsg(role, text, rawHtml = '') {
 
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.innerHTML = role === 'ai' ? (rawHtml + formatText(text)) : text.replace(/\n/g, '<br>');
+  bubble.innerHTML = role === 'ai' ? (formatText(text) + rawHtml) : text.replace(/\n/g, '<br>');
 
   row.appendChild(avatar);
   row.appendChild(bubble);
