@@ -79,12 +79,11 @@ def format_vehicle_card(v: dict) -> str:
     carburant    = v.get("fuel_type") or v.get("carburant") or "N/D"
     stock_number = v.get("stock_number") or v.get("no_stock") or ""
     vin          = v.get("vin") or "N/D"
-    # URL directe : priorité vehicle_id Force Occasion, sinon url stockée
+    # URL directe : priorité url stockée en DB (déjà correcte), fallback vehicle_id
     vehicle_id   = v.get("vehicle_id") or ""
-    if vehicle_id:
-        url_fiche = f"https://www.forceoccasion.com/used-car/{vehicle_id}/"
-    else:
-        url_fiche = v.get("url") or v.get("listing_url") or v.get("force_occasion_url") or "https://www.forceoccasion.com"
+    url_fiche    = (v.get("url") or v.get("listing_url") or v.get("force_occasion_url")
+                    or (f"https://www.forceoccasion.ca/fiche/{vehicle_id}" if vehicle_id else "")
+                    or "https://www.forceoccasion.ca")
 
     try:
         prix_float   = float(v.get("price") or v.get("prix") or 0)
