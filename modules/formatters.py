@@ -64,41 +64,38 @@ def fmt_km(val) -> str:
         return "N/D"
 
 
-def format_vehicle_card(vehicle: dict) -> str:
-    """Retourne une fiche véhicule en HTML à partir d'un dict véhicule."""
-    annee        = vehicle.get("year") or vehicle.get("annee") or "N/D"
-    marque       = vehicle.get("make") or vehicle.get("marque") or "N/D"
-    modele       = vehicle.get("model") or vehicle.get("modele") or "N/D"
-    version      = vehicle.get("trim") or ""
-    concess      = vehicle.get("dealer_name") or vehicle.get("dealer") or vehicle.get("concessionnaire") or "N/D"
-    ville        = vehicle.get("city") or vehicle.get("ville") or "N/D"
-    couleur      = vehicle.get("color") or vehicle.get("couleur") or ""
-    moteur       = vehicle.get("engine") or vehicle.get("moteur") or "N/D"
-    transmission = vehicle.get("transmission") or "N/D"
-    traction     = vehicle.get("drivetrain") or vehicle.get("traction") or "N/D"
-    carburant    = vehicle.get("fuel_type") or vehicle.get("carburant") or "N/D"
-    vin          = vehicle.get("vin") or "N/D"
-    url          = vehicle.get("url") or ""
-
-    prix_raw     = vehicle.get("price") or vehicle.get("prix") or 0
-    marche_raw   = vehicle.get("avg_market_price") or vehicle.get("market_price") or 0
+def format_vehicle_card(v: dict) -> str:
+    """Retourne une fiche véhicule HTML thème sombre à partir d'un dict véhicule."""
+    annee        = v.get("year") or v.get("annee") or ""
+    marque       = v.get("make") or v.get("marque") or ""
+    modele       = v.get("model") or v.get("modele") or ""
+    version      = v.get("trim") or ""
+    concess      = v.get("dealer_name") or v.get("dealer") or v.get("concessionnaire") or "N/D"
+    ville        = v.get("city") or v.get("ville") or "Québec"
+    couleur      = v.get("color") or v.get("couleur") or ""
+    moteur       = v.get("engine") or v.get("moteur") or "N/D"
+    transmission = v.get("transmission") or "N/D"
+    traction     = v.get("drivetrain") or v.get("traction") or "N/D"
+    carburant    = v.get("fuel_type") or v.get("carburant") or "N/D"
+    vin          = v.get("vin") or "N/D"
+    url_fiche    = v.get("url") or v.get("listing_url") or v.get("force_occasion_url") or "https://www.forceoccasion.com"
 
     try:
-        prix_float   = float(prix_raw)
+        prix_float   = float(v.get("price") or v.get("prix") or 0)
     except Exception:
         prix_float   = 0.0
     try:
-        marche_float = float(marche_raw)
+        marche_float = float(v.get("avg_market_price") or v.get("market_price") or v.get("marche_moyen") or 0)
     except Exception:
         marche_float = 0.0
 
-    statut       = get_statut_prix(prix_float, marche_float)
-    couleur_hex  = get_couleur_hex(couleur)
+    statut      = get_statut_prix(prix_float, marche_float)
+    couleur_hex = get_couleur_hex(couleur)
 
-    # Taxes — utiliser valeurs DB si disponibles, sinon calculer
-    tps_db   = vehicle.get("tps")
-    tvq_db   = vehicle.get("tvq")
-    tot_db   = vehicle.get("total_with_taxes")
+    # Taxes — valeurs DB en priorité, sinon calculer
+    tps_db = v.get("tps")
+    tvq_db = v.get("tvq")
+    tot_db = v.get("total_with_taxes")
     if tps_db and tvq_db and tot_db:
         try:
             taxes = {
@@ -113,70 +110,72 @@ def format_vehicle_card(vehicle: dict) -> str:
 
     prix_str    = fmt_prix(prix_float) if prix_float else "N/D"
     marche_str  = fmt_prix(marche_float) if marche_float else "N/D"
-    km_str      = fmt_km(vehicle.get("mileage") or vehicle.get("kilometrage") or 0)
+    km_str      = fmt_km(v.get("mileage") or v.get("kilometrage") or 0)
     couleur_str = couleur.title() if couleur else "N/D"
-    titre_modele = f"{annee} {marque} {modele}" + (f" {version}" if version else "")
+    titre       = f"{annee} {marque} {modele}".strip() + (f" {version}" if version else "")
 
-    # Construire le titre avec ou sans lien
-    if url:
-        titre_html = (
-            f'<a href="{url}" target="_blank" rel="noopener" '
-            f'style="text-decoration:none;color:inherit;">{titre_modele}</a>'
-        )
-    else:
-        titre_html = titre_modele
+    # Badge statut marché — couleurs thème sombre
+    badge_styles = {
+        "Bon prix":             "background:rgba(99,153,34,0.18);color:#97C459;border:1px solid rgba(99,153,34,0.3);",
+        "Prix dans la moyenne": "background:rgba(186,117,23,0.18);color:#FAC775;border:1px solid rgba(186,117,23,0.3);",
+        "Prix \u00e9lev\u00e9": "background:rgba(226,75,74,0.15);color:#F09595;border:1px solid rgba(226,75,74,0.3);",
+        "Prix non compar\u00e9":"background:rgba(136,135,128,0.18);color:#888780;border:1px solid rgba(136,135,128,0.3);",
+    }
+    badge_style = badge_styles.get(statut["label"], badge_styles["Prix non compar\u00e9"])
 
-    # Toute la carte sur une seule ligne pour éviter que formatText convertisse \n en <br> à l'intérieur du HTML
-    card = (
-        '<div style="background:#ffffff;border-radius:12px;border:1px solid rgba(0,0,0,0.10);overflow:hidden;'
-        'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:560px;margin:8px 0;">'
-        '<div style="padding:14px 18px;border-bottom:1px solid rgba(0,0,0,0.08);background:#f7f7f5;">'
-        '<p style="font-size:10px;color:#888;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.06em;">V\u00e9hicule d\'occasion</p>'
-        f'<p style="font-size:17px;font-weight:600;margin:0;color:#1a1a1a;">{titre_html}</p>'
-        f'<p style="font-size:12px;color:#888;margin:3px 0 0;">{concess} &nbsp;\u00b7&nbsp; {ville}</p>'
+    # Carte sur une seule ligne — évite que formatText convertisse \n en <br> dans le HTML
+    return (
+        '<div style="border-radius:10px;border:1px solid rgba(255,255,255,0.10);overflow:hidden;'
+        'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:560px;margin:8px 0;background:rgba(255,255,255,0.04);">'
+        # En-tête
+        '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.08);">'
+        '<p style="font-size:10px;color:#666;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.06em;">V\u00e9hicule d\'occasion</p>'
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
+        f'<p style="font-size:18px;font-weight:600;margin:0;color:#f0f0f0;">{titre}</p>'
+        f'<a href="{url_fiche}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#FAC775;background:rgba(250,199,117,0.12);border:1px solid rgba(250,199,117,0.25);padding:4px 10px;border-radius:20px;text-decoration:none;white-space:nowrap;">&#9733; Force Occasion &#8594;</a>'
         '</div>'
+        f'<p style="font-size:12px;color:#666;margin:4px 0 0;">{concess} &nbsp;\u00b7&nbsp; {ville}</p>'
+        '</div>'
+        # Lignes de données
         '<div>'
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(0,0,0,0.06);">'
-        '<span style="font-size:13px;color:#666;">Prix affich\u00e9</span>'
-        f'<span style="font-size:14px;font-weight:600;color:#1a1a1a;">{prix_str}</span>'
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<span style="font-size:13px;color:#888;">Prix affich\u00e9</span>'
+        f'<span style="font-size:14px;font-weight:600;color:#f0f0f0;">{prix_str}</span>'
         '</div>'
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(0,0,0,0.06);">'
-        '<span style="font-size:13px;color:#666;">Positionnement march\u00e9</span>'
-        f'<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;'
-        f'background:{statut["bg"]};color:{statut["color"]};">'
-        f'&#9675; {statut["label"]} (moy. {marche_str})</span>'
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<span style="font-size:13px;color:#888;">Positionnement march\u00e9</span>'
+        f'<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;{badge_style}">&#9675; {statut["label"]} (moy. {marche_str})</span>'
         '</div>'
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(0,0,0,0.06);">'
-        '<span style="font-size:13px;color:#666;">Kilom\u00e9trage</span>'
-        f'<span style="font-size:13px;font-weight:600;color:#1a1a1a;">{km_str}</span>'
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<span style="font-size:13px;color:#888;">Kilom\u00e9trage</span>'
+        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;">{km_str}</span>'
         '</div>'
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(0,0,0,0.06);">'
-        '<span style="font-size:13px;color:#666;">M\u00e9canique</span>'
-        f'<span style="font-size:13px;font-weight:600;color:#1a1a1a;">{moteur} &nbsp;\u00b7&nbsp; {transmission} &nbsp;\u00b7&nbsp; {traction}</span>'
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<span style="font-size:13px;color:#888;">M\u00e9canique</span>'
+        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;">{moteur} &nbsp;\u00b7&nbsp; {transmission} &nbsp;\u00b7&nbsp; {traction}</span>'
         '</div>'
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(0,0,0,0.06);">'
-        '<span style="font-size:13px;color:#666;">Carburant</span>'
-        f'<span style="font-size:13px;font-weight:600;color:#1a1a1a;">{carburant}</span>'
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<span style="font-size:13px;color:#888;">Carburant</span>'
+        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;">{carburant}</span>'
         '</div>'
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(0,0,0,0.06);">'
-        '<span style="font-size:13px;color:#666;">Couleur</span>'
-        f'<span style="font-size:13px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;gap:6px;">'
-        f'{couleur_str}'
-        f'<span style="display:inline-block;width:10px;height:10px;background:{couleur_hex};border-radius:50%;"></span>'
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<span style="font-size:13px;color:#888;">Couleur</span>'
+        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;display:flex;align-items:center;gap:6px;">{couleur_str}'
+        f'<span style="display:inline-block;width:10px;height:10px;background:{couleur_hex};border-radius:50%;border:1px solid rgba(255,255,255,0.15);"></span>'
         '</span>'
         '</div>'
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;">'
-        '<span style="font-size:13px;color:#666;">VIN</span>'
-        f'<span style="font-size:11px;color:#888;font-family:\'Courier New\',monospace;letter-spacing:0.03em;">{vin}</span>'
+        '<span style="font-size:13px;color:#888;">VIN</span>'
+        f'<span style="font-size:12px;font-weight:500;color:#c0c0c0;font-family:\'Courier New\',monospace;letter-spacing:0.05em;">{vin}</span>'
         '</div>'
         '</div>'
-        '<div style="border-top:1px solid rgba(0,0,0,0.08);background:#f7f7f5;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;">'
-        f'<span style="font-size:12px;color:#888;">TPS {taxes["tps"]} &nbsp;+&nbsp; TVQ {taxes["tvq"]}</span>'
-        f'<span style="font-size:16px;font-weight:700;color:#1a1a1a;">Total {taxes["total"]}</span>'
+        # Pied — taxes
+        '<div style="border-top:1px solid rgba(255,255,255,0.08);padding:12px 18px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);">'
+        f'<span style="font-size:12px;color:#666;">TPS {taxes["tps"]} &nbsp;+&nbsp; TVQ {taxes["tvq"]}</span>'
+        f'<span style="font-size:16px;font-weight:700;color:#f0f0f0;">Total {taxes["total"]}</span>'
         '</div>'
         '</div>'
     )
-    return card
 
 
 def format_vehicles_html_block(results: list) -> str:
