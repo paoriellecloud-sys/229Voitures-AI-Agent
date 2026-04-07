@@ -176,7 +176,7 @@ def format_vehicle_card(v: dict) -> str:
         '</div>'
         + (
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
-        '<span style="font-size:13px;color:#888;">No stock</span>'
+        '<span style="font-size:13px;color:#888;">Num. stock</span>'
         f'<span style="font-size:12px;font-weight:500;color:#c0c0c0;font-family:\'Courier New\',monospace;letter-spacing:0.05em;">{stock_number}</span>'
         '</div>'
         if stock_number else ''
