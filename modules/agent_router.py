@@ -117,8 +117,12 @@ def extract_proposition_number(message: str) -> int | None:
 def remove_vehicle_bullets(text: str) -> str:
     """Supprime les listes bullets de véhicules dans la réponse Gemini.
     Les fiches HTML les remplacent — le texte ne doit contenir qu'une courte analyse."""
+    _SPECS = r'Prix|Kilométrage|Moteur|Transmission|Carburant|Traction|Couleur|VIN|Concessionnaire|Localisation|Options|Fiabilité|Taxes|TPS|TVQ|Stock|LIEN|Version|Marché|Ville'
     vehicle_patterns = [
-        r'^\s*[•\*\-]\s*(Prix|Kilométrage|Moteur|Transmission|Carburant|Traction|Couleur|VIN|Concessionnaire|Localisation|Options|Fiabilité|Taxes|TPS|TVQ|Stock|LIEN)',
+        # bullet simple : • Prix ou * Prix ou - Prix
+        rf'^\s*[•\*\-]\s*({_SPECS})',
+        # bullet markdown : * **Prix :** ou * **Moteur** :
+        rf'^\s*\*\s*\*{{1,2}}({_SPECS})\*{{0,2}}\s*[:\*]',
         r'^\s*[•\*\-]\s*\d{4}\s+\w+',
         r'🚗|★\s+\d{4}|LIEN ANNONCE|ID Force Occasion|N°\s*Stock',
         r'^\s*Prix\s*:\s*[\d\s\u00a0]+\$',
@@ -1329,7 +1333,12 @@ RÈGLES :
 - Ne jamais afficher "Non disponible" si la donnée est listée ci-dessus
 - Répondre directement sur ce véhicule spécifique sans nouvelle recherche
 """
-            _prop_prompt = f"{SYSTEM_PROMPT}\n\n{_veh_ctx}\n\nHistorique:\n{history_str}\n\nMESSAGE : {message}"
+            _prop_prompt = (
+                f"{SYSTEM_PROMPT}\n\n{_veh_ctx}\n\nHistorique:\n{history_str}\n\n"
+                f"MESSAGE : {message}\n\n"
+                "INSTRUCTION FORMAT : Répondre en français naturel, en PROSE (pas de liste bullets ni de tableau). "
+                "Intégrer les données dans des phrases complètes. Ne jamais écrire '* **Prix :**' ou '• Kilométrage :'."
+            )
             _prop_resp = client.models.generate_content(model="gemini-2.5-flash", contents=_prop_prompt)
             result = {"intent": "FOLLOWUP", "response": _prop_resp.text, "_html_cards": ""}
             print(f"[smart_chat] Proposition {_prop_num} détectée → réponse directe")
