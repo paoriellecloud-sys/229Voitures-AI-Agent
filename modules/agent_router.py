@@ -1463,10 +1463,9 @@ Contexte: {context_summary}
 RECHERCHE DE L'UTILISATEUR : "{query}"
 
 INSTRUCTIONS :
-- Présente les véhicules trouvés en utilisant UNIQUEMENT les données réelles ci-dessus
-- Utilise le FORMAT DE PRÉSENTATION défini dans tes instructions
-- Compare le prix au prix du marché si disponible
-- Si le kilométrage > 100 000 km, suggère de vérifier le VIN
+- Les fiches véhicules sont affichées automatiquement — NE PAS répéter leurs spécifications (prix, km, moteur, transmission, etc.)
+- Fournis UNIQUEMENT une courte analyse (1 à 3 phrases) : points forts, ce qui les distingue, ou un conseil d'achat
+- Si le kilométrage > 100 000 km, mentionne brièvement de vérifier le VIN
 - Termine avec une question concrète (vérifier VIN, voir plus de détails, comparer ?)
 - NE PAS inventer de données — utilise seulement ce qui est fourni
 - NE PAS inclure de HTML brut dans ta réponse
@@ -1491,10 +1490,9 @@ Contexte: {context_summary}
 RECHERCHE DE L'UTILISATEUR : "{query}"
 
 INSTRUCTIONS :
-- Présente les véhicules trouvés en utilisant UNIQUEMENT les données réelles ci-dessus
-- Utilise le FORMAT DE PRÉSENTATION défini dans tes instructions
-- Compare le prix au prix du marché si disponible
-- Si le kilométrage > 100 000 km, suggère de vérifier le VIN
+- Les fiches véhicules sont affichées automatiquement — NE PAS répéter leurs spécifications (prix, km, moteur, transmission, etc.)
+- Fournis UNIQUEMENT une courte analyse (1 à 3 phrases) : points forts, ce qui les distingue, ou un conseil d'achat
+- Si le kilométrage > 100 000 km, mentionne brièvement de vérifier le VIN
 - Termine avec une question concrète (vérifier VIN, voir plus de détails, comparer ?)
 - NE PAS inventer de données — utilise seulement ce qui est fourni
 - NE PAS inclure de HTML brut dans ta réponse
@@ -1553,9 +1551,9 @@ ALTERNATIVES DISPONIBLES EN INVENTAIRE :
 
 INSTRUCTIONS :
 - Dis CLAIREMENT et HONNÊTEMENT que le modèle exact demandé n'est pas en stock
-- Présente ces alternatives RÉELLES de l'inventaire comme suggestions
+- Les fiches alternatives sont affichées automatiquement — NE PAS répéter leurs spécifications
+- Fournis une courte phrase d'introduction sur pourquoi ces alternatives sont pertinentes
 - N'invente AUCUN véhicule supplémentaire
-- Ne présente QUE les véhicules ci-dessus
 - Propose à l'utilisateur de créer une alerte email pour être notifié si le modèle arrive en inventaire
 """
             else:

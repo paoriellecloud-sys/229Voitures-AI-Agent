@@ -77,8 +77,14 @@ def format_vehicle_card(v: dict) -> str:
     transmission = v.get("transmission") or "N/D"
     traction     = v.get("drivetrain") or v.get("traction") or "N/D"
     carburant    = v.get("fuel_type") or v.get("carburant") or "N/D"
+    stock_number = v.get("stock_number") or v.get("no_stock") or ""
     vin          = v.get("vin") or "N/D"
-    url_fiche    = v.get("url") or v.get("listing_url") or v.get("force_occasion_url") or "https://www.forceoccasion.com"
+    # URL directe : priorité vehicle_id Force Occasion, sinon url stockée
+    vehicle_id   = v.get("vehicle_id") or ""
+    if vehicle_id:
+        url_fiche = f"https://www.forceoccasion.com/used-car/{vehicle_id}/"
+    else:
+        url_fiche = v.get("url") or v.get("listing_url") or v.get("force_occasion_url") or "https://www.forceoccasion.com"
 
     try:
         prix_float   = float(v.get("price") or v.get("prix") or 0)
@@ -152,7 +158,11 @@ def format_vehicle_card(v: dict) -> str:
         '</div>'
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
         '<span style="font-size:13px;color:#888;">M\u00e9canique</span>'
-        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;">{moteur} &nbsp;\u00b7&nbsp; {transmission} &nbsp;\u00b7&nbsp; {traction}</span>'
+        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;">{moteur} &nbsp;\u00b7&nbsp; {transmission}</span>'
+        '</div>'
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<span style="font-size:13px;color:#888;">Traction</span>'
+        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;">{traction}</span>'
         '</div>'
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
         '<span style="font-size:13px;color:#888;">Carburant</span>'
@@ -164,6 +174,13 @@ def format_vehicle_card(v: dict) -> str:
         f'<span style="display:inline-block;width:10px;height:10px;background:{couleur_hex};border-radius:50%;border:1px solid rgba(255,255,255,0.15);"></span>'
         '</span>'
         '</div>'
+        + (
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<span style="font-size:13px;color:#888;">No stock</span>'
+        f'<span style="font-size:12px;font-weight:500;color:#c0c0c0;font-family:\'Courier New\',monospace;letter-spacing:0.05em;">{stock_number}</span>'
+        '</div>'
+        if stock_number else ''
+        ) +
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;">'
         '<span style="font-size:13px;color:#888;">VIN</span>'
         f'<span style="font-size:12px;font-weight:500;color:#c0c0c0;font-family:\'Courier New\',monospace;letter-spacing:0.05em;">{vin}</span>'
@@ -179,14 +196,24 @@ def format_vehicle_card(v: dict) -> str:
 
 
 def format_vehicles_html_block(results: list) -> str:
-    """Retourne un bloc HTML avec toutes les fiches véhicules, sans marqueurs."""
+    """Retourne un bloc HTML avec les 3 premières fiches véhicules numérotées."""
     if not results:
         return ""
     cards = []
+    n = 0
     for r in results:
+        if n >= 3:
+            break
         prix  = r.get("price", "")
         titre = r.get("title", "")
         if not prix or not titre:
             continue
-        cards.append(format_vehicle_card(r))
+        n += 1
+        label = (
+            '<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;'
+            'letter-spacing:0.08em;margin:16px 0 4px;">'
+            f'Proposition {n}'
+            '</div>'
+        )
+        cards.append(label + format_vehicle_card(r))
     return "".join(cards)
