@@ -90,6 +90,30 @@ def strip_html(text: str) -> str:
     return text.strip()
 
 
+def extract_proposition_number(message: str) -> int | None:
+    """Détecte si le message fait référence à une proposition numérotée (1, 2 ou 3)."""
+    msg = message.lower().strip()
+    # Ordinaux français
+    if any(w in msg for w in ['première', 'premier', '1re', '1ère', 'premièr']):
+        return 1
+    if any(w in msg for w in ['deuxième', 'second', 'seconde', '2e', '2ème']):
+        return 2
+    if any(w in msg for w in ['troisième', '3e', '3ème']):
+        return 3
+    # "proposition 2", "option 3", "véhicule 1", "la 2", "le 3", etc.
+    m = re.search(
+        r'(?:proposition|option|v[ée]hicule|voiture|choix|auto|celui|celle|le|la)\s*[#n°]?\s*([123])\b',
+        msg
+    )
+    if m:
+        return int(m.group(1))
+    # Chiffre seul en contexte de sélection
+    m = re.search(r'\b([123])\b', msg)
+    if m:
+        return int(m.group(1))
+    return None
+
+
 def remove_vehicle_bullets(text: str) -> str:
     """Supprime les listes bullets de véhicules dans la réponse Gemini.
     Les fiches HTML les remplacent — le texte ne doit contenir qu'une courte analyse."""
@@ -1273,6 +1297,43 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 "response": "Quelle est votre adresse email ?",
             }
 
+    # ─── Détection référence à une proposition numérotée ───
+    if not result:
+        _prop_num = extract_proposition_number(message)
+        _shown = session.get("vehicle_shown", {})
+        if _prop_num and _shown.get(_prop_num):
+            v = _shown[_prop_num]
+            _veh_ctx = f"""
+CONTEXTE — L'utilisateur parle de la Proposition {_prop_num} présentée dans cette session.
+Réponds UNIQUEMENT sur CE véhicule. Ne PAS relancer de recherche. Ne PAS réafficher les 3 propositions.
+
+Année        : {v.get('year', 'N/D')}
+Marque       : {v.get('make', 'N/D')}
+Modèle       : {v.get('model', 'N/D')}
+Version      : {v.get('trim', 'N/D')}
+Prix         : {v.get('price', 'N/D')} $
+Kilométrage  : {v.get('mileage', 'N/D')} km
+Moteur       : {v.get('engine', 'N/D')}
+Transmission : {v.get('transmission', 'N/D')}
+Traction     : {v.get('drivetrain', 'N/D')}
+Carburant    : {v.get('fuel_type', 'N/D')}
+Couleur      : {v.get('color', 'N/D')}
+VIN          : {v.get('vin', 'N/D')}
+Concess.     : {v.get('dealer_name', 'N/D')}
+Ville        : {v.get('city', 'N/D')}
+N° Stock     : {v.get('stock_number', 'N/D')}
+Marché moyen : {v.get('avg_market_price', 'N/D')} $
+URL          : {v.get('url', 'N/D')}
+
+RÈGLES :
+- Ne jamais afficher "Non disponible" si la donnée est listée ci-dessus
+- Répondre directement sur ce véhicule spécifique sans nouvelle recherche
+"""
+            _prop_prompt = f"{SYSTEM_PROMPT}\n\n{_veh_ctx}\n\nHistorique:\n{history_str}\n\nMESSAGE : {message}"
+            _prop_resp = client.models.generate_content(model="gemini-2.5-flash", contents=_prop_prompt)
+            result = {"intent": "FOLLOWUP", "response": _prop_resp.text, "_html_cards": ""}
+            print(f"[smart_chat] Proposition {_prop_num} détectée → réponse directe")
+
     if not result and intent == "CREATE_ALERT":
         criteria = {}
         _brands = ["toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
@@ -1465,6 +1526,8 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
                 {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
                 for r in cache_results
             ]
+            # Sauvegarder les véhicules complets pour la référence par proposition
+            session["vehicle_shown"] = {i + 1: r for i, r in enumerate(cache_results[:3])}
 
             prompt = f"""
 {SYSTEM_PROMPT}
@@ -1550,6 +1613,7 @@ INSTRUCTIONS :
                     {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
                     for r in alt_results
                 ]
+                session["vehicle_shown"] = {i + 1: r for i, r in enumerate(alt_results[:3])}
                 no_stock_prompt = f"""
 {SYSTEM_PROMPT}
 
