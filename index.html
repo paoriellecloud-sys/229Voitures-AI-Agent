@@ -932,24 +932,8 @@ function getLinkLabel(url) {
 
 function formatText(text) {
   if (typeof text !== 'string') text = JSON.stringify(text);
-
-  // ── Séparer les fiches véhicules HTML des blocs texte ──
-  // Les fiches commencent par <div style="background:#ffffff et se terminent par </div>
-  // On les extrait, on formate seulement le texte, puis on ré-assemble.
-  const CARD_RE = /(<div style="background:#ffffff[^]*?<\/div>)/g;
-  const segments = [];
-  let lastIdx = 0;
-  let m;
-  while ((m = CARD_RE.exec(text)) !== null) {
-    if (m.index > lastIdx) segments.push({ type: 'text', val: text.slice(lastIdx, m.index) });
-    segments.push({ type: 'html', val: m[1] });
-    lastIdx = m.index + m[0].length;
-  }
-  if (lastIdx < text.length) segments.push({ type: 'text', val: text.slice(lastIdx) });
-
-  return segments.map(seg => {
-    if (seg.type === 'html') return seg.val;
-    let t = seg.val;
+  // Les fiches véhicules HTML arrivent via rawHtml dans addMsg — formatText ne traite que le texte Gemini.
+  let t = text;
 
     // FIX 1 — Strip broken HTML attribute fragments (must run first)
     t = t.replace(/" target="_blank" class="link-btn">/g, '');
@@ -995,7 +979,6 @@ function formatText(text) {
     // Line breaks
     t = t.replace(/\n/g, '<br>');
     return t;
-  }).join('');
 }
 
 function addMsg(role, text, rawHtml = '') {
