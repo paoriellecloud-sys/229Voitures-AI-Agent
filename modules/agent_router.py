@@ -2,6 +2,7 @@ from google import genai
 from google.genai import types
 from modules.scraper import analyze_listing, compare_listings, search_and_analyze
 from modules.vin_checker import get_vehicle_report
+from modules.formatters import format_vehicles_html_block
 from database import log_search
 import os
 import json
@@ -993,7 +994,8 @@ Historique:
 
 INSTRUCTION : Voici d'autres véhicules de l'inventaire pour "{last_query}". Présente-les avec leurs données réelles."""
                 response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-                return {"intent": "FOLLOWUP", "response": response.text}
+                more_html_cards = format_vehicles_html_block(more)
+                return {"intent": "FOLLOWUP", "response": more_html_cards + strip_html(response.text)}
         return {"intent": "FOLLOWUP", "response": "Je n'ai pas d'autres véhicules correspondants dans l'inventaire. Souhaitez-vous élargir la recherche à un autre modèle ou une autre région ?"}
 
     else:
@@ -1498,9 +1500,11 @@ INSTRUCTIONS :
 - NE PAS inclure de HTML brut dans ta réponse
 """
             response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+            html_cards = format_vehicles_html_block(cache_results)
             result = {
                 "intent": "SEARCH",
                 "response": response.text,
+                "_html_cards": html_cards,
                 "urls_found": [r["url"] for r in cache_results],
                 "scraped_count": len(cache_results),
                 "source": "inventory_cache"
@@ -1581,9 +1585,11 @@ INSTRUCTIONS STRICTES :
                 no_stock_prompt = no_stock_prompt.replace(history_str, _short_history(session, 10))
 
             no_stock_response = client.models.generate_content(model="gemini-2.5-flash", contents=no_stock_prompt)
+            alt_html_cards = format_vehicles_html_block(alt_results) if alt_results else ""
             result = {
                 "intent": "SEARCH",
                 "response": no_stock_response.text,
+                "_html_cards": alt_html_cards,
                 "urls_found": [r["url"] for r in alt_results] if alt_results else [],
                 "scraped_count": len(alt_results),
                 "source": "inventory_cache_alternatives"
@@ -1684,6 +1690,7 @@ INSTRUCTIONS STRICTES :
                 chat_vehicle_query = model_found
 
             chat_inventory_text = ""
+            chat_cache = []
             if chat_vehicle_query:
                 print(f"[smart_chat/CHAT] Véhicule détecté: '{chat_vehicle_query}' → recherche inventaire")
                 chat_cache = search_inventory_cache(chat_vehicle_query, limit=3)
@@ -1841,14 +1848,18 @@ INSTRUCTIONS :
                     model="gemini-2.5-flash",
                     contents=full_prompt
                 )
-            result = {"intent": "CHAT", "response": response.text}
+            chat_html_cards = format_vehicles_html_block(chat_cache) if chat_cache else ""
+            result = {"intent": "CHAT", "response": response.text, "_html_cards": chat_html_cards}
 
     response_text = result.get("response", "")
     # ─── PART 5 : Guardrail anti-hallucination + nettoyage HTML ───
     if isinstance(response_text, str):
         response_text = apply_guardrails(response_text, session["user_data"])
-        result["response"] = strip_html(response_text)
-        session["history"].append({"role": "assistant", "content": result["response"]})
+        clean_text = strip_html(response_text)
+        # Réassembler : fiches HTML structurées + texte Gemini nettoyé
+        html_cards_prefix = result.pop("_html_cards", "") or ""
+        result["response"] = html_cards_prefix + clean_text
+        session["history"].append({"role": "assistant", "content": clean_text})
     update_context(user_id, intent_data, result["response"] if isinstance(result.get("response"), str) else "")
     session["history"] = session["history"][-20:]
 

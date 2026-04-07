@@ -933,49 +933,69 @@ function getLinkLabel(url) {
 function formatText(text) {
   if (typeof text !== 'string') text = JSON.stringify(text);
 
-  // FIX 1 — Strip broken HTML attribute fragments (must run first)
-  text = text.replace(/" target="_blank" class="link-btn">/g, '');
-  text = text.replace(/' target="_blank" class="link-btn">/g, '');
-  text = text.replace(/"\s*target="_blank"\s*class="[^"]*">/g, '');
-  text = text.replace(/'\s*target="_blank"\s*class="[^"]*">/g, '');
+  // ── Séparer les fiches véhicules HTML des blocs texte ──
+  // Les fiches commencent par <div style="background:#ffffff et se terminent par </div>
+  // On les extrait, on formate seulement le texte, puis on ré-assemble.
+  const CARD_RE = /(<div style="background:#ffffff[^]*?<\/div>)/g;
+  const segments = [];
+  let lastIdx = 0;
+  let m;
+  while ((m = CARD_RE.exec(text)) !== null) {
+    if (m.index > lastIdx) segments.push({ type: 'text', val: text.slice(lastIdx, m.index) });
+    segments.push({ type: 'html', val: m[1] });
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < text.length) segments.push({ type: 'text', val: text.slice(lastIdx) });
 
-  // Strip broken HTML attributes that leak into agent text
-  text = text.replace(/"?\s*target="_blank"\s*class="link-btn">[^<\n]*/g, '');
-  text = text.replace(/"?\s*target="_blank"[^>]*>/g, '');
-  text = text.replace(/\s*class="[^"]*">/g, '');
+  return segments.map(seg => {
+    if (seg.type === 'html') return seg.val;
+    let t = seg.val;
 
-  // Fix broken markdown links [label](url) or [label](broken)
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(match, label, url) {
-    if (url.startsWith('http')) {
+    // FIX 1 — Strip broken HTML attribute fragments (must run first)
+    t = t.replace(/" target="_blank" class="link-btn">/g, '');
+    t = t.replace(/' target="_blank" class="link-btn">/g, '');
+    t = t.replace(/"\s*target="_blank"\s*class="[^"]*">/g, '');
+    t = t.replace(/'\s*target="_blank"\s*class="[^"]*">/g, '');
+
+    // Strip broken HTML attributes that leak into agent text
+    t = t.replace(/"?\s*target="_blank"\s*class="link-btn">[^<\n]*/g, '');
+    t = t.replace(/"?\s*target="_blank"[^>]*>/g, '');
+    t = t.replace(/\s*class="[^"]*">/g, '');
+
+    // Fix broken markdown links [label](url) or [label](broken)
+    t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(match, label, url) {
+      if (url.startsWith('http')) {
+        const clean = url.replace(/[.,;:!?]+$/, '');
+        return '<a href="' + clean + '" target="_blank" class="link-btn">' + getLinkLabel(clean) + ' →</a>';
+      }
+      return label;
+    });
+
+    // Replace bare URLs
+    t = t.replace(/(https?:\/\/[^\s)<\"]+)/g, function(url) {
       const clean = url.replace(/[.,;:!?]+$/, '');
       return '<a href="' + clean + '" target="_blank" class="link-btn">' + getLinkLabel(clean) + ' →</a>';
-    }
-    return label;
-  });
+    });
 
-  // Replace bare URLs
-  text = text.replace(/(https?:\/\/[^\s)<\"]+)/g, function(url) {
-    const clean = url.replace(/[.,;:!?]+$/, '');
-    return '<a href="' + clean + '" target="_blank" class="link-btn">' + getLinkLabel(clean) + ' →</a>';
-  });
+    // Remove --- separators
+    t = t.replace(/^---$/gm, '');
 
-  // Remove --- separators
-  text = text.replace(/^---$/gm, '');
+    // Bold **text** — neutral white, not yellow accent
+    t = t.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text)">$1</strong>');
 
-  // Bold **text** — neutral white, not yellow accent
-  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text)">$1</strong>');
+    // Bullet points
+    t = t.replace(/^[*\-]\s(.+)$/gm, '<span style="display:block;padding-left:12px;margin:2px 0">• $1</span>');
 
-  // Bullet points
-  text = text.replace(/^[*\-]\s(.+)$/gm, '<span style="display:block;padding-left:12px;margin:2px 0">• $1</span>');
+    // Numbered list
+    t = t.replace(/^\d+\.\s(.+)$/gm, '<span style="display:block;padding-left:12px;margin:3px 0;color:var(--accent)">$1</span>');
 
-  // Numbered list
-  text = text.replace(/^\d+\.\s(.+)$/gm, '<span style="display:block;padding-left:12px;margin:3px 0;color:var(--accent)">$1</span>');
-
-  // Line breaks
     // Remove "URL:" or "URL :" prefix before link buttons
-  text = text.replace(/URL\s*:\s*(<a[^>]*class="link-btn")/g, '$1');
-  text = text.replace(/\n/g, '<br>');
-  return text;
+    t = t.replace(/URL\s*:\s*(<a[^>]*class="link-btn")/g, '$1');
+
+    // Line breaks
+    t = t.replace(/\n/g, '<br>');
+    return t;
+  }).join('');
 }
 
 function addMsg(role, text) {
