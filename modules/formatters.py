@@ -1,6 +1,28 @@
 """Formatters pour les fiches véhicules HTML."""
 import re
 
+
+def build_fo_url(v: dict) -> str:
+    """Construit l'URL Force Occasion au format /occasion/Marque-Modele-Annee-id{id}.html"""
+    stored_url = v.get("url") or v.get("listing_url") or v.get("force_occasion_url") or ""
+    # Déjà au bon format /occasion/
+    if stored_url and "/occasion/" in stored_url:
+        return stored_url
+    # Extraire l'ID depuis l'URL /fiche/ stockée ou depuis vehicle_id
+    fo_id = v.get("vehicle_id") or v.get("fo_id") or ""
+    if not fo_id and stored_url:
+        m = re.search(r"/fiche/(\d+)", stored_url)
+        if m:
+            fo_id = m.group(1)
+    if not fo_id:
+        return stored_url or "https://www.forceoccasion.ca"
+    marque = (v.get("make") or v.get("marque") or "").strip().replace(" ", "-")
+    modele = (v.get("model") or v.get("modele") or "").strip().replace(" ", "_")
+    annee  = str(v.get("year") or v.get("annee") or "").strip()
+    if marque and modele and annee:
+        return f"https://www.forceoccasion.ca/occasion/{marque}-{modele}-{annee}-id{fo_id}.html"
+    return f"https://www.forceoccasion.ca/occasion/vehicule-id{fo_id}.html"
+
 TPS_RATE = 0.05
 TVQ_RATE = 0.09975
 
@@ -77,13 +99,10 @@ def format_vehicle_card(v: dict) -> str:
     transmission = v.get("transmission") or "N/D"
     traction     = v.get("drivetrain") or v.get("traction") or "N/D"
     carburant    = v.get("fuel_type") or v.get("carburant") or "N/D"
-    stock_number = v.get("stock_number") or v.get("no_stock") or ""
+    stock_raw    = v.get("stock_number") or v.get("stock_no") or v.get("no_stock") or ""
+    stock_number = stock_raw.replace("-neuf", "").replace("-used", "").replace("-occ", "").strip()
     vin          = v.get("vin") or "N/D"
-    # URL directe : priorité url stockée en DB (déjà correcte), fallback vehicle_id
-    vehicle_id   = v.get("vehicle_id") or ""
-    url_fiche    = (v.get("url") or v.get("listing_url") or v.get("force_occasion_url")
-                    or (f"https://www.forceoccasion.ca/fiche/{vehicle_id}" if vehicle_id else "")
-                    or "https://www.forceoccasion.ca")
+    url_fiche    = build_fo_url(v)
 
     try:
         prix_float   = float(v.get("price") or v.get("prix") or 0)
