@@ -984,7 +984,7 @@ Historique:
 INSTRUCTION : Voici d'autres véhicules de l'inventaire pour "{last_query}". Présente-les avec leurs données réelles."""
                 response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
                 more_html_cards = format_vehicles_html_block(more)
-                return {"intent": "FOLLOWUP", "response": more_html_cards + strip_html(response.text)}
+                return {"intent": "FOLLOWUP", "response": strip_html(response.text), "html_cards": more_html_cards}
         return {"intent": "FOLLOWUP", "response": "Je n'ai pas d'autres véhicules correspondants dans l'inventaire. Souhaitez-vous élargir la recherche à un autre modèle ou une autre région ?"}
 
     else:
@@ -1844,8 +1844,9 @@ INSTRUCTIONS :
         response_text = apply_guardrails(response_text, session["user_data"])
         clean_text = strip_html(response_text)
         # Réassembler : fiches HTML structurées + texte Gemini nettoyé
-        html_cards_prefix = result.pop("_html_cards", "") or ""
-        result["response"] = html_cards_prefix + clean_text
+        html_cards = result.pop("_html_cards", "") or ""
+        result["response"] = clean_text
+        result["html_cards"] = html_cards
         session["history"].append({"role": "assistant", "content": clean_text})
     update_context(user_id, intent_data, result["response"] if isinstance(result.get("response"), str) else "")
     session["history"] = session["history"][-20:]

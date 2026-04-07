@@ -998,7 +998,7 @@ function formatText(text) {
   }).join('');
 }
 
-function addMsg(role, text) {
+function addMsg(role, text, rawHtml = '') {
   const container = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = 'message ' + role;
@@ -1012,7 +1012,7 @@ function addMsg(role, text) {
 
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.innerHTML = role === 'ai' ? formatText(text) : text.replace(/\n/g, '<br>');
+  bubble.innerHTML = role === 'ai' ? (rawHtml + formatText(text)) : text.replace(/\n/g, '<br>');
 
   row.appendChild(avatar);
   row.appendChild(bubble);
@@ -1312,7 +1312,7 @@ async function sendMessage() {
     } else {
       reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
     }
-    addMsg('ai', reply);
+    addMsg('ai', reply, data.html_cards || '');
     setTimeout(scrollToBottom, 100);
 
   } catch(err) {
