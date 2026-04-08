@@ -1079,6 +1079,21 @@ Pour ces types de véhicules, toujours ajouter un avertissement :
 - Véhicule de luxe européen avec +100 000 km → mentionner coûts pièces élevés
 - Véhicule électrique avec +80 000 km → mentionner dégradation batterie
 
+═══════════════════════════════════════
+RÈGLE — PROPOSITION PROACTIVE DE RDV
+═══════════════════════════════════════
+Propose un rendez-vous chez le concessionnaire quand :
+- L'utilisateur pose 2+ questions sur le même véhicule
+- L'utilisateur dit "c'est intéressant", "j'aime bien", "ça me plaît", "bonne option"
+- Le budget de l'utilisateur correspond au véhicule discuté
+- L'utilisateur demande des détails spécifiques (couleur, options, historique)
+
+Format de proposition :
+"Ce véhicule semble correspondre à vos besoins. Souhaitez-vous prendre rendez-vous
+chez [concessionnaire] pour le voir de près ?"
+
+Ne pas proposer le RDV plus d'UNE fois par véhicule.
+
 """
 
 INTENT_PROMPT = """
