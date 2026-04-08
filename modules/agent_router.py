@@ -2,7 +2,7 @@ from google import genai
 from google.genai import types
 from modules.scraper import analyze_listing, compare_listings, search_and_analyze
 from modules.vin_checker import get_vehicle_report
-from modules.formatters import format_vehicles_html_block, generate_rdv_form
+from modules.formatters import format_vehicles_html_block, generate_rdv_form, generate_vin_report
 from database import log_search
 import os
 import json
@@ -1510,7 +1510,133 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         result = handle_followup(user_id, intent_data, history_str, context_summary)
 
     elif not result and intent == "CHECK_VIN" and intent_data.get("vin"):
-        result = {"intent": "CHECK_VIN", "response": get_vehicle_report(intent_data["vin"])}
+        _vin = intent_data["vin"]
+        _vr  = get_vehicle_report(_vin)
+
+        if "error" in _vr:
+            result = {"intent": "CHECK_VIN", "response": _vr["error"]}
+        else:
+            _decoded    = _vr.get("vehicle_info", {})
+            _vin_chars  = _vr.get("vin_decoded", {})
+            _recalls    = _vr.get("recalls", {})
+            _complaints = _vr.get("complaints", {})
+            _full       = _vr.get("full_report", "")
+
+            # ── Type véhicule ──
+            _body  = _decoded.get("BodyClass", "")
+            _doors = _decoded.get("Doors", "")
+            _vtype = _decoded.get("VehicleType", "")
+            _type_parts = [p for p in [_body, f"{_doors} portes" if _doors else ""] if p]
+            _type_v = " \u00b7 ".join(_type_parts) if _type_parts else _vtype or "N/D"
+
+            # ── Moteur ──
+            _cyl  = _decoded.get("EngineCylinders", "")
+            _disp = _decoded.get("DisplacementL", "")
+            _fuel = _decoded.get("FuelTypePrimary", "")
+            _mot  = " \u00b7 ".join(p for p in [
+                f"{_disp}L" if _disp else "",
+                f"{_cyl} cyl." if _cyl else "",
+                _fuel,
+            ] if p) or "N/D"
+
+            # ── Rappels ──
+            _rc     = _recalls.get("count", 0)
+            _rok    = _rc == 0
+            if _rok:
+                _rappels_txt = "Aucun rappel actif"
+            else:
+                _rlist = _recalls.get("recalls", [])
+                _comps = [r.get("component", "") for r in _rlist[:3] if r.get("component")]
+                _rappels_txt = f"{_rc} rappel(s) \u2014 {', '.join(_comps)}" if _comps else _recalls.get("message", f"{_rc} rappel(s)")
+
+            # ── Plaintes ──
+            _cc  = _complaints.get("count", 0)
+            _pok = _cc < 5
+            if _cc == 0:
+                _plaintes_txt = "Peu de plaintes enregistr\u00e9es"
+            else:
+                _top = _complaints.get("top_issues", [])
+                if _top:
+                    _issues = [f"{i['component']} ({i['complaints']} plaintes)" for i in _top[:3]]
+                    _plaintes_txt = f"{_cc} plaintes \u00b7 {', '.join(_issues)}"
+                else:
+                    _plaintes_txt = f"{_cc} plaintes enregistr\u00e9es"
+
+            # ── Points à surveiller (parse section 🔧 du texte Gemini) ──
+            _points = []
+            _m_pts = re.search(r'[\U0001F527\U0001F6E0]?\s*POINTS[^\n]*\n((?:[ \t]*[•*\-][^\n]+\n?)*)', _full)
+            if _m_pts:
+                for _ln in _m_pts.group(1).split('\n'):
+                    _ln = re.sub(r'^[\s•*\-]+', '', _ln).strip()
+                    if _ln and len(_ln) > 5:
+                        _points.append(_ln)
+
+            # ── Prix (parse section 💰 du texte Gemini) ──
+            _prix_min = _prix_max = _prix_moyen = "N/D"
+            _sources  = "AutoTrader \u00b7 CarGurus"
+            _m_range = re.search(r'[Ff]ourchette[^:]*:\s*([\d\s\u00a0,]+)\s*\$\s*[\u2014\-\u2013]\s*([\d\s\u00a0,]+)\s*\$', _full)
+            if _m_range:
+                _prix_min = _m_range.group(1).strip().replace(",", "\u00a0") + "\u00a0$"
+                _prix_max = _m_range.group(2).strip().replace(",", "\u00a0") + "\u00a0$"
+            _m_avg = re.search(r'[Pp]rix moyen[^:]*:\s*~?\s*([\d\s\u00a0,]+)\s*\$', _full)
+            if _m_avg:
+                _prix_moyen = _m_avg.group(1).strip().replace(",", "\u00a0") + "\u00a0$"
+            _m_src = re.search(r'[Ss]ource\s*:\s*([^\n]+)', _full)
+            if _m_src:
+                _sources = _m_src.group(1).strip()
+
+            # ── Recommandation (parse section 🎯 du texte Gemini) ──
+            _rec_titre  = "Inspecter avant achat"
+            _rec_texte  = "Une inspection pr\u00e9-achat par un m\u00e9canicien ind\u00e9pendant est recommand\u00e9e."
+            _rec_niveau = "attention"
+            _m_rec = re.search(r'[\U0001F3AF]\s*RECOMMANDATION\s*\n([^\n]+)', _full)
+            if _m_rec:
+                _rec_raw = _m_rec.group(1).strip()
+                if "\u2705" in _rec_raw or "Acheter" in _rec_raw:
+                    _rec_niveau = "ok"
+                elif "\u274c" in _rec_raw or "\u26d4" in _rec_raw or "\u00c9viter" in _rec_raw or "Eviter" in _rec_raw:
+                    _rec_niveau = "danger"
+                # Extraire titre + texte séparés par " — "
+                _rec_clean = re.sub(r'[\U0001F3AF\u2705\u274c\u26d4\u26a0\ufe0f\U0001F50D]+', '', _rec_raw).strip(' \u2014-\u00b7')
+                _rec_parts = _rec_clean.split('\u2014', 1)
+                if len(_rec_parts) == 2:
+                    _rec_titre = _rec_parts[0].strip() or _rec_titre
+                    _rec_texte = _rec_parts[1].strip() or _rec_texte
+                elif _rec_clean:
+                    _rec_texte = _rec_clean
+
+            _make  = _decoded.get("Make", "")
+            _model = _decoded.get("Model", "")
+            _year  = _decoded.get("ModelYear", str(_vin_chars.get("model_year_from_vin", "")))
+
+            _vin_data = {
+                "vin":                   _vin,
+                "annee":                 _year,
+                "make":                  _make,
+                "model":                 _model,
+                "type_vehicule":         _type_v,
+                "moteur":                _mot,
+                "transmission":          _decoded.get("TransmissionStyle", "N/D"),
+                "traction":              _decoded.get("DriveType", "N/D"),
+                "assemble":              _decoded.get("PlantCountry", _vin_chars.get("country_of_manufacture", "N/D")),
+                "usage":                 _vin_chars.get("usage_hint", "N/D"),
+                "rappels":               _rappels_txt,
+                "rappels_ok":            _rok,
+                "plaintes":              _plaintes_txt,
+                "plaintes_ok":           _pok,
+                "points_surveiller":     _points[:5],
+                "prix_min":              _prix_min,
+                "prix_max":              _prix_max,
+                "prix_moyen":            _prix_moyen,
+                "sources_prix":          _sources,
+                "recommandation_titre":  _rec_titre,
+                "recommandation_texte":  _rec_texte,
+                "recommandation_niveau": _rec_niveau,
+            }
+
+            _vin_html    = generate_vin_report(_vin_data)
+            _intro       = f"Voici le rapport VIN pour le {_year} {_make} {_model}.".strip()
+            result = {"intent": "CHECK_VIN", "response": _intro, "_html_cards": _vin_html}
 
     elif not result and intent == "COMPARE_URLS" and len(intent_data.get("urls", [])) >= 2:
         compare_result = compare_listings(intent_data["urls"][0], intent_data["urls"][1])

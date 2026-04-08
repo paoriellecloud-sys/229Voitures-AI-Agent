@@ -213,6 +213,128 @@ def format_vehicle_card(v: dict) -> str:
     )
 
 
+def generate_vin_report(data: dict) -> str:
+    """Génère la fiche HTML du rapport VIN aux couleurs 229Voitures."""
+    vin          = data.get("vin", "N/D")
+    annee        = data.get("annee", "")
+    marque       = data.get("make") or data.get("marque", "")
+    modele       = data.get("model") or data.get("modele", "")
+    type_v       = data.get("type_vehicule", "N/D")
+    moteur       = data.get("moteur") or data.get("engine", "N/D")
+    transmission = data.get("transmission", "N/D")
+    traction     = data.get("traction") or data.get("drivetrain", "N/D")
+    assemble     = data.get("assemble", "N/D")
+    usage        = data.get("usage", "N/D")
+    rappels      = data.get("rappels", "Aucun rappel actif")
+    rappels_ok   = data.get("rappels_ok", True)
+    plaintes     = data.get("plaintes", "Peu de plaintes enregistr\u00e9es")
+    plaintes_ok  = data.get("plaintes_ok", True)
+    points       = data.get("points_surveiller", [])
+    prix_min     = data.get("prix_min", "N/D")
+    prix_max     = data.get("prix_max", "N/D")
+    prix_moyen   = data.get("prix_moyen", "N/D")
+    sources      = data.get("sources_prix", "AutoTrader \u00b7 CarGurus")
+    rec_titre    = data.get("recommandation_titre", "Inspecter avant achat")
+    rec_texte    = data.get("recommandation_texte", "Une inspection pr\u00e9-achat est recommand\u00e9e.")
+    rec_niveau   = data.get("recommandation_niveau", "attention")
+
+    rec_colors = {
+        "ok":       ("rgba(99,153,34,0.12)",  "rgba(99,153,34,0.30)",  "#97C459", "&#9989;"),
+        "attention":("rgba(186,117,23,0.12)", "rgba(186,117,23,0.30)", "#FAC775", "&#9888;"),
+        "danger":   ("rgba(226,75,74,0.12)",  "rgba(226,75,74,0.30)",  "#F09595", "&#128721;"),
+    }
+    rec_bg, rec_border, rec_color, rec_icon = rec_colors.get(rec_niveau, rec_colors["attention"])
+
+    if rappels_ok:
+        rappels_html = f'<div style="display:flex;align-items:center;gap:8px;background:rgba(99,153,34,0.15);border:1px solid rgba(99,153,34,0.30);border-radius:8px;padding:10px 12px;"><span style="font-size:15px;">&#9989;</span><span style="font-size:13px;color:#97C459;font-weight:500;">{rappels}</span></div>'
+    else:
+        rappels_html = f'<div style="display:flex;align-items:center;gap:8px;background:rgba(226,75,74,0.12);border:1px solid rgba(226,75,74,0.30);border-radius:8px;padding:10px 12px;"><span style="font-size:15px;">&#128721;</span><span style="font-size:13px;color:#F09595;font-weight:500;">{rappels}</span></div>'
+
+    if plaintes_ok:
+        plaintes_html = f'<div style="display:flex;align-items:center;gap:8px;background:rgba(99,153,34,0.15);border:1px solid rgba(99,153,34,0.30);border-radius:8px;padding:10px 12px;"><span style="font-size:15px;">&#9989;</span><span style="font-size:13px;color:#97C459;font-weight:500;">{plaintes}</span></div>'
+    else:
+        plaintes_html = f'<div style="display:flex;align-items:center;gap:8px;background:rgba(226,75,74,0.12);border:1px solid rgba(226,75,74,0.30);border-radius:8px;padding:10px 12px;"><span style="font-size:15px;">&#128721;</span><span style="font-size:13px;color:#F09595;font-weight:500;">{plaintes}</span></div>'
+
+    if points:
+        points_items = "".join([
+            f'<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:rgba(186,117,23,0.12);border:1px solid rgba(186,117,23,0.25);border-radius:8px;"><span style="font-size:13px;color:#FAC775;flex-shrink:0;margin-top:1px;">&#9888;</span><span style="font-size:12px;color:#c0c0c0;line-height:1.5;">{p}</span></div>'
+            for p in points
+        ])
+        points_html = f'<div style="display:flex;flex-direction:column;gap:6px;">{points_items}</div>'
+    else:
+        points_html = '<div style="display:flex;align-items:center;gap:8px;background:rgba(99,153,34,0.15);border:1px solid rgba(99,153,34,0.30);border-radius:8px;padding:10px 12px;"><span style="font-size:15px;">&#9989;</span><span style="font-size:13px;color:#97C459;font-weight:500;">Aucun point critique identifi\u00e9</span></div>'
+
+    # Carte sur une seule ligne — évite que formatText convertisse \n en <br> dans le HTML
+    return (
+        '<div style="border-radius:10px;border:1px solid rgba(255,255,255,0.10);overflow:hidden;'
+        'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:560px;margin:8px 0;background:rgba(255,255,255,0.04);">'
+        '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">'
+        '<div>'
+        '<p style="font-size:10px;color:#666;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.06em;">Rapport VIN</p>'
+        f'<p style="font-size:17px;font-weight:600;margin:0;color:#f0f0f0;">{annee} {marque} {modele}</p>'
+        f'<p style="font-size:12px;color:#666;margin:3px 0 0;font-family:\'Courier New\',monospace;letter-spacing:0.05em;">{vin}</p>'
+        '</div>'
+        '<div style="background:#FAC775;color:#1a1a1a;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;white-space:nowrap;">229 VIN</div>'
+        '</div>'
+        # Véhicule
+        '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#128663; V\u00e9hicule</p>'
+        '<div style="display:flex;flex-direction:column;gap:6px;">'
+        f'<div style="display:flex;justify-content:space-between;"><span style="font-size:13px;color:#888;">Type</span><span style="font-size:13px;font-weight:500;color:#f0f0f0;">{type_v}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;"><span style="font-size:13px;color:#888;">Moteur</span><span style="font-size:13px;font-weight:500;color:#f0f0f0;">{moteur}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;"><span style="font-size:13px;color:#888;">Transmission</span><span style="font-size:13px;font-weight:500;color:#f0f0f0;">{transmission}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;"><span style="font-size:13px;color:#888;">Traction</span><span style="font-size:13px;font-weight:500;color:#f0f0f0;">{traction}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;"><span style="font-size:13px;color:#888;">Assembl\u00e9</span><span style="font-size:13px;font-weight:500;color:#f0f0f0;">{assemble} \u00b7 {usage}</span></div>'
+        '</div></div>'
+        # Rappels
+        '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#9888; Rappels de s\u00e9curit\u00e9</p>'
+        f'{rappels_html}'
+        '</div>'
+        # Plaintes
+        '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#128202; Plaintes propri\u00e9taires</p>'
+        f'{plaintes_html}'
+        '</div>'
+        # Points à surveiller
+        '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#128295; Points \u00e0 surveiller</p>'
+        f'{points_html}'
+        '</div>'
+        # Valeur marché
+        '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+        '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#128181; Valeur march\u00e9 Canada</p>'
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+        '<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:10px 12px;">'
+        '<p style="font-size:11px;color:#888;margin:0 0 3px;">Fourchette</p>'
+        f'<p style="font-size:13px;font-weight:600;color:#f0f0f0;margin:0;">{prix_min} \u2014 {prix_max}</p>'
+        '</div>'
+        '<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:10px 12px;">'
+        '<p style="font-size:11px;color:#888;margin:0 0 3px;">Prix moyen</p>'
+        f'<p style="font-size:15px;font-weight:700;color:#FAC775;margin:0;">~ {prix_moyen}</p>'
+        '</div>'
+        '</div>'
+        f'<p style="font-size:11px;color:#555;margin:0;">Sources : {sources}</p>'
+        '</div>'
+        # Recommandation
+        '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.08);">'
+        '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#127919; Recommandation</p>'
+        f'<div style="display:flex;align-items:flex-start;gap:10px;background:{rec_bg};border:1px solid {rec_border};border-radius:8px;padding:12px 14px;">'
+        f'<span style="font-size:18px;flex-shrink:0;">{rec_icon}</span>'
+        '<div>'
+        f'<p style="font-size:13px;font-weight:600;color:{rec_color};margin:0 0 3px;">{rec_titre}</p>'
+        f'<p style="font-size:12px;color:#c0c0c0;margin:0;line-height:1.5;">{rec_texte}</p>'
+        '</div>'
+        '</div>'
+        '</div>'
+        # Footer
+        '<div style="padding:10px 18px;background:rgba(0,0,0,0.15);">'
+        '<p style="font-size:11px;color:#555;margin:0;text-align:center;">&#9888; Donn\u00e9es \u00e0 titre informatif \u00b7 229Voitures n\'est pas un conseiller financier</p>'
+        '</div>'
+        '</div>'
+    )
+
+
 def generate_rdv_form(vehicle: dict) -> str:
     """Retourne un formulaire HTML de demande de rendez-vous pré-rempli avec les infos du véhicule."""
     annee  = str(vehicle.get("year") or vehicle.get("annee") or "").strip()
