@@ -1300,9 +1300,23 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         _rdv_tel    = _rdv_parts.get("Tél", "")
         _rdv_email  = _rdv_parts.get("Courriel", "")
         _rdv_msg    = _rdv_parts.get("Message", "")
-        _lead_data  = {
+        # Récupérer le prix depuis vehicle_shown en session
+        _rdv_prix = ""
+        _rdv_shown = session.get("vehicle_shown", {})
+        for _sv in _rdv_shown.values():
+            _sv_name = f"{_sv.get('year', '')} {_sv.get('make', '')} {_sv.get('model', '')}".strip()
+            if _rdv_veh and (_sv_name in _rdv_veh or _rdv_veh in _sv_name):
+                try:
+                    _p_val = float(_sv.get("price") or 0)
+                    if _p_val:
+                        _rdv_prix = f"{_p_val:,.0f}\u00a0$".replace(",", "\u00a0")
+                except Exception:
+                    pass
+                break
+        _lead_data = {
             "user_id":       user_id,
             "vehicle_title": _rdv_veh,
+            "vehicle_price": _rdv_prix,
             "dealer_name":   _rdv_dealer,
             "name":          _rdv_nom,
             "phone":         _rdv_tel,
@@ -1319,8 +1333,13 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         _rdv_confirmation = (
             f"\u2705 Votre demande de rendez-vous a \u00e9t\u00e9 envoy\u00e9e \u00e0 "
             f"{_rdv_dealer or 'le concessionnaire'} pour le {_rdv_veh}. "
-            f"Le concessionnaire vous contactera au {_rdv_tel} dans les 24-48h."
+            f"Le concessionnaire vous contactera au {_rdv_tel} dans les 24\u201348h."
             + (f" Une confirmation sera envoy\u00e9e \u00e0 {_rdv_email}." if _rdv_email else "")
+            + "\n\n\U0001f4a1 **Avant de signer quoi que ce soit** \u2014 si le concessionnaire "
+            "vous pr\u00e9sente une offre ou un contrat, vous pouvez me le t\u00e9l\u00e9verser "
+            "ici pour analyse. Je v\u00e9rifierai avec vous s'il y a des frais cach\u00e9s, "
+            "des produits F&I non sollicit\u00e9s ou des conditions d\u00e9favorables avant "
+            "que vous preniez votre d\u00e9cision finale."
         )
         session["history"][-1]["content"] = f"[Formulaire RDV soumis pour {_rdv_veh}]"
         session["history"].append({"role": "assistant", "content": _rdv_confirmation})
