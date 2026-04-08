@@ -400,6 +400,34 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
         except Exception:
             pass  # colonne déjà présente
 
+        # Mapping catégories → modèles réels
+        CATEGORY_MAP = {
+            "vus":          "Escape Equinox RDX MDX Explorer Bronco Rogue Tucson Sportage Seltos Durango Traverse Blazer Murano Outlander Palisade Telluride Sorento Tonale GV70 X2 Encore Forester Outback Crosstrek Trailblazer Terrain Acadia",
+            "suv":          "Escape Equinox RDX MDX Explorer Bronco Rogue Tucson Sportage Seltos Durango Traverse Blazer Murano Outlander Palisade Telluride Sorento",
+            "luxe":         "BMW Audi Mercedes Lexus Acura Infiniti Cadillac Lincoln Genesis Volvo Porsche Alfa",
+            "\u00e9lectrique": "Tesla Bolt Leaf Ioniq EV6 EV9 Ariya Mach-E Lightning Solterra bZ4X",
+            "electrique":   "Tesla Bolt Leaf Ioniq EV6 EV9 Ariya Mach-E Lightning Solterra bZ4X",
+            "hybride":      "Prius RAV4 Escape Tucson Santa Outlander Pacifica Wrangler CR-V Elantra Sonata",
+            "camionnette":  "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
+            "truck":        "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
+            "pickup":       "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
+            "berline":      "Civic Corolla Camry Accord Elantra Sonata Mazda3 Altima Jetta Model 3 Integra Malibu Legacy",
+            "sedan":        "Civic Corolla Camry Accord Elantra Sonata Mazda3 Altima Jetta Model 3 Integra Malibu Legacy",
+            "fourgonnette": "Odyssey Sienna Carnival Pacifica Caravan Sedona",
+            "minivan":      "Odyssey Sienna Carnival Pacifica Caravan Sedona",
+            "sport":        "Mustang Camaro Challenger BRZ Supra Miata Corvette GTI WRX Veloster Civic Type R",
+            "coupe":        "Mustang Camaro Challenger BRZ Supra Miata Corvette GTI WRX Veloster",
+            "compacte":     "Civic Corolla Elantra Mazda3 Jetta Golf Forte Sentra Kicks Venue Trax",
+            "economique":   "Civic Corolla Elantra Mazda3 Accent Rio Yaris Fit Spark Versa Micra",
+        }
+
+        # Remplacer la query si c'est une catégorie connue
+        query_lower = (vehicle_filter or query).lower().strip()
+        for category, models in CATEGORY_MAP.items():
+            if category in query_lower:
+                vehicle_filter = models
+                break
+
         # Choisir la meilleure source de termes de recherche
         search_text = vehicle_filter or query
         raw_kw = [k.strip() for k in search_text.lower().split() if len(k.strip()) > 2]
