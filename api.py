@@ -468,7 +468,7 @@ def analyze_image(request: ImageRequest, current_user: dict = Depends(get_curren
             data=base64.b64decode(request.image_base64),
             mime_type=request.media_type
         )
-        text_part = genai_types.Part.from_text(prompt)
+        text_part = genai_types.Part(text=prompt)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
