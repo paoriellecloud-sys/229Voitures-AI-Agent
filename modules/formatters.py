@@ -213,6 +213,44 @@ def format_vehicle_card(v: dict) -> str:
     )
 
 
+def generate_rdv_form(vehicle: dict) -> str:
+    """Retourne un formulaire HTML de demande de rendez-vous pré-rempli avec les infos du véhicule."""
+    annee  = str(vehicle.get("year") or vehicle.get("annee") or "").strip()
+    marque = (vehicle.get("make") or vehicle.get("marque") or "").strip()
+    modele = (vehicle.get("model") or vehicle.get("modele") or "").strip()
+    dealer = (vehicle.get("dealer_name") or vehicle.get("dealer") or vehicle.get("concessionnaire") or "N/D").strip()
+    ville  = (vehicle.get("city") or vehicle.get("ville") or "Québec").strip()
+    veh    = f"{annee} {marque} {modele}".strip()
+
+    return (
+        '<div style="border-radius:10px;border:1px solid rgba(255,255,255,0.10);overflow:hidden;'
+        'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:520px;margin:8px 0;background:rgba(255,255,255,0.04);">'
+        '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">'
+        '<div>'
+        '<p style="font-size:10px;color:#666;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.06em;">Demande de rendez-vous</p>'
+        f'<p style="font-size:16px;font-weight:600;margin:0;color:#f0f0f0;">{veh}</p>'
+        f'<p style="font-size:12px;color:#666;margin:3px 0 0;">{dealer} \u00b7 {ville}</p>'
+        '</div>'
+        '<div style="width:36px;height:36px;border-radius:50%;background:#FAC775;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+        '<span style="font-size:14px;font-weight:700;color:#1a1a1a;">229</span>'
+        '</div>'
+        '</div>'
+        '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">'
+        '<div><label style="font-size:11px;color:#888;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;">Pr\u00e9nom et nom *</label>'
+        '<input type="text" placeholder="Votre nom complet" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(250,199,117,0.20);border-radius:8px;padding:10px 12px;color:#f0f0f0;font-size:13px;outline:none;" id="rdv_nom" onfocus="this.style.borderColor=\'rgba(250,199,117,0.6)\'" onblur="this.style.borderColor=\'rgba(250,199,117,0.20)\'"></div>'
+        '<div><label style="font-size:11px;color:#888;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;">T\u00e9l\u00e9phone *</label>'
+        '<input type="tel" placeholder="Votre num\u00e9ro de t\u00e9l\u00e9phone" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(250,199,117,0.20);border-radius:8px;padding:10px 12px;color:#f0f0f0;font-size:13px;outline:none;" id="rdv_tel" onfocus="this.style.borderColor=\'rgba(250,199,117,0.6)\'" onblur="this.style.borderColor=\'rgba(250,199,117,0.20)\'"></div>'
+        '<div><label style="font-size:11px;color:#888;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;">Courriel *</label>'
+        '<input type="email" placeholder="Votre adresse courriel" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(250,199,117,0.20);border-radius:8px;padding:10px 12px;color:#f0f0f0;font-size:13px;outline:none;" id="rdv_email" onfocus="this.style.borderColor=\'rgba(250,199,117,0.6)\'" onblur="this.style.borderColor=\'rgba(250,199,117,0.20)\'"></div>'
+        '<div><label style="font-size:11px;color:#888;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;">Message (optionnel)</label>'
+        '<textarea placeholder="Pr\u00e9cisez vos disponibilit\u00e9s ou toute autre question..." rows="3" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(250,199,117,0.20);border-radius:8px;padding:10px 12px;color:#f0f0f0;font-size:13px;outline:none;resize:none;font-family:inherit;" id="rdv_msg" onfocus="this.style.borderColor=\'rgba(250,199,117,0.6)\'" onblur="this.style.borderColor=\'rgba(250,199,117,0.20)\'"></textarea></div>'
+        f'<button onclick="const nom=document.getElementById(\'rdv_nom\').value.trim();const tel=document.getElementById(\'rdv_tel\').value.trim();const email=document.getElementById(\'rdv_email\').value.trim();const msg=document.getElementById(\'rdv_msg\').value.trim();if(!nom||!tel||!email){{alert(\'Veuillez remplir les champs obligatoires (*)\');return;}}sendPrompt(\'DEMANDE_RDV | V\u00e9hicule: {veh} | Concessionnaire: {dealer} | Nom: \'+nom+\' | T\u00e9l: \'+tel+\' | Courriel: \'+email+(msg?\' | Message: \'+msg:\'\'));" style="background:#FAC775;color:#1a1a1a;border:none;border-radius:8px;padding:12px 18px;font-size:13px;font-weight:700;cursor:pointer;width:100%;" onmouseover="this.style.background=\'#f0b84d\'" onmouseout="this.style.background=\'#FAC775\'">Envoyer ma demande &#8599;</button>'
+        '<p style="font-size:11px;color:#555;margin:0;text-align:center;">Le concessionnaire vous contactera dans les 24-48h.</p>'
+        '</div>'
+        '</div>'
+    )
+
+
 def format_vehicles_html_block(results: list) -> str:
     """Retourne un bloc HTML avec les 3 premières fiches véhicules numérotées."""
     if not results:

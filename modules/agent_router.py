@@ -2,7 +2,7 @@ from google import genai
 from google.genai import types
 from modules.scraper import analyze_listing, compare_listings, search_and_analyze
 from modules.vin_checker import get_vehicle_report
-from modules.formatters import format_vehicles_html_block
+from modules.formatters import format_vehicles_html_block, generate_rdv_form
 from database import log_search
 import os
 import json
@@ -636,6 +636,8 @@ Quand l'utilisateur veut contacter un concessionnaire, NE PAS dire que tu ne peu
 Tu PEUX collecter les coordonnées et envoyer la demande automatiquement.
 Déclenche toujours le processus de collecte.
 
+FORMULAIRE RDV : Quand l'utilisateur veut visiter un véhicule ou prendre rendez-vous, NE PAS demander les coordonnées en texte — un formulaire HTML interactif s'affiche automatiquement et prend en charge la collecte. Répondre uniquement avec une courte phrase d'introduction (ex : "Voici le formulaire pour prendre rendez-vous.").
+
 ═══════════════════════════════════════
 FLUX QUALIFICATIF — RÈGLE DE DÉTECTION
 ═══════════════════════════════════════
@@ -1235,6 +1237,47 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         history_str = _short_history(session, 10)
     session["history"].append({"role": "user", "content": message})
 
+    # ─── Détection soumission formulaire RDV ───
+    if message.startswith("DEMANDE_RDV |"):
+        _rdv_parts = {}
+        for _p in message.split("|"):
+            _p = _p.strip()
+            if ":" in _p:
+                _k, _v = _p.split(":", 1)
+                _rdv_parts[_k.strip()] = _v.strip()
+        _rdv_veh    = _rdv_parts.get("Véhicule", "")
+        _rdv_dealer = _rdv_parts.get("Concessionnaire", "")
+        _rdv_nom    = _rdv_parts.get("Nom", "")
+        _rdv_tel    = _rdv_parts.get("Tél", "")
+        _rdv_email  = _rdv_parts.get("Courriel", "")
+        _rdv_msg    = _rdv_parts.get("Message", "")
+        _lead_data  = {
+            "user_id":       user_id,
+            "vehicle_title": _rdv_veh,
+            "dealer_name":   _rdv_dealer,
+            "name":          _rdv_nom,
+            "phone":         _rdv_tel,
+            "email":         _rdv_email,
+            "message":       _rdv_msg,
+        }
+        try:
+            import sys as _sys_rdv
+            _sys_rdv.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+            from lead_service import create_lead
+            create_lead(_lead_data)
+        except Exception as _e_rdv:
+            print(f"[DEMANDE_RDV] lead_service error: {_e_rdv}")
+        _rdv_confirmation = (
+            f"\u2705 Votre demande de rendez-vous a \u00e9t\u00e9 envoy\u00e9e \u00e0 "
+            f"{_rdv_dealer or 'le concessionnaire'} pour le {_rdv_veh}. "
+            f"Le concessionnaire vous contactera au {_rdv_tel} dans les 24-48h."
+            + (f" Une confirmation sera envoy\u00e9e \u00e0 {_rdv_email}." if _rdv_email else "")
+        )
+        session["history"][-1]["content"] = f"[Formulaire RDV soumis pour {_rdv_veh}]"
+        session["history"].append({"role": "assistant", "content": _rdv_confirmation})
+        save_session(user_id, sessions.get(user_id, {}))
+        return {"intent": "LEAD_SENT", "response": _rdv_confirmation, "html_cards": ""}
+
     # ─── Détection affirmative après suggestion de contact (évite la boucle) ───
     _AFFIRMATIVES = {"oui", "oi", "yes", "ok", "d'accord", "ouais", "yep", "allons-y", "allez", "bien sûr", "avec plaisir"}
     if message.strip().lower() in _AFFIRMATIVES and session["context"].get("contact_suggestion_made"):
@@ -1404,6 +1447,7 @@ RÈGLES :
         vehicle_price = 0
         vehicle_url = ""
         dealer_name = ""
+        vehicle_for_form = {}
         # Priorité : last_results contient les données complètes (titre, prix, concessionnaire)
         if last_results:
             v = last_results[0]
@@ -1411,6 +1455,7 @@ RÈGLES :
             vehicle_price = v.get("price", 0)
             vehicle_url = v.get("url", "")
             dealer_name = v.get("dealer_name", "")
+            vehicle_for_form = v
         elif last_listings:
             v = last_listings[0] if isinstance(last_listings, list) else last_listings
             if isinstance(v, dict):
@@ -1418,25 +1463,14 @@ RÈGLES :
                 vehicle_price = v.get("price", 0)
                 vehicle_url = v.get("url", "")
                 dealer_name = v.get("dealer_name", v.get("dealer", ""))
+                vehicle_for_form = v
             elif isinstance(v, str):
                 vehicle_url = v
-        session["context"]["pending_lead"] = {
-            "vehicle_title": vehicle_title,
-            "vehicle_price": vehicle_price,
-            "vehicle_url": vehicle_url,
-            "dealer_name": dealer_name,
-        }
+        rdv_html = generate_rdv_form(vehicle_for_form)
         result = {
             "intent": "LEAD_REQUEST",
-            "response": (
-                f"Je vais vous mettre en contact avec le concessionnaire pour le {vehicle_title}.\n\n"
-                "Pour envoyer votre demande, j'ai besoin de :\n"
-                "• Votre prénom et nom\n"
-                "• Votre numéro de téléphone\n"
-                "• Votre email\n"
-                "• Un message optionnel\n\n"
-                "Commençons — quel est votre nom complet ?"
-            ),
+            "response": f"Voici le formulaire pour prendre rendez-vous chez {dealer_name or 'le concessionnaire'} pour le {vehicle_title}.",
+            "_html_cards": rdv_html,
         }
 
     elif not result and intent == "GARANTIES":
