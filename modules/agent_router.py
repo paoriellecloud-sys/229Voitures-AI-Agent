@@ -114,6 +114,26 @@ def extract_proposition_number(message: str) -> int | None:
     return None
 
 
+def detect_rdv_intent(message: str) -> bool:
+    """
+    Détecte EXPLICITEMENT une demande de RDV ou contact concessionnaire.
+    NE PAS déclencher sur 'ok', 'oui', 'd'accord' seuls.
+    """
+    msg = message.lower().strip()
+    rdv_patterns = [
+        'rendez-vous', 'rendez vous', 'prendre rdv', 'un rdv',
+        'visiter', 'voir ce v\u00e9hicule', 'voir cette auto', 'voir cette voiture',
+        'contacter', 'me contacter', 'contacter la concession',
+        'mettre en contact', 'contact avec', 'me mettre en contact',
+        'je veux \u00eatre contact\u00e9', 'je voudrais \u00eatre contact\u00e9',
+        'je le veux', 'je la veux', "je veux l'acheter",
+        'je suis int\u00e9ress\u00e9 et', 'int\u00e9ress\u00e9 par la proposition',
+        'je veux ce v\u00e9hicule', 'je veux cette auto',
+        'appeler le concessionnaire', 't\u00e9l\u00e9phoner',
+    ]
+    return any(p in msg for p in rdv_patterns)
+
+
 def has_vehicle_interest(message: str) -> bool:
     """
     Détecte si l'utilisateur exprime un intérêt pour UN véhicule
@@ -650,19 +670,19 @@ NE PAS déclencher la suggestion quand :
 RÈGLE : Une seule suggestion par conversation. Si non → ne plus proposer.
 
 ═══════════════════════════════════════
-CAPACITÉ LEADS
+RÈGLE RDV ABSOLUE
 ═══════════════════════════════════════
-Quand l'utilisateur veut contacter un concessionnaire, NE PAS dire que tu ne peux pas.
-Tu PEUX collecter les coordonnées et envoyer la demande automatiquement.
-Déclenche toujours le processus de collecte.
+Tu ne gères JAMAIS les demandes de rendez-vous ou de contact concessionnaire.
+Ces demandes sont interceptées automatiquement par le système AVANT que tu reçoives le message.
+Si malgré tout tu reçois une demande RDV, réponds UNIQUEMENT :
+"Je vous affiche le formulaire de contact."
 
-FORMULAIRE RDV : Quand l'utilisateur veut visiter un véhicule ou prendre rendez-vous, NE PAS demander les coordonnées en texte — un formulaire HTML interactif s'affiche automatiquement et prend en charge la collecte. Répondre uniquement avec une courte phrase d'introduction (ex : "Voici le formulaire pour prendre rendez-vous.").
-
-RÈGLE RDV ABSOLUE :
-Quand l'utilisateur veut prendre rendez-vous, visiter, ou exprime "je le veux / rdv / intéressé" :
-- Le formulaire s'affiche automatiquement — NE PAS écrire de texte sur le formulaire
-- NE PAS dire "voici le formulaire" ou "je vais afficher" ou lister des étapes
-- NE PAS demander nom, téléphone, email en texte
+INTERDICTIONS ABSOLUES :
+❌ NE JAMAIS dire "j'ai transmis votre demande"
+❌ NE JAMAIS dire "j'ai vos informations" ou "j'ai bien reçu vos coordonnées"
+❌ NE JAMAIS inventer une confirmation d'envoi de lead
+❌ NE JAMAIS demander nom, téléphone, email en texte
+❌ NE JAMAIS dire "commençons — quel est votre nom ?"
 
 ═══════════════════════════════════════
 FLUX QUALIFICATIF — RÈGLE DE DÉTECTION
@@ -1306,6 +1326,39 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         session["history"].append({"role": "assistant", "content": _rdv_confirmation})
         save_session(user_id, sessions.get(user_id, {}))
         return {"intent": "LEAD_SENT", "response": _rdv_confirmation, "html_cards": ""}
+
+    # ─── Interception RDV AVANT Gemini ───
+    if detect_rdv_intent(message):
+        _shown = session.get("vehicle_shown", {})
+        _rdv_prop = extract_proposition_number(message)
+        if _rdv_prop and _shown.get(_rdv_prop):
+            _rdv_vehicle = _shown[_rdv_prop]
+        elif len(_shown) == 1:
+            _rdv_vehicle = _shown[1]
+        elif _shown:
+            _rdv_vehicle = _shown[max(_shown.keys())]
+        else:
+            _rdv_vehicle = None
+
+        if _rdv_vehicle:
+            _rdv_dealer  = _rdv_vehicle.get("dealer_name") or _rdv_vehicle.get("dealer") or "le concessionnaire"
+            _rdv_annee   = _rdv_vehicle.get("year") or _rdv_vehicle.get("annee") or ""
+            _rdv_marque  = _rdv_vehicle.get("make") or _rdv_vehicle.get("marque") or ""
+            _rdv_modele  = _rdv_vehicle.get("model") or _rdv_vehicle.get("modele") or ""
+            _rdv_titre   = f"{_rdv_annee} {_rdv_marque} {_rdv_modele}".strip() or "ce véhicule"
+            _rdv_form    = generate_rdv_form(_rdv_vehicle)
+            _rdv_resp    = f"Voici le formulaire pour contacter {_rdv_dealer} pour le {_rdv_titre}."
+            session["history"].append({"role": "assistant", "content": _rdv_resp})
+            session["history"] = session["history"][-20:]
+            save_session(user_id, sessions.get(user_id, {}))
+            print(f"[smart_chat] Interception RDV → formulaire pour {_rdv_titre}")
+            return {"intent": "CONTACT", "response": _rdv_resp, "html_cards": _rdv_form}
+        else:
+            _rdv_no_veh = "Pour quel v\u00e9hicule souhaitez-vous prendre rendez-vous ? Faites une recherche d'abord et je vous afficherai le formulaire de contact."
+            session["history"].append({"role": "assistant", "content": _rdv_no_veh})
+            session["history"] = session["history"][-20:]
+            save_session(user_id, sessions.get(user_id, {}))
+            return {"intent": "CONTACT", "response": _rdv_no_veh, "html_cards": ""}
 
     # ─── Détection affirmative après suggestion de contact (évite la boucle) ───
     _AFFIRMATIVES = {"oui", "oi", "yes", "ok", "d'accord", "ouais", "yep", "allons-y", "allez", "bien sûr", "avec plaisir"}
