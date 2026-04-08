@@ -268,13 +268,10 @@ def generate_vin_report(data: dict) -> str:
     return (
         '<div style="border-radius:10px;border:1px solid rgba(255,255,255,0.10);overflow:hidden;'
         'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:560px;margin:8px 0;background:rgba(255,255,255,0.04);">'
-        '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">'
-        '<div>'
+        '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.08);">'
         '<p style="font-size:10px;color:#666;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.06em;">Rapport VIN</p>'
         f'<p style="font-size:17px;font-weight:600;margin:0;color:#f0f0f0;">{annee} {marque} {modele}</p>'
         f'<p style="font-size:12px;color:#666;margin:3px 0 0;font-family:\'Courier New\',monospace;letter-spacing:0.05em;">{vin}</p>'
-        '</div>'
-        '<div style="background:#FAC775;color:#1a1a1a;font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px;white-space:nowrap;">229 VIN</div>'
         '</div>'
         # Véhicule
         '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
