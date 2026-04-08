@@ -943,6 +943,79 @@ Si l'utilisateur mentionne un budget ou un prix :
 - Estimer mensualités : 48 mois (~2.3%/mois), 60 mois (~1.9%/mois), 72 mois (~1.6%/mois)
 - Présenter sans qu'on le demande
 
+═══════════════════════════════════════
+RÈGLE — CLASSIFICATION DES TYPES DE VÉHICULES
+═══════════════════════════════════════
+La base de données n'a pas de colonne body_type.
+Utilise cette classification pour traduire les demandes en modèles concrets :
+
+VUS / SUV / Utilitaire sport / 4x4 :
+RAV4, CR-V, CRV, Escape, Equinox, Rogue, Tucson, Sportage, Seltos,
+RDX, MDX, X1, X2, X3, X4, X5, X6, Q3, Q5, Q7, Q8, GLC, GLE, GLB,
+Explorer, Pilot, Highlander, Pathfinder, Durango, Traverse, Tahoe,
+Suburban, Expedition, Bronco, Wrangler, Cherokee, Grand Cherokee,
+Compass, Trailblazer, Blazer, Murano, Outlander, Santa Fe, Palisade,
+Telluride, Sorento, Tonale, GV70, GV80, QX50, QX55, QX60, QX80,
+Encore, Encore GX, Envision, Enclave, XT4, XT5, XT6, Forester,
+Outback, Crosstrek, Ascent, Edge, Terrain, Acadia, Tiguan, ID.4,
+EV6, EV9, Ioniq 5, Ioniq 7, bZ4X, Solterra, Ariya, Mustang Mach-E,
+Blazer EV, Equinox EV, Kona, Venue, Passport, Ridgeline, Santa Cruz
+
+BERLINE / Sedan :
+Civic, Corolla, Camry, Accord, Elantra, Sonata, Mazda3, Mazda6,
+Altima, Sentra, Jetta, Passat, Golf, Forte, K5, Optima, Stinger,
+3 Series, 5 Series, 7 Series, A3, A4, A6, A8, C-Class, E-Class, S-Class,
+IS, ES, LS, Integra, TLX, ILX, Malibu, Impala, Cruze, Legacy, Impreza,
+G70, G80, G90, Q50, Q60, Charger, 300, CT4, CT5, CT6,
+Model 3, Model S, Prius, Ioniq 6, Elantra Hybrid, Sonata Hybrid
+
+CAMIONNETTE / Pick-up / Truck :
+F-150, F-250, F-350, F-450, F-550, Silverado 1500, Silverado 2500,
+Silverado 3500, Ram 1500, Ram 2500, Ram 3500, Tundra, Tacoma,
+Frontier, Titan, Colorado, Canyon, Ranger, Maverick, Gladiator,
+Dakota, Avalanche, Sierra 1500, Sierra 2500, Sierra 3500
+
+FOURGONNETTE / Minivan :
+Odyssey, Sienna, Carnival, Pacifica, Grand Caravan,
+Chrysler Town and Country, Sedona
+
+COUPÉ / Sport / Performance :
+Mustang, Camaro, Challenger, BRZ, GR86, Supra, Miata, MX-5,
+2 Series, 4 Series, A5, TT, RC, LC, Corvette, Cayman, Boxster,
+911, 718, Golf GTI, Golf R, WRX, STI, Veloster, Elantra N,
+Civic Type R, Integra Type S
+
+ÉLECTRIQUE / EV / Hybride / PHEV :
+Model 3, Model S, Model Y, Model X, Leaf, Bolt EV, Ioniq 5, Ioniq 6,
+EV6, EV9, ID.4, Ariya, Mustang Mach-E, F-150 Lightning, Silverado EV,
+bZ4X, Solterra, Prius, Prius Prime, RAV4 Hybrid, RAV4 Prime,
+Escape Hybrid, CR-V Hybrid, Tucson Hybrid, Santa Fe Hybrid,
+Outlander PHEV, Wrangler 4xe, Grand Cherokee 4xe, Pacifica Hybrid,
+Volt, 330e, 530e, X5 xDrive45e, Q5 TFSI e, GLC 350e, K5 Hybrid
+
+LUXE / Premium (marques) :
+BMW, Mercedes-Benz, Audi, Lexus, Acura, Infiniti, Cadillac,
+Lincoln, Genesis, Volvo, Land Rover, Jaguar, Porsche, Maserati,
+Alfa Romeo
+
+COMPACTE / Sous-compacte / Économique :
+Yaris, Fit, Rio, Accent, Micra, Mirage, Spark, Versa, Kicks, Venue,
+Trax, Trailblazer, Encore, Jazz, Swift
+
+RÈGLE D'APPLICATION :
+Quand l'utilisateur demande une catégorie :
+1. Chercher TOUS les modèles de la liste correspondante dans inventory_cache
+2. Si résultats → afficher les 3 meilleurs (prix/km)
+3. Si aucun résultat exact → chercher les modèles similaires de la même catégorie
+4. Toujours mentionner la catégorie trouvée
+
+Exemples :
+- "je cherche un VUS" → chercher Escape, Equinox, RDX, Explorer, RAV4, etc.
+- "je veux une électrique" → chercher Tesla, Bolt, Ioniq 5, EV6, etc.
+- "camionnette pas cher" → chercher F-150, Silverado, Ram, Colorado, etc.
+- "voiture économique" → chercher Civic, Corolla, Elantra, Mazda3, etc.
+- "je veux du luxe" → chercher BMW, Mercedes, Audi, Lexus, Genesis, etc.
+
 """
 
 INTENT_PROMPT = """
