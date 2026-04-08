@@ -114,6 +114,26 @@ def extract_proposition_number(message: str) -> int | None:
     return None
 
 
+def has_vehicle_interest(message: str) -> bool:
+    """
+    Détecte si l'utilisateur exprime un intérêt pour UN véhicule
+    sans numéro explicite — 'je le veux', 'celui-là', 'rdv', etc.
+    """
+    msg = message.lower().strip()
+    patterns = [
+        'je le veux', 'je la veux', 'je veux celui',
+        'je veux celle', 'celui-là', 'celle-là',
+        'ce véhicule', 'cette voiture', 'cette auto',
+        'je suis intéressé', 'je suis intéressée',
+        "ça m'intéresse", "ca m'intéresse",
+        'je le prends', 'je la prends',
+        "je veux en savoir plus", "plus d'info",
+        "plus d'information", 'rdv', 'rendez-vous',
+        'visiter', 'voir ce véhicule', 'voir cette auto',
+    ]
+    return any(p in msg for p in patterns)
+
+
 def remove_vehicle_bullets(text: str) -> str:
     """Supprime les listes bullets de véhicules dans la réponse Gemini.
     Les fiches HTML les remplacent — le texte ne doit contenir qu'une courte analyse."""
@@ -638,6 +658,12 @@ Déclenche toujours le processus de collecte.
 
 FORMULAIRE RDV : Quand l'utilisateur veut visiter un véhicule ou prendre rendez-vous, NE PAS demander les coordonnées en texte — un formulaire HTML interactif s'affiche automatiquement et prend en charge la collecte. Répondre uniquement avec une courte phrase d'introduction (ex : "Voici le formulaire pour prendre rendez-vous.").
 
+RÈGLE RDV ABSOLUE :
+Quand l'utilisateur veut prendre rendez-vous, visiter, ou exprime "je le veux / rdv / intéressé" :
+- Le formulaire s'affiche automatiquement — NE PAS écrire de texte sur le formulaire
+- NE PAS dire "voici le formulaire" ou "je vais afficher" ou lister des étapes
+- NE PAS demander nom, téléphone, email en texte
+
 ═══════════════════════════════════════
 FLUX QUALIFICATIF — RÈGLE DE DÉTECTION
 ═══════════════════════════════════════
@@ -941,6 +967,9 @@ def detect_intent(message: str, context_summary: str) -> dict:
         "prendre rendez-vous", "rendez-vous", "appeler", "je veux acheter",
         "comment acheter", "comment contacter", "envoyer un message",
         "je suis intéressé", "intéressé par ce véhicule", "aller voir",
+        "rdv", "prendre un rdv", "visiter", "je veux ce véhicule",
+        "je le veux", "je la veux", "je le prends", "je la prends",
+        "je veux celui", "je veux celle", "voir ce véhicule", "voir cette auto",
     ]
     if any(k in msg_lower for k in CONTACT_KEYWORDS):
         return {"intent": "LEAD_REQUEST", "urls": [], "vin": None, "query": message,
@@ -1348,6 +1377,11 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     if not result:
         _prop_num = extract_proposition_number(message)
         _shown = session.get("vehicle_shown", {})
+        # Référence implicite sans numéro → prendre le seul véhicule en session
+        if _prop_num is None and has_vehicle_interest(message):
+            if len(_shown) == 1:
+                _prop_num = 1
+                print(f"[smart_chat] Intérêt implicite détecté → Proposition 1 (seul véhicule en session)")
         if _prop_num and _shown.get(_prop_num):
             v = _shown[_prop_num]
             _veh_ctx = f"""
@@ -1466,11 +1500,16 @@ RÈGLES :
                 vehicle_for_form = v
             elif isinstance(v, str):
                 vehicle_url = v
-        rdv_html = generate_rdv_form(vehicle_for_form)
-        result = {
+        rdv_html     = generate_rdv_form(vehicle_for_form)
+        rdv_response = f"Voici le formulaire pour prendre rendez-vous chez {dealer_name or 'le concessionnaire'} pour le {vehicle_title}."
+        session["history"].append({"role": "assistant", "content": rdv_response})
+        session["history"] = session["history"][-20:]
+        update_context(user_id, intent_data, rdv_response)
+        save_session(user_id, sessions.get(user_id, {}))
+        return {
             "intent": "LEAD_REQUEST",
-            "response": f"Voici le formulaire pour prendre rendez-vous chez {dealer_name or 'le concessionnaire'} pour le {vehicle_title}.",
-            "_html_cards": rdv_html,
+            "response": rdv_response,
+            "html_cards": rdv_html,
         }
 
     elif not result and intent == "GARANTIES":

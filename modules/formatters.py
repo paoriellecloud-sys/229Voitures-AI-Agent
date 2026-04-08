@@ -95,7 +95,8 @@ def format_vehicle_card(v: dict) -> str:
     concess      = v.get("dealer_name") or v.get("dealer") or v.get("concessionnaire") or "N/D"
     ville        = v.get("city") or v.get("ville") or "Québec"
     couleur      = v.get("color") or v.get("couleur") or ""
-    moteur       = v.get("engine") or v.get("moteur") or "N/D"
+    moteur_raw   = v.get("engine") or v.get("moteur") or ""
+    moteur       = moteur_raw.strip().strip(".").strip() or "N/D"
     transmission = v.get("transmission") or "N/D"
     traction     = v.get("drivetrain") or v.get("traction") or "N/D"
     carburant    = v.get("fuel_type") or v.get("carburant") or "N/D"
@@ -132,6 +133,7 @@ def format_vehicle_card(v: dict) -> str:
     else:
         taxes = calc_taxes(prix_float)
 
+    mecanique   = f"{moteur} \u00a0\u00b7\u00a0 {transmission}" if moteur and moteur != "N/D" else transmission
     prix_str    = fmt_prix(prix_float) if prix_float else "N/D"
     marche_str  = fmt_prix(marche_float) if marche_float else "N/D"
     km_str      = fmt_km(v.get("mileage") or v.get("kilometrage") or 0)
@@ -176,7 +178,7 @@ def format_vehicle_card(v: dict) -> str:
         '</div>'
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
         '<span style="font-size:13px;color:#888;">M\u00e9canique</span>'
-        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;">{moteur} &nbsp;\u00b7&nbsp; {transmission}</span>'
+        f'<span style="font-size:13px;font-weight:600;color:#f0f0f0;">{mecanique}</span>'
         '</div>'
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
         '<span style="font-size:13px;color:#888;">Traction</span>'
