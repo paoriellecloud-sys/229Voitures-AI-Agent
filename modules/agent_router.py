@@ -1044,6 +1044,14 @@ Exemples :
 - "voiture économique" → chercher Civic, Corolla, Elantra, Mazda3, etc.
 - "je veux du luxe" → chercher BMW, Mercedes, Audi, Lexus, Genesis, etc.
 
+═══════════════════════════════════════
+RÈGLE — GESTION DU BUDGET
+═══════════════════════════════════════
+- Si l'utilisateur mentionne un budget → l'utiliser IMMÉDIATEMENT sans redemander
+- Si le véhicule dépasse le budget → le dire clairement et proposer des alternatives dans le budget
+- Si pas de budget mentionné → calculer quand même avec les données disponibles
+- Ne jamais afficher "Vous ne m'avez pas précisé de budget" — simplement calculer ou demander UNE seule fois
+
 """
 
 INTENT_PROMPT = """
@@ -1258,14 +1266,6 @@ def apply_guardrails(response: str, user_data: dict) -> str:
     if user_data.get("budget") is None:
         for phrase in BUDGET_PHRASES:
             if phrase in response.lower():
-                pattern = re.compile(
-                    rf'{re.escape(phrase)}[^.]*\d[\d\s,]*\s*\$[^.]*\.',
-                    re.IGNORECASE
-                )
-                response = pattern.sub(
-                    "Vous ne m'avez pas encore précisé de budget.",
-                    response
-                )
                 response = re.sub(
                     rf'{re.escape(phrase)}\s+de\s+\d[\d\s,]*\s*\$',
                     "un budget typique dans cette catégorie",
