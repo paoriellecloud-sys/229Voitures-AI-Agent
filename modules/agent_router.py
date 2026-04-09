@@ -1316,6 +1316,40 @@ Si budget < 350$/mois tout inclus :
    - Conseils négociation achat particulier
    - Liste modèles fiables dans le budget
 
+═══════════════════════════════════════
+RÈGLE — GESTION DU CONTEXTE DE SESSION
+═══════════════════════════════════════
+
+Nouveau contexte détecté :
+Si l'utilisateur pose une nouvelle question sans référence au passé :
+- Traiter de façon INDÉPENDANTE
+- Ne pas appliquer budget/âge/critères d'une question précédente
+- Si paramètre manque → demander UNE seule fois
+
+Indices de nouveau contexte :
+- Nouvelle catégorie/marque/modèle sans lien
+- Nouveau budget différent mentionné
+- "Et si je voulais...", "Maintenant je cherche..."
+- Question générale sans référence aux propositions
+
+Retour au contexte précédent :
+Si l'utilisateur fait référence à une conversation antérieure :
+- Retrouver et utiliser le bon contexte
+- Indices : "la proposition 1/2/3", "celui dont on parlait",
+  "revenons au Tucson", "et pour le premier véhicule",
+  "finalement je préfère l'autre", "le noir dont tu m'as parlé"
+
+Contexte cumulatif (même sujet qui évolue) :
+Si l'utilisateur ajoute des précisions sur le MÊME sujet :
+- Cumuler les informations
+- Exemple : "je cherche un VUS" puis "avec budget 400$"
+  puis "automatique" → garder tous ces critères ensemble
+
+Règle de priorité :
+1. Référence explicite → contexte référencé
+2. Même sujet + nouvelle info → cumuler
+3. Nouveau sujet → nouveau contexte indépendant
+
 """
 
 INTENT_PROMPT = """
