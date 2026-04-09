@@ -31,9 +31,14 @@ def _get_session_db_conn():
             history TEXT,
             user_data TEXT,
             context TEXT,
+            vehicle_shown TEXT DEFAULT '{}',
             updated_at TEXT
         )
     """)
+    try:
+        conn.execute("ALTER TABLE sessions ADD COLUMN vehicle_shown TEXT DEFAULT '{}'")
+    except Exception:
+        pass  # Colonne déjà existante
     conn.commit()
     return conn
 
@@ -42,13 +47,14 @@ def save_session(user_id: str, session: dict):
     try:
         conn = _get_session_db_conn()
         conn.execute("""
-            INSERT OR REPLACE INTO sessions (user_id, history, user_data, context, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO sessions (user_id, history, user_data, context, vehicle_shown, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             user_id,
             json.dumps(session.get("history", []), ensure_ascii=False),
             json.dumps(session.get("user_data", {}), ensure_ascii=False),
             json.dumps(session.get("context", {}), ensure_ascii=False),
+            json.dumps({str(k): v for k, v in session.get("vehicle_shown", {}).items()}, ensure_ascii=False),
             datetime.now().isoformat(),
         ))
         conn.commit()
@@ -61,15 +67,17 @@ def load_session(user_id: str) -> dict | None:
     try:
         conn = _get_session_db_conn()
         row = conn.execute(
-            "SELECT history, user_data, context FROM sessions WHERE user_id = ?",
+            "SELECT history, user_data, context, vehicle_shown FROM sessions WHERE user_id = ?",
             (user_id,)
         ).fetchone()
         conn.close()
         if row:
+            _vs_raw = json.loads(row[3] or "{}")
             return {
-                "history":    json.loads(row[0] or "[]"),
-                "user_data":  json.loads(row[1] or "{}"),
-                "context":    json.loads(row[2] or "{}"),
+                "history":       json.loads(row[0] or "[]"),
+                "user_data":     json.loads(row[1] or "{}"),
+                "context":       json.loads(row[2] or "{}"),
+                "vehicle_shown": {int(k): v for k, v in _vs_raw.items()},
             }
     except Exception as e:
         print(f"[load_session] Erreur: {e}")
