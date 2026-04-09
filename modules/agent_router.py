@@ -2057,8 +2057,10 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         _rdv_tel    = _rdv_parts.get("Tél", "")
         _rdv_email  = _rdv_parts.get("Courriel", "")
         _rdv_msg    = _rdv_parts.get("Message", "")
-        # Récupérer le prix depuis vehicle_shown en session
+        # Récupérer le prix, stock_number et vin depuis vehicle_shown en session
         _rdv_prix = ""
+        _rdv_stock = "N/D"
+        _rdv_vin = "N/D"
         _rdv_shown = session.get("vehicle_shown", {})
         for _sv in _rdv_shown.values():
             _sv_name = f"{_sv.get('year', '')} {_sv.get('make', '')} {_sv.get('model', '')}".strip()
@@ -2069,6 +2071,8 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                         _rdv_prix = f"{_p_val:,.0f}\u00a0$".replace(",", "\u00a0")
                 except Exception:
                     pass
+                _rdv_stock = _sv.get("stock_number") or "N/D"
+                _rdv_vin = _sv.get("vin") or "N/D"
                 break
         _lead_data = {
             "user_id":       user_id,
@@ -2079,6 +2083,8 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             "phone":         _rdv_tel,
             "email":         _rdv_email,
             "message":       _rdv_msg,
+            "stock_number":  _rdv_stock,
+            "vin":           _rdv_vin,
         }
         print(f"[DEMANDE_RDV] Lead intercepté → {_rdv_nom} | {_rdv_veh} | {_rdv_dealer} | {_rdv_email}")
         try:
