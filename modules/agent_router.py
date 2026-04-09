@@ -2109,6 +2109,8 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
 
     # ─── Interception RDV AVANT Gemini ───
     if detect_rdv_intent(message):
+        print(f"[RDV DEBUG] vehicle_shown={session.get('vehicle_shown', {})}")
+        print(f"[RDV DEBUG] message={message[:50]}")
         _shown = session.get("vehicle_shown", {})
         _rdv_prop = extract_proposition_number(message)
         if _rdv_prop and _shown.get(_rdv_prop):
