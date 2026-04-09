@@ -4,7 +4,7 @@ from email_service import send_lead_email
 
 logger = logging.getLogger(__name__)
 
-ADMIN_EMAIL = "paorielle229@gmail.com"
+ADMIN_EMAIL = "paoriellecloud@gmail.com"
 
 DEALER_EMAILS = {
     "force occasion": ADMIN_EMAIL,
