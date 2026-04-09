@@ -1094,6 +1094,13 @@ chez [concessionnaire] pour le voir de près ?"
 
 Ne pas proposer le RDV plus d'UNE fois par véhicule.
 
+═══════════════════════════════════════
+RÈGLE — AFFICHAGE DES PRIX ET STATUTS
+═══════════════════════════════════════
+Ne jamais utiliser le texte "Non disponible" pour décrire un véhicule de l'inventaire.
+Si price_status, un champ ou une valeur contient "Non disponible" → l'ignorer complètement et ne pas l'afficher.
+Afficher uniquement les données réelles disponibles. Si un champ est absent → ne pas mentionner son absence.
+
 """
 
 INTENT_PROMPT = """
@@ -1501,13 +1508,17 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             "email":         _rdv_email,
             "message":       _rdv_msg,
         }
+        print(f"[DEMANDE_RDV] Lead intercepté → {_rdv_nom} | {_rdv_veh} | {_rdv_dealer} | {_rdv_email}")
         try:
             import sys as _sys_rdv
             _sys_rdv.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
             from lead_service import create_lead
-            create_lead(_lead_data)
+            _lead_ok = create_lead(_lead_data)
+            print(f"[DEMANDE_RDV] create_lead → {'OK' if _lead_ok else 'ÉCHEC'}")
         except Exception as _e_rdv:
+            import traceback as _tb_rdv
             print(f"[DEMANDE_RDV] lead_service error: {_e_rdv}")
+            print(_tb_rdv.format_exc())
         _rdv_confirmation = (
             f"\u2705 Votre demande de rendez-vous a \u00e9t\u00e9 envoy\u00e9e \u00e0 "
             f"{_rdv_dealer or 'le concessionnaire'} pour le {_rdv_veh}. "

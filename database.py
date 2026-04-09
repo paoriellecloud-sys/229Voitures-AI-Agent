@@ -547,7 +547,17 @@ def reset_old_sessions():
     """Purge sessions SQLite > 24h (nettoyage préventif)."""
     conn = get_connection()
     try:
-        conn.execute("DELETE FROM sessions WHERE created_at < datetime('now', '-1 day')")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                user_id TEXT PRIMARY KEY,
+                history TEXT,
+                user_data TEXT,
+                context TEXT,
+                updated_at TEXT
+            )
+        """)
+        conn.commit()
+        conn.execute("DELETE FROM sessions WHERE updated_at < datetime('now', '-1 day')")
         conn.commit()
         print("[database] Sessions > 24h supprimées")
     except Exception as e:
