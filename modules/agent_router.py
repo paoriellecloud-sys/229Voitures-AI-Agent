@@ -442,6 +442,16 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
             "compact":      "Civic Corolla Elantra Mazda3 Jetta Golf Forte Sentra",
             "compacte":     "Civic Corolla Elantra Mazda3 Jetta Golf Forte Sentra Kicks Venue Trax",
             "economique":   "Civic Corolla Elantra Mazda3 Accent Rio Yaris Fit Spark Versa Micra",
+            "mazda3":       "Mazda3",
+            "mazda 3":      "Mazda3",
+            "mazda6":       "Mazda6",
+            "mazda 6":      "Mazda6",
+            "cx3":          "CX-3",
+            "cx 3":         "CX-3",
+            "cx5":          "CX-5",
+            "cx 5":         "CX-5",
+            "cx9":          "CX-9",
+            "cx 9":         "CX-9",
         }
 
         # Remplacer la query si c'est une catégorie connue
