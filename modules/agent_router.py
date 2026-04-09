@@ -2087,6 +2087,25 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         else:
             _rdv_vehicle = None
 
+        # Si vehicle_shown vide, chercher dans le message RDV
+        if not _rdv_vehicle:
+            # Extraire année + modèle depuis le message
+            import re
+            year_match = re.search(r'\b(20\d{2}|19\d{2})\b', message)
+            if year_match:
+                year = year_match.group(1)
+                # Chercher dans la DB avec l'année et les mots du message
+                words = [w for w in message.lower().split()
+                         if len(w) > 3 and w not in
+                         {'pour', 'avec', 'veux', 'prendre', 'rdva', 'rendez', 'vous', 'voiture', 'auto'}]
+                if words:
+                    results = search_inventory_cache(
+                        query=" ".join(words[:3]),
+                        limit=1
+                    )
+                    if results:
+                        _rdv_vehicle = results[0]
+
         if _rdv_vehicle:
             _rdv_dealer  = _rdv_vehicle.get("dealer_name") or _rdv_vehicle.get("dealer") or "le concessionnaire"
             _rdv_annee   = _rdv_vehicle.get("year") or _rdv_vehicle.get("annee") or ""
