@@ -1658,6 +1658,8 @@ Exemple véhicule hors budget :
 mais c'est 21 000$ de trop pour toi. On ne va pas s'acharner là-dessus.
 Voilà ce que j'ai de plus réaliste dans ton budget :"
 
+Si session contient budget_clarified=True, ne jamais redemander la clarification budget — utiliser directement le budget connu.
+
 ═══════════════════════════════════════
 RÈGLE — RDV SANS VÉHICULE EN SESSION
 ═══════════════════════════════════════
@@ -2009,13 +2011,17 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         r'(?:mon budget est|budget de|je veux dépenser|maximum)\s*(\d[\d\s,]*)\s*\$',
         r'(\d[\d\s,]*)\s*\$\s*(?:de budget|max|maximum)',
         r'autour de\s*(\d[\d\s,]*)\s*\$',
+        r'(\d[\d\s,]*)\s*\$?\s*(?:par mois|/mois|mensuel|aux deux semaines|/2 semaines)',
+        r'(\d[\d\s,]*)\s*(?:dollar|dollars)\s*(?:par mois|mensuel)',
+        r'budget\s*(?:de|est)?\s*(\d[\d\s,]*)',
     ]
     for _bp in _budget_patterns:
         _m = re.search(_bp, msg_lower)
         if _m:
             _amt = float(_m.group(1).replace(" ", "").replace(",", ""))
-            if 1000 < _amt < 200000:
+            if 100 < _amt < 200000:
                 ud["budget"] = _amt
+                ud["budget_clarified"] = True
                 print(f"[user_data] budget confirmé: {_amt}$")
                 break
     if any(w in msg_lower for w in ["je finance", "financement", "je veux financer", "prêt auto"]):
