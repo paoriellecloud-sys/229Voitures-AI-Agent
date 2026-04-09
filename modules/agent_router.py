@@ -400,6 +400,18 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
         except Exception:
             pass  # colonne déjà présente
 
+        # Filtrer les termes financiers qui ne sont pas des véhicules
+        FINANCIAL_STOPWORDS = {
+            "budget", "dollar", "250", "300", "400", "500",
+            "mois", "mensuel", "financement", "paiement",
+            "taxes", "inclus", "environ", "approximatif"
+        }
+        if vehicle_filter:
+            _vf_words = vehicle_filter.lower().split()
+            _vf_clean = [w for w in _vf_words if w not in FINANCIAL_STOPWORDS]
+            if _vf_clean:
+                vehicle_filter = " ".join(_vf_clean)
+
         # Mapping catégories → modèles réels
         CATEGORY_MAP = {
             "vus":          "Escape Equinox RDX MDX Explorer Bronco Rogue Tucson Sportage Seltos Durango Traverse Blazer Murano Outlander Palisade Telluride Sorento Tonale GV70 X2 Encore Forester Outback Crosstrek Trailblazer Terrain Acadia",
@@ -411,12 +423,15 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
             "camionnette":  "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
             "truck":        "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
             "pickup":       "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
+            "pick":         "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Sierra",
+            "berlin":       "Civic Corolla Camry Accord Elantra Sonata Mazda3 Altima Jetta Model 3 Integra Malibu Legacy",
             "berline":      "Civic Corolla Camry Accord Elantra Sonata Mazda3 Altima Jetta Model 3 Integra Malibu Legacy",
             "sedan":        "Civic Corolla Camry Accord Elantra Sonata Mazda3 Altima Jetta Model 3 Integra Malibu Legacy",
             "fourgonnette": "Odyssey Sienna Carnival Pacifica Caravan Sedona",
             "minivan":      "Odyssey Sienna Carnival Pacifica Caravan Sedona",
             "sport":        "Mustang Camaro Challenger BRZ Supra Miata Corvette GTI WRX Veloster Civic Type R",
             "coupe":        "Mustang Camaro Challenger BRZ Supra Miata Corvette GTI WRX Veloster",
+            "compact":      "Civic Corolla Elantra Mazda3 Jetta Golf Forte Sentra",
             "compacte":     "Civic Corolla Elantra Mazda3 Jetta Golf Forte Sentra Kicks Venue Trax",
             "economique":   "Civic Corolla Elantra Mazda3 Accent Rio Yaris Fit Spark Versa Micra",
         }
