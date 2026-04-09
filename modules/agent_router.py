@@ -1640,6 +1640,15 @@ Exemple véhicule hors budget :
 mais c'est 21 000$ de trop pour toi. On ne va pas s'acharner là-dessus.
 Voilà ce que j'ai de plus réaliste dans ton budget :"
 
+═══════════════════════════════════════
+RÈGLE — RDV SANS VÉHICULE EN SESSION
+═══════════════════════════════════════
+Si l'utilisateur demande un RDV pour un véhicule spécifique
+mais qu'aucune session n'est active :
+Ne pas deviner — demander UNE seule question :
+"Pour quel véhicule exactement souhaitez-vous un rendez-vous ?
+Faites d'abord une recherche et je vous afficherai le formulaire."
+
 """
 
 INTENT_PROMPT = """
