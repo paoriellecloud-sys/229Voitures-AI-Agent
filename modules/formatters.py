@@ -98,7 +98,17 @@ def format_vehicle_card(v: dict) -> str:
     moteur_raw   = v.get("engine") or v.get("moteur") or ""
     moteur       = moteur_raw.strip().strip(".").strip() or "N/D"
     transmission = v.get("transmission") or "N/D"
-    traction     = v.get("drivetrain") or v.get("traction") or "N/D"
+    _traction_raw = v.get("drivetrain") or v.get("traction") or ""
+    _traction_map = {
+        "fwd": "Traction avant", "front": "Traction avant",
+        "awd": "Traction intégrale", "4wd": "Traction intégrale",
+        "4x4": "Traction intégrale", "4x2": "Traction avant",
+        "rwd": "Propulsion", "rear": "Propulsion",
+        "traction avant": "Traction avant",
+        "traction intégrale": "Traction intégrale",
+        "propulsion": "Propulsion",
+    }
+    traction = _traction_map.get(_traction_raw.lower().strip(), _traction_raw.title().strip()) or "N/D"
     carburant    = v.get("fuel_type") or v.get("carburant") or "N/D"
     stock_raw    = v.get("stock_number") or v.get("stock_no") or v.get("no_stock") or ""
     stock_number = stock_raw.replace("-neuf", "").replace("-used", "").replace("-occ", "").strip()

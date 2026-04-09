@@ -1504,6 +1504,13 @@ Termes techniques :
 - Exemple : "TPS (taxe fédérale de 5%)" la première fois
 - Ne pas supposer que l'utilisateur connaît le jargon automobile
 
+═══════════════════════════════════════
+RÈGLE — SUGGESTION PAR DÉFAUT SELON L'USAGE
+═══════════════════════════════════════
+Pour usage quotidien sans budget précisé → proposer des berlines
+ou compactes économiques en premier. Ne pas proposer de camionnettes
+ou minivans comme première suggestion sans raison spécifique.
+
 """
 
 INTENT_PROMPT = """
