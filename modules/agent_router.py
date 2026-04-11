@@ -617,8 +617,6 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
             _fields.append(f"  Localisation  : {ville}{', ' + province if province else ''}")
         if concessionnaire:
             _fields.append(f"  Concessionnaire: {concessionnaire}")
-        if telephone:
-            _fields.append(f"  Téléphone     : {telephone}")
         if moteur:
             _fields.append(f"  Moteur        : {moteur}")
         if transmission:
@@ -629,17 +627,7 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
             _fields.append(f"  Traction      : {traction}")
         if couleur:
             _fields.append(f"  Couleur       : {couleur}")
-        if niv:
-            _fields.append(f"  VIN           : {niv}")
-        if fo_id:
-            _fields.append(f"  ID Force Occasion: {fo_id}")
-        if stock_number:
-            _fields.append(f"  N° Stock concessionnaire: {stock_number}")
-        if options:
-            _fields.append(f"  Options       : {options}")
         _fields.append(f"  Fiabilité     : {reliability}")
-        if url_annonce:
-            _fields.append(f"  LIEN ANNONCE  : {url_annonce}")
         line = "\n".join(_fields) + "\n"
         lines.append(line)
 
@@ -872,14 +860,9 @@ Mots et expressions INTERDITS en début de réponse :
 → Commencer directement par l'information utile.
 
 9. PRÉSENTATION VÉHICULE — RÈGLE ABSOLUE
-Les fiches véhicules sont générées automatiquement en HTML — NE PAS les reformater dans ta réponse texte.
-Quand des fiches HTML sont générées automatiquement, ton rôle est de commenter et conseiller uniquement — ne jamais lister les données véhicules en texte (Véhicule #1, prix, km...) car les fiches HTML s'en chargent.
-
-FORMAT CORRECT (quand des véhicules sont trouvés) :
-1. UNE seule phrase d'introduction (ex : "J'ai trouvé 3 MINI qui correspondent à votre recherche.")
-2. NE PAS lister les véhicules — les fiches HTML s'en chargent
-3. Tu peux ajouter UNE courte analyse comparative après (1-2 phrases max)
-4. Terminer par UNE question de suivi concrète
+Quand des fiches HTML sont affichées, ton rôle est UNIQUEMENT de commenter et conseiller en 2-3 phrases.
+Ne jamais lister Prix, Km, VIN, options, téléphone ou tout autre donnée technique — les fiches s'en chargent.
+Format correct : une phrase d'intro + recommandation + question.
 
 FORMAT STRICTEMENT INTERDIT :
 • 2024 Toyota Corolla — Prix : X$...
