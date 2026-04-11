@@ -534,24 +534,24 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
         if not prix or not titre:
             continue
 
-        annee           = r.get("year", "") or "Non disponible"
-        marque          = r.get("make", "") or "Non disponible"
-        modele          = r.get("model", "") or "Non disponible"
-        version         = r.get("trim", "") or "Non disponible"
-        km              = r.get("mileage", "") or "Non disponible"
-        ville           = r.get("city", "") or "Non disponible"
+        annee           = r.get("year", "") or ""
+        marque          = r.get("make", "") or ""
+        modele          = r.get("model", "") or ""
+        version         = r.get("trim", "") or ""
+        km              = r.get("mileage", "") or ""
+        ville           = r.get("city", "") or ""
         province        = r.get("province", "") or ""
-        concessionnaire = r.get("dealer_name", "") or "Non disponible"
-        telephone       = r.get("dealer_phone", "") or "Non disponible"
-        transmission    = r.get("transmission", "") or "Non disponible"
-        moteur          = r.get("engine", "") or "Non disponible"
-        carburant       = r.get("fuel_type", "") or "Non disponible"
-        traction        = r.get("drivetrain", "") or "Non disponible"
-        couleur         = r.get("color", "") or "Non disponible"
-        niv             = r.get("vin", "") or "Non disponible"
+        concessionnaire = r.get("dealer_name", "") or ""
+        telephone       = r.get("dealer_phone", "") or ""
+        transmission    = r.get("transmission", "") or ""
+        moteur          = r.get("engine", "") or ""
+        carburant       = r.get("fuel_type", "") or ""
+        traction        = r.get("drivetrain", "") or ""
+        couleur         = r.get("color", "") or ""
+        niv             = r.get("vin", "") or ""
         fo_id           = r.get("vehicle_id", "") or ""
-        stock_number    = r.get("stock_number", "") or "Non disponible"
-        options         = (r.get("options", "") or "")[:200] or "Non disponible"
+        stock_number    = r.get("stock_number", "") or ""
+        options         = (r.get("options", "") or "")[:200]
         source          = r.get("source", "")
 
         # CORRECTION 1 — Lien direct : utiliser le champ url de la DB (jamais un lien générique)
@@ -568,13 +568,13 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
                 tvq = round(prix_num * 0.09975, 2)
                 total_with_taxes = round(prix_num + tps + tvq, 2)
             except Exception:
-                total_with_taxes = "Non disponible"
+                total_with_taxes = ""
         elif not total_with_taxes:
             try:
                 prix_num = float(str(prix).replace(",", "").replace("$", "").strip())
                 total_with_taxes = round(prix_num + float(str(tps)) + float(str(tvq)), 2)
             except Exception:
-                total_with_taxes = "Non disponible"
+                total_with_taxes = ""
 
         # CORRECTION 3 — Prix marché : utiliser avg_market_price, price_diff, price_status de la DB
         prix_marche  = r.get("avg_market_price", "") or ""
@@ -587,13 +587,13 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
         elif prix_marche:
             statut_prix = f"Marché moyen: {prix_marche}$"
         else:
-            statut_prix = "Non disponible"
+            statut_prix = ""
 
         # Score fiabilité
         reliability = "Données cohérentes"
         try:
             prix_float = float(str(prix).replace(",", "").replace("$", "").strip())
-            km_float = float(str(km)) if km != "Non disponible" else 0
+            km_float = float(str(km)) if km else 0
             prix_marche_float = float(str(prix_marche)) if prix_marche else 0
             if prix_marche_float > 0 and prix_float < prix_marche_float * 0.85:
                 reliability = "PRIX SUSPECT — vérifier l'état du véhicule"
@@ -604,28 +604,43 @@ def format_cache_results_for_prompt(results: list[dict]) -> str:
         except Exception:
             pass
 
-        line = f"""
-Véhicule #{i} — {source}
-  Titre         : {annee} {marque} {modele} {version}
-  Prix          : {prix}$
-  Statut prix   : {statut_prix}
-  Taxes QC      : TPS {tps}$ + TVQ {tvq}$ = Total {total_with_taxes}$
-  Kilométrage   : {km} km
-  Localisation  : {ville}, {province}
-  Concessionnaire: {concessionnaire}
-  Téléphone     : {telephone}
-  Moteur        : {moteur}
-  Transmission  : {transmission}
-  Carburant     : {carburant}
-  Traction      : {traction}
-  Couleur       : {couleur}
-  VIN           : {niv}
-  ID Force Occasion: {fo_id}
-  N° Stock concessionnaire: {stock_number}
-  Options       : {options}
-  Fiabilité     : {reliability}
-  LIEN ANNONCE  : {url_annonce}
-"""
+        _fields = [f"Véhicule #{i} — {source}"]
+        _fields.append(f"  Titre         : {annee} {marque} {modele} {version}".rstrip())
+        _fields.append(f"  Prix          : {prix}$")
+        if statut_prix:
+            _fields.append(f"  Statut prix   : {statut_prix}")
+        if total_with_taxes:
+            _fields.append(f"  Taxes QC      : TPS {tps}$ + TVQ {tvq}$ = Total {total_with_taxes}$")
+        if km:
+            _fields.append(f"  Kilométrage   : {km} km")
+        if ville or province:
+            _fields.append(f"  Localisation  : {ville}{', ' + province if province else ''}")
+        if concessionnaire:
+            _fields.append(f"  Concessionnaire: {concessionnaire}")
+        if telephone:
+            _fields.append(f"  Téléphone     : {telephone}")
+        if moteur:
+            _fields.append(f"  Moteur        : {moteur}")
+        if transmission:
+            _fields.append(f"  Transmission  : {transmission}")
+        if carburant:
+            _fields.append(f"  Carburant     : {carburant}")
+        if traction:
+            _fields.append(f"  Traction      : {traction}")
+        if couleur:
+            _fields.append(f"  Couleur       : {couleur}")
+        if niv:
+            _fields.append(f"  VIN           : {niv}")
+        if fo_id:
+            _fields.append(f"  ID Force Occasion: {fo_id}")
+        if stock_number:
+            _fields.append(f"  N° Stock concessionnaire: {stock_number}")
+        if options:
+            _fields.append(f"  Options       : {options}")
+        _fields.append(f"  Fiabilité     : {reliability}")
+        if url_annonce:
+            _fields.append(f"  LIEN ANNONCE  : {url_annonce}")
+        line = "\n".join(_fields) + "\n"
         lines.append(line)
 
     lines.append("\n=== FIN DES DONNÉES FORCE OCCASION ===")
@@ -1659,6 +1674,7 @@ mais c'est 21 000$ de trop pour toi. On ne va pas s'acharner là-dessus.
 Voilà ce que j'ai de plus réaliste dans ton budget :"
 
 Si session contient budget_clarified=True, ne jamais redemander la clarification budget — utiliser directement le budget connu.
+Si un champ véhicule est vide ou absent, ne pas le mentionner dans ta réponse.
 
 ═══════════════════════════════════════
 RÈGLE — RDV SANS VÉHICULE EN SESSION
