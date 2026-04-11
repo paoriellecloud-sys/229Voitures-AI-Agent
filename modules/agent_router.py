@@ -2131,7 +2131,6 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         # Si vehicle_shown vide, chercher dans le message RDV
         if not _rdv_vehicle:
             # Extraire année + modèle depuis le message
-            import re
             year_match = re.search(r'\b(20\d{2}|19\d{2})\b', message)
             if year_match:
                 year = year_match.group(1)
