@@ -1706,6 +1706,9 @@ Règles d'intention :
   - "Cherche des Honda CRV sous 25000$" → SEARCH, vehicle_filter="honda crv"
   - "je recherche une Seltos 2022 au Québec" → SEARCH, vehicle_filter="kia seltos 2022"
   - "Montre moi des Kia Seltos" → SEARCH, vehicle_filter="kia seltos"
+  - "j'ai un Elantra, je veux un VUS" → SEARCH, vehicle_filter="vus"
+  - "je veux changer mon Civic pour un RAV4" → SEARCH, vehicle_filter="rav4"
+  - "j'ai une berline, je cherche une camionnette" → SEARCH, vehicle_filter="camionnette"
 
 - ANALYZE_URL : le message contient exactement 1 URL
 - COMPARE_URLS : le message contient 2 URL ou plus
@@ -1719,6 +1722,11 @@ Règles d'intention :
 Pour SEARCH extraire :
 - query : termes de recherche exacts (marque, modèle, année, version, budget, ville)
 - vehicle_filter : marque + modèle spécifique (ex: "kia seltos 2022")
+  IMPORTANT — vehicle_filter = véhicule DÉSIRÉ uniquement.
+  Si l'utilisateur mentionne un véhicule qu'il POSSÈDE ('j'ai un X', 'mon X actuel', 'je veux changer mon X'),
+  vehicle_filter = le véhicule CHERCHÉ (Y), jamais X.
+  Si budget mensuel mentionné → l'inclure dans query uniquement.
+  Si trade-in mentionné → noter dans query, pas dans vehicle_filter.
 - site : domaine concessionnaire si mentionné, null sinon
 - count : nombre de résultats demandés (défaut 3)
 
