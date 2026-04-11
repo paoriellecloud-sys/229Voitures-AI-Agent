@@ -873,6 +873,7 @@ Mots et expressions INTERDITS en début de réponse :
 
 9. PRÉSENTATION VÉHICULE — RÈGLE ABSOLUE
 Les fiches véhicules sont générées automatiquement en HTML — NE PAS les reformater dans ta réponse texte.
+Quand des fiches HTML sont générées automatiquement, ton rôle est de commenter et conseiller uniquement — ne jamais lister les données véhicules en texte (Véhicule #1, prix, km...) car les fiches HTML s'en chargent.
 
 FORMAT CORRECT (quand des véhicules sont trouvés) :
 1. UNE seule phrase d'introduction (ex : "J'ai trouvé 3 MINI qui correspondent à votre recherche.")
