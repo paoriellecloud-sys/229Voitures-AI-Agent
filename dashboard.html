@@ -110,7 +110,7 @@ async function loadDashboard() {
                     <td><strong>${l.name}</strong><br><span style="color:#666">${l.email}</span></td>
                     <td>${l.phone || '—'}</td>
                     <td>${l.vehicle}</td>
-                    <td style="color:#f5c800">${l.price ? Number(l.price).toLocaleString('fr-CA') + ' $' : '—'}</td>
+                    <td style="color:#f5c800">${(() => { const prix = l.price && !isNaN(l.price) && l.price > 0 ? parseFloat(l.price).toLocaleString('fr-CA') + ' $' : '—'; return prix; })()}</td>
                     <td>${l.dealer || '—'}</td>
                     <td><span class="badge ${l.status}">${l.status === 'new' ? 'Nouveau' : 'Contacté'}</span></td>
                     <td style="color:#666">${l.date ? l.date.substring(0,10) : '—'}</td>
