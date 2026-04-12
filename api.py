@@ -297,7 +297,10 @@ async def admin_stats(authorized: bool = Depends(verify_admin)):
         stats["recent_leads"] = stats.get("recent", [])
         stats["total_alerts"] = conn.execute("SELECT COUNT(*) FROM user_alerts WHERE active=1").fetchone()[0]
         stats["total_users"] = conn.execute("SELECT COUNT(*) FROM registered_users").fetchone()[0]
-        stats["total_vehicles"] = conn.execute("SELECT COUNT(*) FROM inventory_cache").fetchone()[0]
+        import sqlite3 as _sqlite3
+        _inv_conn = _sqlite3.connect("/home/ubuntu/data/229voitures.db")
+        stats["total_vehicles"] = _inv_conn.execute("SELECT COUNT(*) FROM inventory_cache").fetchone()[0]
+        _inv_conn.close()
         return stats
     finally:
         conn.close()
