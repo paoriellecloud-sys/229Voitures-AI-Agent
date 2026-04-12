@@ -66,16 +66,12 @@ tr:hover td { background: #151515; }
 </div>
 <script>
 const API_URL = 'https://229voitures.ca';
-let ADMIN_TOKEN = localStorage.getItem('admin_token');
-if (!ADMIN_TOKEN) {
-    ADMIN_TOKEN = prompt('Token admin :');
-    if (ADMIN_TOKEN) localStorage.setItem('admin_token', ADMIN_TOKEN);
-}
+const ADMIN_TOKEN = 'admin229voitures2026';
 
 async function loadDashboard() {
     try {
         const res = await fetch(`${API_URL}/admin/stats`, {
-            headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}` }
+            headers: { 'Authorization': 'Bearer admin229voitures2026' }
         });
         if (!res.ok) {
             if (res.status === 401) {
