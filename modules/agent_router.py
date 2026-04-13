@@ -2159,7 +2159,23 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         elif len(_shown) == 1:
             _rdv_vehicle = _shown[1]
         elif _shown:
-            _rdv_vehicle = _shown[max(_shown.keys())]
+            # Chercher le véhicule mentionné dans le message
+            _rdv_vehicle = None
+            msg_lower_rdv = message.lower()
+            for k, v in _shown.items():
+                make = str(v.get("make", "")).lower()
+                model = str(v.get("model", "")).lower()
+                year = str(v.get("year", ""))
+                dealer = str(v.get("dealer_name", "")).lower()
+                if (make in msg_lower_rdv or
+                        model in msg_lower_rdv or
+                        year in msg_lower_rdv or
+                        dealer in msg_lower_rdv):
+                    _rdv_vehicle = v
+                    break
+            # Si toujours rien → prendre Proposition 1
+            if not _rdv_vehicle:
+                _rdv_vehicle = _shown[min(_shown.keys())]
         else:
             _rdv_vehicle = None
 
