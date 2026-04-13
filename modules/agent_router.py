@@ -1661,6 +1661,14 @@ Si session contient budget_clarified=True, ne jamais redemander la clarification
 Si un champ véhicule est vide ou absent, ne pas le mentionner dans ta réponse.
 
 ═══════════════════════════════════════
+RÈGLE — CONTEXTE VÉHICULE ACTIF
+═══════════════════════════════════════
+Si des propositions ont été générées dans la conversation :
+- INTERDICTION de demander de refaire une recherche
+- Si l'utilisateur dit "je suis prêt", "ça me convient", "je l'aime", "comment on fait", "je veux y aller", "parfait", "c'est celui-là" → proposer le RDV immédiatement
+- Utiliser le véhicule de vehicle_shown sans redemander
+
+═══════════════════════════════════════
 RÈGLE — RDV SANS VÉHICULE EN SESSION
 ═══════════════════════════════════════
 Si l'utilisateur demande un RDV pour un véhicule spécifique
