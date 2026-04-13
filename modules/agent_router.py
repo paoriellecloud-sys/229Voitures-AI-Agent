@@ -138,6 +138,12 @@ def detect_rdv_intent(message: str) -> bool:
         'je suis int\u00e9ress\u00e9 et', 'int\u00e9ress\u00e9 par la proposition',
         'je veux ce v\u00e9hicule', 'je veux cette auto',
         'appeler le concessionnaire', 't\u00e9l\u00e9phoner',
+        'je suis pr\u00eat', 'je suis pret', '\u00e7a me convient',
+        'je veux y aller', 'je veux le voir', 'comment contacter',
+        'transmets mon dossier', 'je suis int\u00e9ress\u00e9',
+        'on y va', 'je le prends', 'je veux proc\u00e9der',
+        'je suis convaincu', 'comment proc\u00e9der', 'met moi en contact',
+        'mets moi en contact', 'contact avec eux',
     ]
     return any(p in msg for p in rdv_patterns)
 
