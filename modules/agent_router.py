@@ -1680,6 +1680,14 @@ Si l'utilisateur confirme → afficher le formulaire immédiatement
 Si vehicle_shown contient 1 seul véhicule → afficher directement sans confirmer
 
 ═══════════════════════════════════════
+RÈGLE — LIMITER AUX PROPOSITIONS AFFICHÉES
+═══════════════════════════════════════
+Quand l'utilisateur fait référence à un véhicule par couleur, concessionnaire ou caractéristique,
+chercher UNIQUEMENT dans les Propositions 1, 2, 3 déjà affichées.
+Ne JAMAIS chercher dans la DB pour trouver un autre véhicule.
+Ne JAMAIS inventer ou mentionner un véhicule qui n'est pas dans les propositions actuelles.
+
+═══════════════════════════════════════
 RÈGLE — CONTEXTE VÉHICULE ACTIF
 ═══════════════════════════════════════
 Si des propositions ont été générées dans la conversation :
