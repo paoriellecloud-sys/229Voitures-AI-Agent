@@ -2249,20 +2249,59 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             _shown = session["vehicle_shown"]
             _desc_best_score = 0
             _desc_best_vehicle = None
+            _prices   = [float(sv.get("price", 0) or 0) for sv in _shown.values()]
+            _mileages = [int(sv.get("mileage", 0) or 0) for sv in _shown.values()]
+            _years    = [int(sv.get("year", 0) or 0) for sv in _shown.values()]
             for k, v in _shown.items():
                 _dscore = 0
-                _d_make   = str(v.get("make", "")).lower()
-                _d_model  = str(v.get("model", "")).lower()
-                _d_year   = str(v.get("year", ""))
-                _d_dealer = str(v.get("dealer_name", "")).lower()
-                _d_city   = str(v.get("city", "")).lower()
-                _d_color  = str(v.get("color", "")).lower()
+                _d_make         = str(v.get("make", "")).lower()
+                _d_model        = str(v.get("model", "")).lower()
+                _d_year         = str(v.get("year", ""))
+                _d_dealer       = str(v.get("dealer_name", "")).lower()
+                _d_city         = str(v.get("city", "")).lower()
+                _d_color        = str(v.get("color", "")).lower()
+                _d_fuel         = str(v.get("fuel_type", "")).lower()
+                _d_transmission = str(v.get("transmission", "")).lower()
+                _d_drivetrain   = str(v.get("drivetrain", "")).lower()
+                _d_price        = float(v.get("price", 0) or 0)
+                _d_mileage      = int(v.get("mileage", 0) or 0)
+                _d_year_int     = int(v.get("year", 0) or 0)
+                # Champs de base
                 if _d_model  and _d_model  in msg_lower: _dscore += 2
                 if _d_dealer and _d_dealer in msg_lower: _dscore += 2
                 if _d_city   and _d_city   in msg_lower: _dscore += 2
                 if _d_color  and _d_color  in msg_lower: _dscore += 2
                 if _d_year   and _d_year   in msg_lower: _dscore += 1
                 if _d_make   and _d_make   in msg_lower: _dscore += 1
+                # Carburant
+                if _d_fuel and _d_fuel in msg_lower: _dscore += 2
+                if "hybrid"    in msg_lower and "hybrid"  in _d_fuel: _dscore += 2
+                if "hybride"   in msg_lower and "hybrid"  in _d_fuel: _dscore += 2
+                if "électrique" in msg_lower and "electr" in _d_fuel: _dscore += 2
+                if "essence"   in msg_lower and "essence" in _d_fuel: _dscore += 2
+                if "phev"      in msg_lower and "phev"    in _d_fuel: _dscore += 2
+                # Couleur
+                for _cw, _cf in [("blanc","blanc"),("noir","noir"),("bleu","bleu"),
+                                  ("rouge","rouge"),("gris","gris"),("argent","argent")]:
+                    if _cw in msg_lower and _cf in _d_color: _dscore += 2
+                # Traction
+                if "intégrale" in msg_lower and "intégrale" in _d_drivetrain: _dscore += 2
+                if "awd"       in msg_lower and "intégrale" in _d_drivetrain: _dscore += 2
+                if "4x4"       in msg_lower and ("4 roues" in _d_drivetrain or "intégrale" in _d_drivetrain): _dscore += 2
+                # Prix relatif
+                if _prices:
+                    if any(w in msg_lower for w in ["moins cher","plus abordable","économique","budget"]):
+                        if _d_price == min(_prices): _dscore += 3
+                    if any(w in msg_lower for w in ["plus cher","haut de gamme","premium","luxe"]):
+                        if _d_price == max(_prices): _dscore += 3
+                # Kilométrage relatif
+                if _mileages:
+                    if any(w in msg_lower for w in ["moins de km","moins kilométré","faible kilométrage"]):
+                        if _d_mileage == min(_mileages): _dscore += 3
+                # Année la plus récente
+                if _years:
+                    if any(w in msg_lower for w in ["plus récent","plus neuf","dernière année"]):
+                        if _d_year_int == max(_years): _dscore += 3
                 if _dscore > _desc_best_score:
                     _desc_best_score = _dscore
                     _desc_best_vehicle = v
