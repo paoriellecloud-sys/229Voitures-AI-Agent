@@ -2159,20 +2159,31 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         elif len(_shown) == 1:
             _rdv_vehicle = _shown[1]
         elif _shown:
-            # Chercher le véhicule mentionné dans le message
+            # Chercher le véhicule mentionné dans le message avec score de priorité
             _rdv_vehicle = None
             msg_lower_rdv = message.lower()
+            _best_score = -1
             for k, v in _shown.items():
                 make = str(v.get("make", "")).lower()
                 model = str(v.get("model", "")).lower()
                 year = str(v.get("year", ""))
                 dealer = str(v.get("dealer_name", "")).lower()
-                if (make in msg_lower_rdv or
-                        model in msg_lower_rdv or
-                        year in msg_lower_rdv or
-                        dealer in msg_lower_rdv):
-                    _rdv_vehicle = v
-                    break
+                city = str(v.get("city", "")).lower()
+                _score = 0
+                if model and model in msg_lower_rdv:
+                    _score += 2
+                if make and make in msg_lower_rdv:
+                    _score += 1
+                if year and year in msg_lower_rdv:
+                    _score += 1
+                if dealer and dealer in msg_lower_rdv:
+                    _score += 2  # dealer = fort signal de spécificité
+                if city and city in msg_lower_rdv:
+                    _score += 2  # ville = fort signal de spécificité
+                if _score > _best_score:
+                    _best_score = _score
+                    if _score > 0:
+                        _rdv_vehicle = v
             # Si toujours rien → prendre Proposition 1
             if not _rdv_vehicle:
                 _rdv_vehicle = _shown[min(_shown.keys())]
