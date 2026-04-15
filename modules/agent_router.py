@@ -2243,6 +2243,31 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         intent_data = {"intent": "LEAD_REQUEST", "urls": [], "vin": None, "query": message,
                        "site": None, "count": 3, "followup_action": None}
     else:
+        # Chercher par description dans vehicle_shown avant appel Gemini
+        if session.get("vehicle_shown"):
+            msg_lower = message.lower()
+            _shown = session["vehicle_shown"]
+            _desc_best_score = 0
+            _desc_best_vehicle = None
+            for k, v in _shown.items():
+                _dscore = 0
+                _d_make   = str(v.get("make", "")).lower()
+                _d_model  = str(v.get("model", "")).lower()
+                _d_year   = str(v.get("year", ""))
+                _d_dealer = str(v.get("dealer_name", "")).lower()
+                _d_city   = str(v.get("city", "")).lower()
+                _d_color  = str(v.get("color", "")).lower()
+                if _d_model  and _d_model  in msg_lower: _dscore += 2
+                if _d_dealer and _d_dealer in msg_lower: _dscore += 2
+                if _d_city   and _d_city   in msg_lower: _dscore += 2
+                if _d_color  and _d_color  in msg_lower: _dscore += 2
+                if _d_year   and _d_year   in msg_lower: _dscore += 1
+                if _d_make   and _d_make   in msg_lower: _dscore += 1
+                if _dscore > _desc_best_score:
+                    _desc_best_score = _dscore
+                    _desc_best_vehicle = v
+            if _desc_best_score >= 2 and _desc_best_vehicle:
+                session["context"]["selected_vehicle"] = _desc_best_vehicle
         intent_data = detect_intent(message, context_summary)
     intent = intent_data.get("intent", "CHAT")
     result = {}
