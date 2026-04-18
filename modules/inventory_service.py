@@ -97,25 +97,34 @@ def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]
 
         conn.close()
 
-        # Recherche par fuel_type si catégorie électrique et aucun résultat
-        if not results and any(w in search_lower for w in ['electr', 'électr', 'ev ', ' ev', 'bolt', 'ioniq', 'tesla']):
-            try:
-                conn2 = sqlite3.connect(DB_PATH)
-                conn2.row_factory = sqlite3.Row
-                cursor2 = conn2.cursor()
-                cursor2.execute("""
-                    SELECT * FROM inventory_cache
-                    WHERE LOWER(fuel_type) LIKE '%lectrique%'
-                    AND price IS NOT NULL AND price > 0
-                    ORDER BY price ASC
-                    LIMIT 6
-                """)
-                rows = cursor2.fetchall()
-                conn2.close()
-                if rows:
-                    return [dict(r) for r in rows]
-            except Exception as e:
-                print(f"[inventory_service] fuel_type search error: {e}")
+        # Mapping fuel_type keywords
+        FUEL_KEYWORDS = {
+            '%lectrique%': ['electr', 'électr', 'ev ', ' ev', 'bolt', 'ioniq', 'tesla', 'leaf'],
+            'Hybride':     ['hybride', 'hybrid', 'hev'],
+            'PHEV':        ['phev', 'plug-in', 'rechargeable', 'branche'],
+            'Diesel':      ['diesel'],
+        }
+        if not results:
+            for fuel_pattern, kws in FUEL_KEYWORDS.items():
+                if any(w in search_lower for w in kws):
+                    try:
+                        conn2 = sqlite3.connect(DB_PATH)
+                        conn2.row_factory = sqlite3.Row
+                        cursor2 = conn2.cursor()
+                        cursor2.execute("""
+                            SELECT * FROM inventory_cache
+                            WHERE fuel_type LIKE ?
+                            AND price IS NOT NULL AND price > 0
+                            ORDER BY price ASC
+                            LIMIT 6
+                        """, (f'%{fuel_pattern}%',))
+                        rows = cursor2.fetchall()
+                        conn2.close()
+                        if rows:
+                            return [dict(r) for r in rows]
+                    except Exception as e:
+                        print(f"[inventory_service] fuel_type search error: {e}")
+                    break
 
         return [dict(r) for r in results[:limit]]
 
