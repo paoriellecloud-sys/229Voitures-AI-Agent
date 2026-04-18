@@ -78,7 +78,7 @@ def _select_by_number(message: str, vehicle_shown: dict) -> dict | None:
             return vehicle_shown[num]
 
     # Numero direct : "proposition 2", "le 2", "la 2"
-    match = re.search(r'(?:proposition|option|le|la)\s*(\d)', msg)
+    match = re.search(r'(?:proposition|option)\s*(\d)\b', msg)
     if match:
         num = int(match.group(1))
         if num in vehicle_shown:
