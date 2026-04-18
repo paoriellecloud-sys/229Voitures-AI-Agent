@@ -2271,7 +2271,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 if _d_dealer and _d_dealer in msg_lower: _dscore += 2
                 if _d_city   and _d_city   in msg_lower: _dscore += 2
                 if _d_color  and _d_color  in msg_lower: _dscore += 2
-                if _d_year   and _d_year   in msg_lower: _dscore += 1
+                if _d_year   and _d_year   in msg_lower: _dscore += 3
                 if _d_make   and _d_make   in msg_lower: _dscore += 1
                 # Carburant
                 if _d_fuel and _d_fuel in msg_lower: _dscore += 2
