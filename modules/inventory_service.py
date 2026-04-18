@@ -69,22 +69,50 @@ def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]
         search_text = vehicle_filter or query
         search_lower = search_text.lower().strip()
 
-        # Appliquer CATEGORY_MAP
-        for category, models in CATEGORY_MAP.items():
-            if category in search_lower:
-                search_text = models
-                break
-
-        # Détecter le type de carburant demandé
+        # 1. Détecter le type de carburant demandé EN PREMIER
         fuel_filter = None
         if any(w in search_lower for w in ['hybride', 'hybrid', 'hev']):
             fuel_filter = 'Hybride'
         elif any(w in search_lower for w in ['electr', 'électr', ' ev', 'ev ']):
             fuel_filter = 'lectrique'
-        elif any(w in search_lower for w in ['phev', 'plug-in', 'rechargeable']):
+        elif any(w in search_lower for w in ['phev', 'plug-in', 'rechargeable', 'branche', 'recharge']):
             fuel_filter = 'PHEV'
         elif any(w in search_lower for w in ['diesel']):
             fuel_filter = 'Diesel'
+
+        # 2. Détecter si la query contient une marque/modèle spécifique
+        KNOWN_MAKES = {
+            'toyota', 'honda', 'ford', 'hyundai', 'kia', 'mazda', 'nissan',
+            'chevrolet', 'chevy', 'gmc', 'dodge', 'jeep', 'ram', 'subaru',
+            'volkswagen', 'vw', 'bmw', 'audi', 'mercedes', 'lexus', 'acura',
+            'infiniti', 'cadillac', 'lincoln', 'buick', 'volvo', 'genesis',
+            'mitsubishi', 'tesla', 'rivian', 'lucid', 'polestar',
+            'rav4', 'crv', 'cr-v', 'civic', 'corolla', 'camry', 'elantra',
+            'kona', 'seltos', 'tucson', 'sportage', 'rogue', 'escape',
+            'f-150', 'f150', 'silverado', 'sierra', 'tacoma', 'tundra',
+            'cx-5', 'cx5', 'mazda3', 'golf', 'jetta', 'tiguan',
+        }
+        has_specific_model = any(make in search_lower for make in KNOWN_MAKES)
+
+        # 3. Si fuel_filter sans modèle spécifique → recherche directe par fuel_type
+        if fuel_filter and not has_specific_model:
+            cursor.execute("""
+                SELECT * FROM inventory_cache
+                WHERE fuel_type LIKE ?
+                AND price IS NOT NULL AND price > 0
+                ORDER BY price ASC
+                LIMIT 6
+            """, (f'%{fuel_filter}%',))
+            rows = cursor.fetchall()
+            conn.close()
+            if rows:
+                return [dict(r) for r in rows[:limit]]
+
+        # 4. Sinon : appliquer CATEGORY_MAP normalement
+        for category, models in CATEGORY_MAP.items():
+            if category in search_lower:
+                search_text = models
+                break
 
         # Nettoyer les stopwords
         keywords = [
