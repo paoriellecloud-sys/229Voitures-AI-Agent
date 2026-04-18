@@ -1,0 +1,209 @@
+"""
+Inventory Service - 229Voitures
+Responsabilite UNIQUE : chercher des vehicules dans la DB.
+100% Python/SQLite - aucun appel Gemini.
+"""
+
+import sqlite3
+import os
+
+DB_PATH = os.getenv("DB_PATH", "/home/ubuntu/data/229voitures.db")
+
+CATEGORY_MAP = {
+    "vus": "Escape Equinox RDX MDX Explorer Bronco Rogue Tucson Sportage Seltos Kona Durango Traverse Blazer Murano Outlander Palisade Telluride Sorento Tonale GV70 X2 Encore Forester Outback Crosstrek Trailblazer Terrain Acadia RAV4 CR-V Pilot Highlander Pathfinder Santa Fe Compass Wrangler Cherokee Gladiator Edge Flex QX50 QX60 XT4 XT5 XT6",
+    "suv": "Escape Equinox RDX MDX Explorer Bronco Rogue Tucson Sportage Seltos Kona Durango Traverse Blazer Murano Outlander Palisade Telluride Sorento RAV4 CR-V Pilot Highlander",
+    "berline": "Civic Corolla Camry Accord Elantra Sonata Mazda3 Altima Jetta Model 3 Integra Malibu Legacy Forte K5 Optima Stinger IS ES LS A3 A4 A6 C-Class E-Class G70 G80 CT4 CT5",
+    "berlin": "Civic Corolla Camry Accord Elantra Sonata Mazda3 Altima Jetta Model 3",
+    "sedan": "Civic Corolla Camry Accord Elantra Sonata Mazda3 Altima Jetta Model 3",
+    "camionnette": "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
+    "truck": "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
+    "pickup": "F-150 Silverado Ram Tundra Tacoma Frontier Titan Colorado Canyon Ranger Maverick Sierra",
+    "fourgonnette": "Odyssey Sienna Carnival Pacifica Caravan Sedona",
+    "minivan": "Odyssey Sienna Carnival Pacifica Caravan Sedona",
+    "electrique": "Tesla Bolt Leaf Ioniq EV6 EV9 Ariya Mach-E Lightning Solterra bZ4X Model 3 Model Y Kona",
+    "hybride": "Prius RAV4 Escape Tucson Santa Outlander Pacifica Wrangler CR-V Elantra Sonata Sienna",
+    "phev": "Escape Tucson Santa Outlander Pacifica Wrangler Prius Prime RAV4 Prime",
+    "luxe": "BMW Audi Mercedes Lexus Acura Infiniti Cadillac Lincoln Genesis Volvo Porsche Alfa",
+    "compacte": "Civic Corolla Elantra Mazda3 Jetta Golf Forte Sentra Kicks Venue Trax",
+    "sport": "Mustang Camaro Challenger BRZ Supra Miata Corvette GTI WRX Veloster Civic Type R",
+    "mazda3": "Mazda3",
+    "mazda 3": "Mazda3",
+    "cx5": "CX-5",
+    "cx-5": "CX-5",
+    "cx3": "CX-3",
+    "cx-3": "CX-3",
+    "rav4": "RAV4",
+    "crv": "CR-V",
+    "cr-v": "CR-V",
+    "f150": "F-150",
+    "f-150": "F-150",
+    "kona": "Kona",
+    "seltos": "Seltos",
+    "elantra": "Elantra",
+    "corolla": "Corolla",
+    "civic": "Civic",
+}
+
+STOPWORDS = {
+    "budget", "dollar", "mois", "mensuel", "financement",
+    "paiement", "taxes", "inclus", "environ", "approximatif",
+    "cherche", "recherche", "trouve", "montre", "propose",
+    "voudrais", "veux", "besoin", "avoir", "pour", "avec",
+    "dans", "sous", "entre", "vers", "chez", "par",
+}
+
+
+def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]:
+    """
+    Cherche des vehicules dans inventory_cache.
+    
+    1. Applique le CATEGORY_MAP si la query correspond a une categorie
+    2. Recherche SQL avec fallback progressif
+    3. Retourne max `limit` resultats
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        search_text = vehicle_filter or query
+        search_lower = search_text.lower().strip()
+
+        # Appliquer CATEGORY_MAP
+        for category, models in CATEGORY_MAP.items():
+            if category in search_lower:
+                search_text = models
+                break
+
+        # Nettoyer les stopwords
+        keywords = [
+            k.strip() for k in search_text.lower().split()
+            if len(k.strip()) > 2 and k.strip() not in STOPWORDS
+        ]
+
+        if not keywords:
+            keywords = [k for k in search_text.lower().split() if len(k) > 1]
+
+        # Essai 1 : AND strict sur 3 mots max
+        results = _search_and(cursor, keywords[:3])
+
+        # Essai 2 : OR souple sur 2 mots max
+        if not results:
+            results = _search_or(cursor, keywords[:2])
+
+        # Essai 3 : make/model direct
+        if not results:
+            results = _search_make_model(cursor, keywords[:2])
+
+        conn.close()
+        return [dict(r) for r in results[:limit]]
+
+    except Exception as e:
+        print(f"[inventory_service] Erreur: {e}")
+        return []
+
+
+def _search_and(cursor, keywords: list) -> list:
+    if not keywords:
+        return []
+    conditions = []
+    params = []
+    for kw in keywords:
+        conditions.append("(LOWER(title) LIKE ? OR LOWER(make) LIKE ? OR LOWER(model) LIKE ?)")
+        params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+    sql = f"""
+        SELECT * FROM inventory_cache
+        WHERE {' AND '.join(conditions)}
+        AND price IS NOT NULL AND price > 0
+        ORDER BY price ASC
+        LIMIT 10
+    """
+    cursor.execute(sql, params)
+    return cursor.fetchall()
+
+
+def _search_or(cursor, keywords: list) -> list:
+    if not keywords:
+        return []
+    conditions = []
+    params = []
+    for kw in keywords:
+        conditions.append("(LOWER(title) LIKE ? OR LOWER(make) LIKE ? OR LOWER(model) LIKE ?)")
+        params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+    sql = f"""
+        SELECT * FROM inventory_cache
+        WHERE {' OR '.join(conditions)}
+        AND price IS NOT NULL AND price > 0
+        ORDER BY price ASC
+        LIMIT 10
+    """
+    cursor.execute(sql, params)
+    return cursor.fetchall()
+
+
+def _search_make_model(cursor, keywords: list) -> list:
+    if not keywords:
+        return []
+    conditions = []
+    params = []
+    for kw in keywords:
+        conditions.append("(LOWER(make) LIKE ? OR LOWER(model) LIKE ?)")
+        params.extend([f"%{kw}%", f"%{kw}%"])
+    sql = f"""
+        SELECT * FROM inventory_cache
+        WHERE {' OR '.join(conditions)}
+        AND price IS NOT NULL AND price > 0
+        ORDER BY price ASC
+        LIMIT 10
+    """
+    cursor.execute(sql, params)
+    return cursor.fetchall()
+
+
+def get_vehicle_by_stock(stock_number: str) -> dict | None:
+    """Retrouve un vehicule par son numero de stock."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM inventory_cache WHERE stock_number = ? LIMIT 1",
+            (stock_number,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"[inventory_service] get_by_stock error: {e}")
+        return None
+
+
+def get_vehicle_by_vin(vin: str) -> dict | None:
+    """Retrouve un vehicule par son VIN."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM inventory_cache WHERE vin = ? LIMIT 1",
+            (vin.upper(),)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"[inventory_service] get_by_vin error: {e}")
+        return None
+
+
+def count_vehicles() -> int:
+    """Retourne le nombre total de vehicules en cache."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM inventory_cache")
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count
+    except Exception:
+        return 0
