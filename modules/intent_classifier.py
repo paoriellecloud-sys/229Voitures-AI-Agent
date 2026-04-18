@@ -16,6 +16,8 @@ RDV_PATTERNS = [
     r'book', r'r[ee]server', r'mets.moi en contact',
     r'met.moi en contact', r'prendre rendez',
     r'je veux visiter', r'aller le voir', r'aller la voir',
+    r'aller voir', r'je veux y aller',
+    r'pr[eê]t [àa] aller', r'pret a aller',
 ]
 
 SEARCH_TRIGGERS = [
