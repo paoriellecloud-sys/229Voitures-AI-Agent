@@ -106,13 +106,14 @@ def _score(msg: str, vehicle: dict) -> int:
 
     make = str(vehicle.get('make', '')).lower()
     model = str(vehicle.get('model', '')).lower()
-    year = str(vehicle.get('year', ''))
+    year = str(vehicle.get('year', '')).strip()
     dealer = str(vehicle.get('dealer_name', '')).lower()
     city = str(vehicle.get('city', '')).lower()
     color = str(vehicle.get('color', '')).lower()
     fuel = str(vehicle.get('fuel_type', '')).lower()
     drivetrain = str(vehicle.get('drivetrain', '')).lower()
     price = float(vehicle.get('price', 0))
+    print(f"DEBUG _score: year={repr(year)} in_msg={year in msg}")
 
     if year and year in msg:
         score += 4
