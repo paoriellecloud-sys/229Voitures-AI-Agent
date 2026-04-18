@@ -3060,24 +3060,24 @@ INSTRUCTIONS STRICTES :
                     "- Propose de lancer une recherche dans notre inventaire ou de créer une alerte\n"
                 )
 
-            # ─── Résumé des véhicules présentés dans la conversation ───
-            vehicles_shown = []
-            for _msg in session["history"]:
-                if _msg["role"] == "assistant" and "Force Occasion" in _msg.get("content", ""):
-                    _vins    = re.findall(r'VIN\s*:\s*([A-Z0-9]{17})', _msg["content"])
-                    _prices  = re.findall(r'Prix\s*:\s*([\d\s]+(?:\.\d+)?)\s*\$', _msg["content"])
-                    _dealers = re.findall(r'—\s*([^,\n]+),\s*([^\n•]+)', _msg["content"])
-                    for _i, _vin in enumerate(_vins):
-                        vehicles_shown.append({
-                            "vin":    _vin,
-                            "price":  _prices[_i] if _i < len(_prices) else "",
-                            "dealer": _dealers[_i][0].strip() if _i < len(_dealers) else "",
-                        })
-            if vehicles_shown:
-                vehicles_context = "\n\nVÉHICULES PRÉSENTÉS DANS CETTE CONVERSATION :\n"
-                for _v in vehicles_shown[-6:]:
-                    vehicles_context += f"- VIN: {_v['vin']} | Prix: {_v['price']}$ | Concessionnaire: {_v['dealer']}\n"
-                vehicles_context += "\nSi l'utilisateur fait référence à l'un de ces véhicules, utilise ces données exactes.\n"
+            # ─── Propositions actives depuis vehicle_shown ───
+            _vsh = session.get("vehicle_shown", {})
+            if _vsh:
+                vehicles_context = "\n\n=== PROPOSITIONS ACTIVES DANS CETTE SESSION ===\n"
+                for _k, _v in _vsh.items():
+                    vehicles_context += (
+                        f"Proposition {_k} : {_v.get('year','')} {_v.get('make','')} {_v.get('model','')} "
+                        f"— {_v.get('price','')}$ — {_v.get('dealer_name','')} — {_v.get('city','')} "
+                        f"— Couleur: {_v.get('color','')} — Carburant: {_v.get('fuel_type','')} "
+                        f"— Traction: {_v.get('drivetrain','')}\n"
+                    )
+                vehicles_context += (
+                    "===============================================\n"
+                    "RÈGLE ABSOLUE : Si l'utilisateur fait référence à un véhicule (couleur, année, "
+                    "concessionnaire, prix, \"la première\", \"celle-là\"), "
+                    "utiliser UNIQUEMENT les propositions listées ci-dessus. "
+                    "Ne jamais mentionner un autre véhicule.\n"
+                )
             else:
                 vehicles_context = ""
 
