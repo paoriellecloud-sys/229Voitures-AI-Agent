@@ -89,7 +89,7 @@ def _select_by_number(message: str, vehicle_shown: dict) -> dict | None:
 
 def _select_by_score(message: str, vehicle_shown: dict) -> dict | None:
     msg = message.lower().strip()
-    scores = {k: _score(msg, v) for k, v in vehicle_shown.items()}
+    scores = {int(k): _score(msg, v) for k, v in vehicle_shown.items()}
     best_key = max(scores, key=lambda k: scores[k])
     best_score = scores[best_key]
 
@@ -97,7 +97,8 @@ def _select_by_score(message: str, vehicle_shown: dict) -> dict | None:
         return None
 
     top_keys = [k for k, s in scores.items() if s == best_score]
-    return vehicle_shown[min(top_keys)]
+    best = min(top_keys)
+    return vehicle_shown.get(best) or vehicle_shown.get(str(best))
 
 
 def _score(msg: str, vehicle: dict) -> int:
