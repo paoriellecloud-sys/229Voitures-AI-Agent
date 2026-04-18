@@ -18,6 +18,15 @@ RDV_PATTERNS = [
     r'je veux visiter', r'aller le voir', r'aller la voir',
     r'aller voir', r'je veux y aller',
     r'pr[eê]t [àa] aller', r'pret a aller',
+    r'\bje suis int[eé]ress[eé]\b',
+    r'\bje veux le contacter\b',
+    r'\bje veux proc[eé]der\b',
+    r'\bprenons rendez\b',
+    r'\boui\b',
+    r'\byes\b',
+    r'\ball[eo]ns.y\b',
+    r'\bc\'est bon\b',
+    r'\bdeal\b',
 ]
 
 SEARCH_TRIGGERS = [
