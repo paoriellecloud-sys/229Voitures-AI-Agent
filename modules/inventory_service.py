@@ -115,7 +115,7 @@ def _search_and(cursor, keywords: list) -> list:
         SELECT * FROM inventory_cache
         WHERE {' AND '.join(conditions)}
         AND price IS NOT NULL AND price > 0
-        ORDER BY price ASC
+        ORDER BY year DESC, price ASC
         LIMIT 10
     """
     cursor.execute(sql, params)
@@ -134,7 +134,7 @@ def _search_or(cursor, keywords: list) -> list:
         SELECT * FROM inventory_cache
         WHERE {' OR '.join(conditions)}
         AND price IS NOT NULL AND price > 0
-        ORDER BY price ASC
+        ORDER BY year DESC, price ASC
         LIMIT 10
     """
     cursor.execute(sql, params)
@@ -153,7 +153,7 @@ def _search_make_model(cursor, keywords: list) -> list:
         SELECT * FROM inventory_cache
         WHERE {' OR '.join(conditions)}
         AND price IS NOT NULL AND price > 0
-        ORDER BY price ASC
+        ORDER BY year DESC, price ASC
         LIMIT 10
     """
     cursor.execute(sql, params)
