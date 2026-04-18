@@ -223,6 +223,8 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
 
 def _handle_rdv_intent(message, session, vehicle_shown, user_id, history_str):
     """Affiche le formulaire RDV pour le bon vehicule."""
+    print(f"[RDV] vehicle_shown type keys: {[(k, type(k).__name__) for k in vehicle_shown.keys()]}")
+    print(f"[RDV] select_vehicle result: {select_vehicle(message, vehicle_shown)}")
     selected = select_vehicle(message, vehicle_shown)
     print(f"[RDV DEBUG] message={message} vehicle_shown_keys={list(vehicle_shown.keys())} selected_year={selected.get('year') if selected else None}")
 
