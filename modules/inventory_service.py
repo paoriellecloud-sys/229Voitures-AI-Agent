@@ -75,6 +75,17 @@ def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]
                 search_text = models
                 break
 
+        # Détecter le type de carburant demandé
+        fuel_filter = None
+        if any(w in search_lower for w in ['hybride', 'hybrid', 'hev']):
+            fuel_filter = 'Hybride'
+        elif any(w in search_lower for w in ['electr', 'électr', ' ev', 'ev ']):
+            fuel_filter = 'lectrique'
+        elif any(w in search_lower for w in ['phev', 'plug-in', 'rechargeable']):
+            fuel_filter = 'PHEV'
+        elif any(w in search_lower for w in ['diesel']):
+            fuel_filter = 'Diesel'
+
         # Nettoyer les stopwords
         keywords = [
             k.strip() for k in search_text.lower().split()
@@ -85,11 +96,11 @@ def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]
             keywords = [k for k in search_text.lower().split() if len(k) > 1]
 
         # Essai 1 : AND strict sur 3 mots max
-        results = _search_and(cursor, keywords[:3])
+        results = _search_and(cursor, keywords[:3], fuel_filter)
 
         # Essai 2 : OR souple sur 2 mots max
         if not results:
-            results = _search_or(cursor, keywords[:2])
+            results = _search_or(cursor, keywords[:2], fuel_filter)
 
         # Essai 3 : make/model direct
         if not results:
@@ -133,7 +144,7 @@ def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]
         return []
 
 
-def _search_and(cursor, keywords: list) -> list:
+def _search_and(cursor, keywords: list, fuel_filter: str = None) -> list:
     if not keywords:
         return []
     conditions = []
@@ -141,6 +152,8 @@ def _search_and(cursor, keywords: list) -> list:
     for kw in keywords:
         conditions.append("(LOWER(title) LIKE ? OR LOWER(make) LIKE ? OR LOWER(model) LIKE ?)")
         params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+    if fuel_filter:
+        conditions.append(f"fuel_type LIKE '%{fuel_filter}%'")
     sql = f"""
         SELECT * FROM inventory_cache
         WHERE {' AND '.join(conditions)}
@@ -152,7 +165,7 @@ def _search_and(cursor, keywords: list) -> list:
     return cursor.fetchall()
 
 
-def _search_or(cursor, keywords: list) -> list:
+def _search_or(cursor, keywords: list, fuel_filter: str = None) -> list:
     if not keywords:
         return []
     conditions = []
@@ -160,6 +173,8 @@ def _search_or(cursor, keywords: list) -> list:
     for kw in keywords:
         conditions.append("(LOWER(title) LIKE ? OR LOWER(make) LIKE ? OR LOWER(model) LIKE ?)")
         params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+    if fuel_filter:
+        conditions.append(f"fuel_type LIKE '%{fuel_filter}%'")
     sql = f"""
         SELECT * FROM inventory_cache
         WHERE {' OR '.join(conditions)}
