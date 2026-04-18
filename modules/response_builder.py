@@ -71,7 +71,7 @@ Historique recent:
 
 Message utilisateur: {message}
 
-{"Des vehicules ont ete trouves et sont affiches en fiches HTML. Commente-les en 2-3 phrases max et pose une question de suivi." if vehicles else "Aucun vehicule trouve. Propose des alternatives ou une alerte email. Sois proactif."}
+{"Les fiches HTML ci-dessus sont les SEULS vehicules disponibles. Ne mentionne aucun autre modele dans ta reponse. Commente-les en 2-3 phrases max et pose une question de suivi." if vehicles else "Aucun vehicule trouve. Propose des alternatives ou une alerte email. Sois proactif."}
 """
 
     try:
@@ -203,8 +203,11 @@ def _format_propositions(vehicle_shown: dict) -> str:
         )
     lines.append("===============================================")
     lines.append(
-        "REGLE ABSOLUE : Si l'utilisateur mentionne un vehicule "
-        "(couleur, annee, concessionnaire, prix, 'la premiere', 'celle-la'), "
-        "utiliser UNIQUEMENT ces propositions. Ne jamais mentionner d'autre vehicule."
+        "REGLE ABSOLUE STRICTE :\n"
+        "1. Tu ne peux parler QUE des vehicules listés ci-dessus\n"
+        "2. Si les fiches HTML sont affichées, tu ne répètes PAS les données techniques\n"
+        "3. Tu ne mentionnes JAMAIS un vehicule qui n'est pas dans cette liste\n"
+        "4. Ton rôle = commenter et conseiller en 2-3 phrases MAX\n"
+        "5. Format: UNE phrase d'intro + observation pertinente + UNE question"
     )
     return "\n".join(lines) + "\n"
