@@ -113,8 +113,6 @@ def _score(msg: str, vehicle: dict) -> int:
     fuel = str(vehicle.get('fuel_type', '')).lower()
     drivetrain = str(vehicle.get('drivetrain', '')).lower()
     price = float(vehicle.get('price', 0))
-    print(f"DEBUG _score: year={repr(year)} in_msg={year in msg}")
-
     if year and year in msg:
         score += 4
     if model and model in msg:
