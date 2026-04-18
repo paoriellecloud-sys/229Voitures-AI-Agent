@@ -1726,24 +1726,37 @@ Retourne exactement ce format JSON :
 
 Règles d'intention :
 
-- CHAT : Pour TOUTES les questions d'évaluation, conseil et information générale :
-  * "bonne affaire?", "c'est bien?", "fiable?", "vaut la peine?", "tu recommandes?"
-  * "problèmes connus", "rappels", "historique de fiabilité", "coût entretien"
-  * "X$ c'est raisonnable?", "trop cher?", "bon prix?", négociation
-  * Questions sur garanties, financement, consommation, assurance
-  * Salutations, remerciements, questions générales
+RÈGLE FONDAMENTALE DE CLASSIFICATION :
+Question clé : "L'utilisateur mentionne-t-il un véhicule, une marque, un modèle ou une catégorie ?"
 
-- SEARCH : SEULEMENT quand l'utilisateur veut EXPLICITEMENT trouver/lister des véhicules.
-  Mots déclencheurs obligatoires : trouve, cherche, montre, propose, liste, donne-moi, affiche
-  Aussi déclencher SEARCH pour : "je recherche", "je cherche", "je veux trouver", "j'ai besoin d'un"
+- SEARCH : SI OUI — l'utilisateur mentionne un véhicule, une marque, un modèle ou une catégorie (toujours, peu importe la formulation)
   Exemples → SEARCH :
+  - "aurais-tu des Kona" → SEARCH, vehicle_filter="hyundai kona"
+  - "t'as-tu un Escape" → SEARCH, vehicle_filter="ford escape"
+  - "je me magasine un VUS" → SEARCH, vehicle_filter="vus"
+  - "c'est quoi tes prix sur les Civic" → SEARCH, vehicle_filter="honda civic"
+  - "un RAV4 c'est bien ?" → SEARCH, vehicle_filter="toyota rav4"
+  - "je pense à un Kona" → SEARCH, vehicle_filter="hyundai kona"
+  - "qu'est-ce que t'as comme berline" → SEARCH, vehicle_filter="berline"
+  - "show me some SUVs" → SEARCH, vehicle_filter="suv"
+  - "do you have any Civics" → SEARCH, vehicle_filter="honda civic"
+  - "j'aimerais voir des électriques" → SEARCH, vehicle_filter="électrique"
+  - "je me cherche quelque chose d'économique" → SEARCH, vehicle_filter="économique"
   - "Trouve moi un Toyota RAV4 2021" → SEARCH, vehicle_filter="toyota rav4 2021"
   - "Cherche des Honda CRV sous 25000$" → SEARCH, vehicle_filter="honda crv"
   - "je recherche une Seltos 2022 au Québec" → SEARCH, vehicle_filter="kia seltos 2022"
-  - "Montre moi des Kia Seltos" → SEARCH, vehicle_filter="kia seltos"
   - "j'ai un Elantra, je veux un VUS" → SEARCH, vehicle_filter="vus"
-  - "je veux changer mon Civic pour un RAV4" → SEARCH, vehicle_filter="rav4"
   - "j'ai une berline, je cherche une camionnette" → SEARCH, vehicle_filter="camionnette"
+
+  EN CAS DE DOUTE → SEARCH. Un faux positif SEARCH est toujours mieux qu'un CHAT qui dit
+  "je n'ai pas ce véhicule" alors qu'il l'a.
+
+- CHAT : SI NON — question générale sans véhicule spécifique mentionné
+  * "c'est quoi la différence entre AWD et 4x4" → CHAT
+  * "comment négocier un prix" → CHAT
+  * "c'est quoi les taxes au Québec" → CHAT
+  * "explique-moi le financement" → CHAT
+  * Salutations, remerciements, questions générales sans marque/modèle/catégorie
 
 - ANALYZE_URL : le message contient exactement 1 URL
 - COMPARE_URLS : le message contient 2 URL ou plus
