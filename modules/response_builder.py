@@ -57,7 +57,7 @@ def build_search_response(
     html_cards = ""
 
     if vehicles:
-        for i, v in enumerate(vehicles[:3], 1):
+        for i, v in enumerate(vehicles, 1):
             vehicle_shown[i] = v
         html_cards = format_vehicles_html_block(vehicles[:3])
 

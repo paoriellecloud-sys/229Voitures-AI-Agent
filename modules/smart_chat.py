@@ -185,7 +185,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
 
     # ── SEARCH ────────────────────────────────────────────────────────────
     if intent == "SEARCH":
-        vehicles = search(query=message, vehicle_filter=vehicle_ref, limit=3)
+        vehicles = search(query=message, vehicle_filter=vehicle_ref, limit=6)
 
         if vehicles:
             result = build_search_response(
