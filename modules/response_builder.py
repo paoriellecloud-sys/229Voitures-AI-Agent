@@ -7,6 +7,8 @@ Gemini fait SEULEMENT la redaction - pas la logique.
 import os
 import google.generativeai as genai
 from modules.formatters import format_vehicles_html_block
+from dotenv import load_dotenv
+load_dotenv("/home/ubuntu/229voitures/.env")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MODEL_NAME = "gemini-2.5-flash"
