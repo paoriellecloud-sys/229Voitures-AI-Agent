@@ -8,7 +8,7 @@ from auth import *
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
-from agent_router import smart_chat
+from modules.smart_chat import smart_chat
 
 import numpy as np
 import joblib
