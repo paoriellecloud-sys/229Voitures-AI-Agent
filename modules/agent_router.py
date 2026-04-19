@@ -461,6 +461,9 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
             "cx 9":         "CX-9",
         }
 
+        # Sauvegarder vehicle_filter original avant réécriture CATEGORY_MAP
+        _orig_vf = (vehicle_filter or '').lower()
+
         # Remplacer la query si c'est une catégorie connue
         query_lower = (vehicle_filter or query).lower().strip()
         for category, models in CATEGORY_MAP.items():
@@ -477,6 +480,26 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
             keywords = raw_kw  # garde les originaux si tout filtré
 
         print(f"[search_inventory_cache] query={repr(query)} | vehicle_filter={repr(vehicle_filter)} | keywords={keywords}")
+
+        # ── Recherche directe fuel_type si fuel générique (pas de marque spécifique) ──
+        _KNOWN_MAKES = ['toyota', 'honda', 'ford', 'kia', 'hyundai', 'mazda', 'nissan',
+                        'chevrolet', 'dodge', 'ram', 'jeep', 'subaru']
+        if fuel_filter and not any(m in _orig_vf for m in _KNOWN_MAKES):
+            try:
+                cursor.execute("""
+                    SELECT * FROM inventory_cache
+                    WHERE LOWER(fuel_type) LIKE ?
+                    AND price IS NOT NULL AND price > 0
+                    ORDER BY price ASC
+                    LIMIT ?
+                """, (f'%{fuel_filter.lower()}%', limit))
+                _direct_rows = cursor.fetchall()
+                if _direct_rows:
+                    print(f"[search_inventory_cache] Recherche directe fuel_type={fuel_filter} → {len(_direct_rows)} résultat(s)")
+                    conn.close()
+                    return [dict(r) for r in _direct_rows]
+            except Exception as e:
+                print(f"[search] fuel direct error: {e}")
 
         # ── Conditions extra (fuel_type, year) ─────────────────────────────
         extra_conditions = []
