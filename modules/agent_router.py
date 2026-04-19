@@ -380,7 +380,8 @@ def _rows_to_dicts(rows) -> list[dict]:
     return results
 
 
-def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = None) -> list[dict]:
+def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = None,
+                           fuel_filter: str = None, year_filter: str = None) -> list[dict]:
     """
     Recherche flexible dans inventory_cache.
     1. Essai strict (AND) avec vehicle_filter ou query nettoyée
@@ -477,6 +478,13 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
 
         print(f"[search_inventory_cache] query={repr(query)} | vehicle_filter={repr(vehicle_filter)} | keywords={keywords}")
 
+        # ── Conditions extra (fuel_type, year) ─────────────────────────────
+        extra_conditions = []
+        if fuel_filter:
+            extra_conditions.append(f"LOWER(fuel_type) LIKE '%{fuel_filter.lower()}%'")
+        if year_filter:
+            extra_conditions.append(f"year = {year_filter}")
+
         # ── Essai 1 : AND strict sur max 3 mots-clés véhicule ──────────────
         kw_strict = keywords[:3]
         conditions = []
@@ -484,6 +492,7 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
         for kw in kw_strict:
             conditions.append("(LOWER(title) LIKE ? OR LOWER(make) LIKE ? OR LOWER(model) LIKE ?)")
             params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+        conditions.extend(extra_conditions)
 
         rows = []
         if conditions:
@@ -500,7 +509,7 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
                 or_parts.append("LOWER(make) LIKE ?")
                 or_parts.append("LOWER(model) LIKE ?")
                 or_params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
-            rows = _run_cache_sql(cursor, [f"({' OR '.join(or_parts)})"], or_params, limit)
+            rows = _run_cache_sql(cursor, [f"({' OR '.join(or_parts)})"] + extra_conditions, or_params, limit)
             print(f"[search_inventory_cache] Essai OR souple ({kw_or}) → {len(rows)} résultat(s)")
 
         # ── Essai 3 : raw_content si toujours 0 ────────────────────────────
@@ -508,7 +517,7 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
             kw_raw = keywords[0]
             rows = _run_cache_sql(
                 cursor,
-                ["(LOWER(title) LIKE ? OR LOWER(raw_content) LIKE ?)"],
+                ["(LOWER(title) LIKE ? OR LOWER(raw_content) LIKE ?)"] + extra_conditions,
                 [f"%{kw_raw}%", f"%{kw_raw}%"],
                 limit
             )
@@ -2730,7 +2739,26 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
 
         # ─── ÉTAPE 1 : Chercher dans l'inventaire local (Force Occasion) ───
         vehicle_filter = intent_data.get("vehicle_filter")
-        cache_results = search_inventory_cache(query, limit=5, vehicle_filter=vehicle_filter)
+
+        # Extraire fuel_filter et year_filter depuis vehicle_filter
+        _fuel_map = {
+            'hybride': 'hybride', 'hybrid': 'hybride',
+            'electrique': 'lectrique', 'électrique': 'lectrique',
+            'phev': 'phev', 'plug-in': 'phev',
+            'diesel': 'diesel',
+        }
+        _vf_lower = (vehicle_filter or '').lower()
+        _fuel_filter = None
+        for kw, val in _fuel_map.items():
+            if kw in _vf_lower:
+                _fuel_filter = val
+                break
+        import re as _re
+        _year_match = _re.search(r'\b(20\d{2})\b', vehicle_filter or '')
+        _year_filter = _year_match.group(1) if _year_match else None
+
+        cache_results = search_inventory_cache(query, limit=5, vehicle_filter=vehicle_filter,
+                                               fuel_filter=_fuel_filter, year_filter=_year_filter)
 
         if cache_results:
             cache_text = format_cache_results_for_prompt(cache_results)
