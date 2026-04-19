@@ -62,14 +62,8 @@ def build_search_response(
         html_cards = format_vehicles_html_block(vehicles[:3])
 
     count = len(vehicles)
-    if count == 0:
-        text = "Je n'ai rien trouvé pour cette recherche. Voulez-vous élargir les critères ou créer une alerte ?"
-    elif count == 1:
-        text = "J'ai trouvé un véhicule qui correspond. Il vous intéresse ?"
-    elif count <= 3:
-        text = f"Voici {count} options qui correspondent à votre recherche. Laquelle vous intéresse le plus ?"
-    else:
-        text = "J'ai trouvé plusieurs véhicules. Voici les plus pertinents. Lequel vous intéresse ?"
+    from modules.static_responses import build_static_response
+    text = build_static_response(message, vehicles, count)
 
     return {
         "response": text,
