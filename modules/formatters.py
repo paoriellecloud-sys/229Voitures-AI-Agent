@@ -113,7 +113,7 @@ def format_vehicle_card(v: dict) -> str:
     stock_raw    = v.get("stock_number") or v.get("stock_no") or v.get("no_stock") or ""
     stock_number = stock_raw.replace("-neuf", "").replace("-used", "").replace("-occ", "").strip()
     vin          = v.get("vin") or "N/D"
-    url_fiche    = build_fo_url(v)
+    url_fiche    = v.get('url') or build_fo_url(v)
 
     try:
         prix_float   = float(v.get("price") or v.get("prix") or 0)
