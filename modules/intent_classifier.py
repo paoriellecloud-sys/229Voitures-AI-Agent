@@ -151,6 +151,8 @@ def classify(message: str, vehicle_shown: dict = None) -> dict:
 
 
 def _extract_vehicle_ref(msg: str) -> str:
+    if 'plug-in' in msg or 'phev' in msg or 'rechargeable' in msg:
+        return 'phev'
     for model in KNOWN_MODELS:
         if model in msg:
             return model

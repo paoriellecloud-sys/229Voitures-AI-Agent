@@ -75,7 +75,7 @@ def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]
             fuel_filter = 'Hybride'
         elif any(w in search_lower for w in ['electr', 'électr', ' ev', 'ev ']):
             fuel_filter = 'lectrique'
-        elif any(w in search_lower for w in ['phev', 'plug-in', 'rechargeable', 'branche', 'recharge', 'hybride rechargeable']):
+        elif any(w in search_lower for w in ['phev', 'plug', 'plug-in', 'rechargeable', 'branche', 'recharge', 'hybride rechargeable']):
             fuel_filter = 'phev'
         elif any(w in search_lower for w in ['diesel']):
             fuel_filter = 'Diesel'
