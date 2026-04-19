@@ -120,7 +120,14 @@ def classify(message: str, vehicle_shown: dict = None) -> dict:
         if re.search(pattern, msg):
             return {"intent": "RDV", "vehicle_ref": None, "confidence": 95}
 
-    # 3. FOLLOWUP si propositions actives
+    # 3. Affirmatif → RDV si vehicle_shown actif
+    if vehicle_shown:
+        affirmatif = [r'\boui\b', r'\byes\b', r'\bparfait\b', r'\bd\'accord\b', r'\bok\b']
+        for pattern in affirmatif:
+            if re.search(pattern, msg):
+                return {"intent": "RDV", "vehicle_ref": None, "confidence": 80}
+
+    # 4. FOLLOWUP si propositions actives
     if vehicle_shown:
         for pattern in FOLLOWUP_PATTERNS:
             if re.search(pattern, msg):
