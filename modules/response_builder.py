@@ -63,15 +63,11 @@ def build_search_response(
 
     active_props = _format_propositions(vehicle_shown)
 
-    prompt = f"""
-{active_props}
-
-Historique recent:
-{history_str[-2000:] if history_str else ""}
+    prompt = f"""{active_props}
 
 Message utilisateur: {message}
 
-{"Les fiches HTML ci-dessus sont les SEULS vehicules disponibles. Ne mentionne aucun autre modele dans ta reponse. Commente-les en 2-3 phrases max et pose une question de suivi." if vehicles else "Aucun vehicule trouve. Propose des alternatives ou une alerte email. Sois proactif."}
+{"Rédige UNE seule phrase d'accroche (max 20 mots) sans mentionner aucun véhicule spécifique par nom/année/couleur. Ensuite pose UNE question de suivi courte. Les fiches HTML affichent déjà tous les détails — ne les répète pas. Exemple correct: \"Voici ce que j'ai trouvé pour vous. Laquelle vous intéresse ?\" Exemple incorrect: \"J'ai un Kona 2021 noir à 18 589$...\"" if vehicles else "Aucun vehicule trouve. Propose des alternatives ou une alerte email. Sois proactif."}
 """
 
     try:
