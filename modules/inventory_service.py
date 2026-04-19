@@ -75,8 +75,8 @@ def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]
             fuel_filter = 'Hybride'
         elif any(w in search_lower for w in ['electr', 'électr', ' ev', 'ev ']):
             fuel_filter = 'lectrique'
-        elif any(w in search_lower for w in ['phev', 'plug-in', 'rechargeable', 'branche', 'recharge']):
-            fuel_filter = 'PHEV'
+        elif any(w in search_lower for w in ['phev', 'plug-in', 'rechargeable', 'branche', 'recharge', 'hybride rechargeable']):
+            fuel_filter = 'phev'
         elif any(w in search_lower for w in ['diesel']):
             fuel_filter = 'Diesel'
 
@@ -98,7 +98,7 @@ def search(query: str, vehicle_filter: str = None, limit: int = 3) -> list[dict]
         if fuel_filter and not has_specific_model:
             cursor.execute("""
                 SELECT * FROM inventory_cache
-                WHERE fuel_type LIKE ?
+                WHERE LOWER(fuel_type) LIKE LOWER(?)
                 AND price IS NOT NULL AND price > 0
                 ORDER BY price ASC
                 LIMIT 6
