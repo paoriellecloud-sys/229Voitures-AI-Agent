@@ -51,7 +51,7 @@ def build_search_response(
 ) -> dict:
     """
     Construit la reponse pour un intent SEARCH.
-    Gemini commente les vehicules trouves.
+    Reponse statique — zero Gemini, zero hallucination.
     """
     vehicle_shown = {}
     html_cards = ""
@@ -61,22 +61,15 @@ def build_search_response(
             vehicle_shown[i] = v
         html_cards = format_vehicles_html_block(vehicles[:3])
 
-    active_props = _format_propositions(vehicle_shown)
-
-    prompt = f"""{active_props}
-
-Message utilisateur: {message}
-
-{"Rédige UNE seule phrase d'accroche (max 20 mots) sans mentionner aucun véhicule spécifique par nom/année/couleur. Ensuite pose UNE question de suivi courte. Les fiches HTML affichent déjà tous les détails — ne les répète pas. Exemple correct: \"Voici ce que j'ai trouvé pour vous. Laquelle vous intéresse ?\" Exemple incorrect: \"J'ai un Kona 2021 noir à 18 589$...\"" if vehicles else "Aucun vehicule trouve. Propose des alternatives ou une alerte email. Sois proactif."}
-"""
-
-    try:
-        model = _get_model()
-        response = model.generate_content(prompt)
-        text = response.text
-    except Exception as e:
-        text = f"Desolé, une erreur est survenue. Veuillez reessayer."
-        print(f"[response_builder] Erreur Gemini SEARCH: {e}")
+    count = len(vehicles)
+    if count == 0:
+        text = "Je n'ai rien trouvé pour cette recherche. Voulez-vous élargir les critères ou créer une alerte ?"
+    elif count == 1:
+        text = "J'ai trouvé un véhicule qui correspond. Il vous intéresse ?"
+    elif count <= 3:
+        text = f"Voici {count} options qui correspondent à votre recherche. Laquelle vous intéresse le plus ?"
+    else:
+        text = "J'ai trouvé plusieurs véhicules. Voici les plus pertinents. Lequel vous intéresse ?"
 
     return {
         "response": text,
