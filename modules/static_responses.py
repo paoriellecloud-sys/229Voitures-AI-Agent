@@ -9,6 +9,7 @@ def build_static_response(message: str, vehicles: list, count: int) -> str:
     Zéro appel Gemini - zéro hallucination.
     """
     msg = message.lower()
+    display_count = min(count, 3)
 
     # ── 0 résultat ──────────────────────────────────────────────────────────
     if count == 0:
@@ -32,45 +33,45 @@ def build_static_response(message: str, vehicles: list, count: int) -> str:
 
     # Budget mentionné
     if any(w in msg for w in ['budget', 'mois', 'mensuel', 'financement', 'payer', 'afford']):
-        return f"Voici {count} véhicules qui s'inscrivent dans votre budget. Lequel vous intéresse le plus pour qu'on calcule les mensualités exactes ?"
+        return f"Voici {display_count} véhicules qui s'inscrivent dans votre budget. Lequel vous intéresse le plus pour qu'on calcule les mensualités exactes ?"
 
     # Famille / espace
     if any(w in msg for w in ['famille', 'enfant', 'kids', 'bébé', 'siege', 'place', 'espace', 'grand']):
-        return f"Voici {count} options adaptées pour une famille. Avez-vous une préférence entre un VUS ou une fourgonnette ?"
+        return f"Voici {display_count} options adaptées pour une famille. Avez-vous une préférence entre un VUS ou une fourgonnette ?"
 
     # Électrique
     if any(w in msg for w in ['electr', 'électr', 'ev', 'bolt', 'tesla', 'ioniq', 'leaf']):
-        return f"Voici {count} véhicules électriques disponibles. N'oubliez pas que des rabais gouvernementaux jusqu'à 4 000$ peuvent s'appliquer. Lequel vous intéresse ?"
+        return f"Voici {display_count} véhicules électriques disponibles. N'oubliez pas que des rabais gouvernementaux jusqu'à 4 000$ peuvent s'appliquer. Lequel vous intéresse ?"
 
     # Hybride / PHEV
     if any(w in msg for w in ['hybride', 'hybrid', 'phev', 'plug', 'rechargeable']):
-        return f"Voici {count} véhicules hybrides disponibles — un bon compromis entre économie d'essence et autonomie. Lequel vous attire le plus ?"
+        return f"Voici {display_count} véhicules hybrides disponibles — un bon compromis entre économie d'essence et autonomie. Lequel vous attire le plus ?"
 
     # Camionnette / truck
     if any(w in msg for w in ['truck', 'camion', 'pickup', 'f-150', 'ram', 'silverado', 'remorquer', 'tow']):
-        return f"Voici {count} camionnettes disponibles. Avez-vous des besoins spécifiques en termes de capacité de remorquage ou d'usage commercial ?"
+        return f"Voici {display_count} camionnettes disponibles. Avez-vous des besoins spécifiques en termes de capacité de remorquage ou d'usage commercial ?"
 
     # VUS / SUV
     if any(w in msg for w in ['vus', 'suv', 'utilitaire', '4x4', 'awd', 'intégrale']):
-        return f"Voici {count} VUS disponibles — tous équipés pour nos hivers québécois. Lequel retient votre attention ?"
+        return f"Voici {display_count} VUS disponibles — tous équipés pour nos hivers québécois. Lequel retient votre attention ?"
 
     # Première voiture / jeune
     if any(w in msg for w in ['premier', 'première', 'première voiture', 'débutant', 'jeune', '18 ans', '19 ans', '20 ans']):
-        return f"Voici {count} options parfaites pour une première voiture — fiables et économiques. N'oubliez pas de vérifier les coûts d'assurance selon le modèle. Laquelle vous plaît ?"
+        return f"Voici {display_count} options parfaites pour une première voiture — fiables et économiques. N'oubliez pas de vérifier les coûts d'assurance selon le modèle. Laquelle vous plaît ?"
 
     # Économique / petit budget
     if any(w in msg for w in ['économique', 'pas cher', 'abordable', 'économiser', 'petit budget']):
-        return f"Voici {count} options abordables disponibles. Toutes sont chez nos concessionnaires partenaires Force Occasion. Laquelle vous intéresse ?"
+        return f"Voici {display_count} options abordables disponibles. Toutes sont chez nos concessionnaires partenaires Force Occasion. Laquelle vous intéresse ?"
 
     # Luxe
     if any(w in msg for w in ['luxe', 'premium', 'haut de gamme', 'confort', 'cuir']):
-        return f"Voici {count} véhicules haut de gamme disponibles. Pour ce type de véhicule, je recommande particulièrement une inspection mécanique indépendante. Lequel vous intéresse ?"
+        return f"Voici {display_count} véhicules haut de gamme disponibles. Pour ce type de véhicule, je recommande particulièrement une inspection mécanique indépendante. Lequel vous intéresse ?"
 
     # Marque spécifique
     for make in ['toyota', 'honda', 'ford', 'hyundai', 'kia', 'mazda', 'nissan', 'chevrolet', 'dodge', 'ram', 'jeep', 'subaru', 'volkswagen', 'bmw', 'audi', 'mercedes', 'lexus']:
         if make in msg:
             make_display = make.capitalize()
-            return f"Voici {count} {make_display} disponibles chez nos concessionnaires partenaires. Lequel vous intéresse le plus ?"
+            return f"Voici {display_count} {make_display} disponibles chez nos concessionnaires partenaires. Lequel vous intéresse le plus ?"
 
     # Défaut générique mais professionnel
-    return f"Voici {count} véhicules qui correspondent à votre recherche. Tous sont disponibles chez nos concessionnaires partenaires Force Occasion. Lequel vous intéresse le plus ?"
+    return f"Voici {display_count} véhicules qui correspondent à votre recherche. Tous sont disponibles chez nos concessionnaires partenaires Force Occasion. Lequel vous intéresse le plus ?"
