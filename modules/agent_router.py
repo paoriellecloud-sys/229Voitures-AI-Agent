@@ -2756,6 +2756,7 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         import re as _re
         _year_match = _re.search(r'\b(20\d{2})\b', vehicle_filter or '')
         _year_filter = _year_match.group(1) if _year_match else None
+        print(f"[SEARCH DEBUG] vehicle_filter={vehicle_filter} fuel_filter={_fuel_filter} year_filter={_year_filter}")
 
         cache_results = search_inventory_cache(query, limit=5, vehicle_filter=vehicle_filter,
                                                fuel_filter=_fuel_filter, year_filter=_year_filter)
