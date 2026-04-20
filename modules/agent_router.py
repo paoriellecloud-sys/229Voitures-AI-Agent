@@ -2203,8 +2203,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
 
     # ─── Interception RDV AVANT Gemini ───
     if detect_rdv_intent(message):
-        print(f"[RDV DEBUG] vehicle_shown={session.get('vehicle_shown', {})}")
-        print(f"[RDV DEBUG] message={message[:50]}")
+
         _shown = session.get("vehicle_shown", {})
         _rdv_prop = extract_proposition_number(message)
         if _rdv_prop and _shown.get(_rdv_prop):
@@ -2779,7 +2778,7 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         import re as _re
         _year_match = _re.search(r'\b(20\d{2})\b', vehicle_filter or '')
         _year_filter = _year_match.group(1) if _year_match else None
-        print(f"[SEARCH DEBUG] vehicle_filter={vehicle_filter} fuel_filter={_fuel_filter} year_filter={_year_filter}")
+
 
         cache_results = search_inventory_cache(query, limit=5, vehicle_filter=vehicle_filter,
                                                fuel_filter=_fuel_filter, year_filter=_year_filter)
