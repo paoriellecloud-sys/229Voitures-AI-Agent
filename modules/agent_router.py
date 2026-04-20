@@ -2105,6 +2105,22 @@ def extract_lead_info(message: str) -> dict:
     return info
 
 
+def _is_opinion_question(message: str) -> bool:
+    msg = message.lower()
+    patterns = [
+        'que penses-tu', 'qu\'en penses-tu', 'ton avis',
+        'est-ce fiable', 'c\'est fiable', 'est-ce bon',
+        'c\'est comment', 'vaut-il', 'ça vaut',
+        'recommandes-tu', 'est-ce que c\'est bien',
+        'que penses tu', 'tu en penses quoi',
+        'va sortir', 'va-t-il sortir', 'sera disponible',
+        'c\'est quoi comme', 'comment est',
+        'bonne voiture', 'bon choix',
+        'fiabilite', 'fiabilité',
+    ]
+    return any(p in msg for p in patterns)
+
+
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
 
@@ -2369,6 +2385,9 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 session["context"]["selected_vehicle"] = _desc_best_vehicle
         intent_data = detect_intent(message, context_summary)
     intent = intent_data.get("intent", "CHAT")
+    # Si question d'opinion/conseil → forcer CHAT, pas de recherche inventaire
+    if intent == "SEARCH" and _is_opinion_question(message):
+        intent = "CHAT"
     result = {}
 
     # ─── Collecte progressive lead — priorité absolue sur tout autre intent ───
