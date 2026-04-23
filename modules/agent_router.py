@@ -713,6 +713,14 @@ Dans ce cas → poser UNE question de clarification :
 "Quel type de VUS recherches-tu ? Budget approximatif ?"
 
 ═══════════════════════════════════════
+## RÈGLE — COHÉRENCE FICHES ET TEXTE
+═══════════════════════════════════════
+- Tu décris UNIQUEMENT les véhicules qui te sont fournis dans le contexte
+- Tu ne mentionnes JAMAIS de véhicule #4, #5 ou plus
+- Si 3 véhicules sont fournis → tu décris exactement ces 3 véhicules
+- Le texte de ta réponse doit correspondre exactement aux fiches affichées
+
+═══════════════════════════════════════
 RÈGLE ANTI-HALLUCINATION VÉHICULES — PRIORITÉ ABSOLUE #1
 ═══════════════════════════════════════
 ❌ NE JAMAIS présenter une fiche véhicule (prix, km, concessionnaire, VIN, stock) qui n'a PAS été fournie dans ce prompt entre les marqueurs "=== VÉHICULES DISPONIBLES ===" et "=== FIN DES DONNÉES FORCE OCCASION ==="
@@ -2884,19 +2892,21 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         _year_filter = _year_match.group(1) if _year_match else None
 
 
-        cache_results = search_inventory_cache(query, limit=5, vehicle_filter=vehicle_filter,
+        cache_results = search_inventory_cache(query, limit=3, vehicle_filter=vehicle_filter,
                                                fuel_filter=_fuel_filter, year_filter=_year_filter)
 
         if cache_results:
-            cache_text = format_cache_results_for_prompt(cache_results)
-            session["context"]["last_listings"] = [r["url"] for r in cache_results]
+            vehicles_3 = cache_results[:3]
+            cache_text = format_cache_results_for_prompt(vehicles_3)
+            session["context"]["last_listings"] = [r["url"] for r in vehicles_3]
             session["context"]["last_results"] = [
                 {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
-                for r in cache_results
+                for r in vehicles_3
             ]
             # Sauvegarder les véhicules complets pour la référence par proposition
-            session["vehicle_shown"] = {i + 1: r for i, r in enumerate(cache_results[:3])}
+            session["vehicle_shown"] = {i + 1: r for i, r in enumerate(vehicles_3)}
 
+            _n = len(vehicles_3)
             prompt = f"""
 {SYSTEM_PROMPT}
 
@@ -2909,7 +2919,9 @@ Contexte: {context_summary}
 
 RECHERCHE DE L'UTILISATEUR : "{query}"
 
-INSTRUCTIONS :
+INSTRUCTIONS STRICTES :
+- Voici exactement {_n} véhicule(s) disponibles dans l'inventaire. Décris UNIQUEMENT ces {_n} véhicules, dans l'ordre, sans en mentionner d'autres.
+- Nomme-les Proposition 1, Proposition 2, Proposition 3 (selon le nombre fourni). NE PAS aller au-delà.
 - Les fiches véhicules sont affichées automatiquement — NE PAS répéter leurs spécifications (prix, km, moteur, transmission, etc.)
 - Fournis UNIQUEMENT une courte analyse (1 à 3 phrases) : points forts, ce qui les distingue, ou un conseil d'achat
 - Si le kilométrage > 100 000 km, mentionne brièvement de vérifier le VIN
@@ -2936,7 +2948,9 @@ Contexte: {context_summary}
 
 RECHERCHE DE L'UTILISATEUR : "{query}"
 
-INSTRUCTIONS :
+INSTRUCTIONS STRICTES :
+- Voici exactement {_n} véhicule(s) disponibles dans l'inventaire. Décris UNIQUEMENT ces {_n} véhicules, dans l'ordre, sans en mentionner d'autres.
+- Nomme-les Proposition 1, Proposition 2, Proposition 3 (selon le nombre fourni). NE PAS aller au-delà.
 - Les fiches véhicules sont affichées automatiquement — NE PAS répéter leurs spécifications (prix, km, moteur, transmission, etc.)
 - Fournis UNIQUEMENT une courte analyse (1 à 3 phrases) : points forts, ce qui les distingue, ou un conseil d'achat
 - Si le kilométrage > 100 000 km, mentionne brièvement de vérifier le VIN
@@ -2945,7 +2959,7 @@ INSTRUCTIONS :
 - NE PAS inclure de HTML brut dans ta réponse
 """
             response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-            html_cards = format_vehicles_html_block(cache_results)
+            html_cards = format_vehicles_html_block(vehicles_3)
             result = {
                 "intent": "SEARCH",
                 "response": response.text,
