@@ -2142,6 +2142,33 @@ def _is_opinion_question(message: str) -> bool:
     return any(p in msg for p in patterns)
 
 
+def _needs_clarification(message: str, session: dict) -> bool:
+    """
+    Retourne True si l'agent doit poser une question
+    de clarification avant de chercher dans la DB.
+    """
+    msg = message.lower()
+
+    # Si l'utilisateur mentionne un échange → clarifier
+    if any(w in msg for w in ['échanger', 'echange', 'trade', 'reprendre']):
+        return True
+
+    return False
+
+
+def _get_clarification_message(message: str) -> str:
+    msg = message.lower()
+
+    if any(w in msg for w in ['échanger', 'echange', 'trade']):
+        return ("Super — tu veux échanger ton véhicule actuel pour un VUS. "
+                "Pour te proposer les meilleures options, j'ai besoin de savoir : "
+                "quel est ton budget mensuel approximatif, et y a-t-il des marques "
+                "que tu préfères ou que tu veux éviter ?")
+
+    return ("Pour affiner ma recherche, peux-tu me donner : "
+            "ton budget approximatif et une marque ou un type de véhicule préféré ?")
+
+
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
 
@@ -2409,6 +2436,9 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     # Si question d'opinion/conseil → forcer CHAT, pas de recherche inventaire
     if intent == "SEARCH" and _is_opinion_question(message):
         intent = "CHAT"
+    # Si contexte ambigu (échange, trade) → demander clarification avant de chercher
+    if intent == "SEARCH" and _needs_clarification(message, session):
+        return {"intent": "CHAT", "response": _get_clarification_message(message), "html_cards": ""}
     result = {}
 
     # ─── Collecte progressive lead — priorité absolue sur tout autre intent ───
