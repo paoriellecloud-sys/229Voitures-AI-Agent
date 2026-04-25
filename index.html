@@ -290,28 +290,6 @@
     white-space: nowrap;
   }
 
-  .welcome-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-  }
-
-  .welcome-chip {
-    background: transparent;
-    border: 1px solid var(--border2);
-    border-radius: 20px;
-    padding: 8px 16px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .welcome-chip:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
@@ -893,12 +871,6 @@
             oninput="syncWelcomeInput(this)"
             onkeydown="handleKey(event)"></textarea>
           <button onclick="sendMessage()">Envoyer</button>
-        </div>
-        <div class="welcome-chips">
-          <button class="welcome-chip" onclick="injectSuggestion('Je cherche un VUS fiable sous 30 000$')">Je cherche un VUS</button>
-          <button class="welcome-chip" onclick="injectSuggestion('Est-ce que les frais de préparation sont légaux?')">Mes droits</button>
-          <button class="welcome-chip" onclick="injectSuggestion('Comment négocier le prix?')">Négocier</button>
-          <button class="welcome-chip" onclick="injectSuggestion('Analyse mon contrat')">Analyser un contrat</button>
         </div>
       </div>
     </div>
