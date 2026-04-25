@@ -1340,6 +1340,54 @@ def _get_clarification_message(message: str, session: dict) -> str:
             "ton budget approximatif et une marque ou un type de véhicule préféré ?")
 
 
+def _generate_vehicle_alerts(vehicle: dict) -> list:
+    """
+    Génère automatiquement les alertes pour un véhicule.
+    Retourne une liste de strings d'alertes.
+    """
+    alerts = []
+
+    km = vehicle.get("mileage") or vehicle.get("km") or 0
+    price_status = vehicle.get("price_status", "")
+    price_diff = vehicle.get("price_diff") or 0
+    make = str(vehicle.get("make", "")).lower()
+    model = str(vehicle.get("model", "")).lower()
+    year = int(vehicle.get("year") or 0)
+    fuel = str(vehicle.get("fuel_type", "")).lower()
+
+    # Kilométrage élevé
+    if km > 100000:
+        alerts.append(f"⚠️ {km:,} km — inspection mécanique indépendante obligatoire avant achat")
+    elif km > 80000:
+        alerts.append(f"⚠️ {km:,} km — inspection recommandée")
+
+    # Prix au-dessus du marché
+    if "élevé" in price_status or "eleve" in price_status:
+        alerts.append(f"💡 Prix {abs(price_diff):.0f}$ au-dessus du marché — levier de négociation")
+
+    # Alertes mécaniques par modèle
+    if "acadia" in model and 2017 <= year <= 2022:
+        alerts.append("🔧 Rappel transmission 'Shift to Park' — vérifier si complété")
+    if "equinox" in model and "2.4" in str(vehicle.get("engine", "")) and 2010 <= year <= 2017:
+        alerts.append("🔧 Consommation d'huile excessive connue sur ce moteur")
+    if "explorer" in model and 2011 <= year <= 2017:
+        alerts.append("🔧 Fuite d'échappement dans l'habitacle — vérifier rappel")
+    if "cr-v" in model and 2017 <= year <= 2019:
+        alerts.append("🔧 Dilution d'huile par essence en hiver — vérifier historique")
+    if "cherokee" in model and 2014 <= year <= 2018:
+        alerts.append("🔧 Transmission 9 vitesses problématique — tester soigneusement")
+    if make == "subaru" and 2013 <= year <= 2015:
+        alerts.append("🔧 Joint de culasse — exiger historique d'entretien complet")
+
+    # Véhicule électrique/hybride → rabais gouvernementaux
+    if "phev" in fuel or "électrique" in fuel or "electrique" in fuel:
+        alerts.append("💰 Éligible rabais Roulez Vert (jusqu'à 4 000$) + fédéral (jusqu'à 5 000$)")
+    elif "hybride" in fuel or "hybrid" in fuel:
+        alerts.append("💰 Vérifier éligibilité rabais gouvernementaux Roulez Vert")
+
+    return alerts
+
+
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
 
@@ -2043,6 +2091,12 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         if cache_results:
             vehicles_3 = cache_results[:3]
             cache_text = format_cache_results_for_prompt(vehicles_3)
+            for r in vehicles_3:
+                alerts = _generate_vehicle_alerts(r)
+                if alerts:
+                    cache_text += "\nALERTES AUTOMATIQUES:\n"
+                    for alert in alerts:
+                        cache_text += f"  {alert}\n"
             session["context"]["last_listings"] = [r["url"] for r in vehicles_3]
             session["context"]["last_results"] = [
                 {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
