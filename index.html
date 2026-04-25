@@ -936,8 +936,7 @@ async function tryLogin() {
 }
 
 function enableChat() {
-  document.getElementById('placeholder').style.display = 'none';
-  document.getElementById('messages').style.display = 'flex';
+  // Placeholder masqué au premier message, pas à la connexion
 }
 
 function smartScroll() {
@@ -971,7 +970,6 @@ async function autoLogin() {
       if (token) {
         enableChat();
         setStatus(true, 'En ligne · Canada');
-        addMsg('ai', 'Bonjour ! 👋 Je suis 229Voitures AI Agent, votre compagnon automobile au Canada. Posez-moi une question ou cliquez sur une suggestion !');
         return;
       }
     } catch(e) {}
@@ -1313,6 +1311,12 @@ async function sendMessage() {
 
   input.value = '';
   input.style.height = 'auto';
+  const messages = document.getElementById('messages');
+  const placeholder = document.getElementById('placeholder');
+  if (placeholder.style.display !== 'none') {
+    placeholder.style.display = 'none';
+    messages.style.display = 'flex';
+  }
   addMsg('user', text);
   input.disabled = true;
   document.getElementById('send-btn').disabled = true;
