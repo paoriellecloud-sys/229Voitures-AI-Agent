@@ -226,73 +226,95 @@
   #placeholder {
     flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px;
+    padding: 40px 20px 120px 20px;
   }
 
   .welcome-screen {
     display: flex;
     flex-direction: column;
     align-items: center;
-    text-align: center;
-    gap: 16px;
-    max-width: 600px;
-    animation: fadeIn 0.4s ease;
+    gap: 20px;
+    width: 100%;
+    max-width: 680px;
+    animation: fadeIn 0.3s ease;
   }
-
-  .welcome-logo { font-size: 3.5rem; margin-bottom: 4px; }
 
   .welcome-title {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 2.2rem;
+    font-size: 2rem;
     font-weight: 700;
     color: var(--accent);
     margin: 0;
   }
 
   .welcome-subtitle {
-    font-size: 1rem;
+    font-size: 0.95rem;
     color: var(--text-muted);
     margin: 0;
   }
 
-  .welcome-tagline {
+  .welcome-input-wrap {
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 24px;
+    padding: 10px 10px 10px 20px;
+  }
+
+  .welcome-input-wrap textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 0.95rem;
+    resize: none;
+    max-height: 120px;
+    font-family: inherit;
+  }
+
+  .welcome-input-wrap button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 18px;
+    padding: 8px 18px;
+    font-weight: 600;
+    cursor: pointer;
     font-size: 0.9rem;
-    color: var(--text-muted);
-    line-height: 1.6;
-    opacity: 0.7;
-    margin: 0;
+    white-space: nowrap;
   }
 
-  .welcome-suggestions {
+  .welcome-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
-    margin-top: 8px;
   }
 
   .welcome-chip {
-    background: var(--surface2);
+    background: transparent;
     border: 1px solid var(--border2);
     border-radius: 20px;
-    padding: 10px 18px;
+    padding: 8px 16px;
     font-size: 0.85rem;
-    color: var(--text);
+    color: var(--text-muted);
     cursor: pointer;
     transition: all 0.2s ease;
   }
 
   .welcome-chip:hover {
-    background: var(--accent);
-    color: #000;
     border-color: var(--accent);
+    color: var(--accent);
   }
 
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
 
@@ -862,15 +884,21 @@
   <section class="chat">
     <div id="placeholder">
       <div class="welcome-screen">
-        <div class="welcome-logo">🚗</div>
         <h1 class="welcome-title">229Voitures</h1>
         <p class="welcome-subtitle">Ton conseiller automobile au Québec</p>
-        <p class="welcome-tagline">Je suis là pour t'aider à trouver le bon véhicule<br>sans te faire avoir en concession.</p>
-        <div class="welcome-suggestions">
-          <button class="welcome-chip" onclick="injectSuggestion('Je cherche un VUS fiable sous 30 000$')">🔍 Je cherche un VUS</button>
-          <button class="welcome-chip" onclick="injectSuggestion('Est-ce que les frais de préparation sont légaux?')">⚖️ Mes droits en concession</button>
-          <button class="welcome-chip" onclick="injectSuggestion('Comment négocier le prix d\'un véhicule?')">💡 Négocier un prix</button>
-          <button class="welcome-chip" onclick="injectSuggestion('Je veux analyser un contrat ou une soumission')">📄 Analyser un contrat</button>
+        <div class="welcome-input-wrap">
+          <textarea id="welcome-input"
+            placeholder="Pose ta question..."
+            rows="1"
+            oninput="syncWelcomeInput(this)"
+            onkeydown="handleKey(event)"></textarea>
+          <button onclick="sendMessage()">Envoyer</button>
+        </div>
+        <div class="welcome-chips">
+          <button class="welcome-chip" onclick="injectSuggestion('Je cherche un VUS fiable sous 30 000$')">Je cherche un VUS</button>
+          <button class="welcome-chip" onclick="injectSuggestion('Est-ce que les frais de préparation sont légaux?')">Mes droits</button>
+          <button class="welcome-chip" onclick="injectSuggestion('Comment négocier le prix?')">Négocier</button>
+          <button class="welcome-chip" onclick="injectSuggestion('Analyse mon contrat')">Analyser un contrat</button>
         </div>
       </div>
     </div>
@@ -1290,6 +1318,12 @@ async function sendImageWithContext() {
   } finally {
     document.getElementById('send-btn').disabled = false;
   }
+}
+
+function syncWelcomeInput(el) {
+  const mainInput = document.getElementById('chat-input');
+  mainInput.value = el.value;
+  autoResize(el);
 }
 
 function injectSuggestion(text) {
