@@ -226,6 +226,7 @@
     flex: 1;
     overflow-y: auto;
     height: 100%;
+    padding-bottom: 80px;
     background: var(--bg);
   }
 
@@ -598,7 +599,7 @@
   /* INPUT BAR */
   .input-bar {
     position: fixed;
-    bottom: 0;
+    bottom: 28px;
     left: 260px;
     right: 0;
     background: #111;
@@ -773,13 +774,17 @@
 
   /* Legal footer */
   .legal-footer {
+    position: fixed;
+    bottom: 0;
+    left: 260px;
+    right: 0;
     text-align: center;
     font-size: 11px;
-    color: #aaaaaa;
-    padding: 8px 24px;
+    color: var(--text-muted);
+    padding: 6px 24px;
     background: var(--surface);
     border-top: 0.5px solid var(--border);
-    line-height: 1.5;
+    z-index: 999;
   }
 
   /* RESPONSIVE MOBILE */
@@ -1386,9 +1391,7 @@ window.addEventListener('load', () => {
 </script>
 
 <div class="legal-footer">
-  ⚠️ 229Voitures AI Agent fournit des informations à titre indicatif uniquement. 
-  Les prix, taxes et estimations de financement sont approximatifs. 
-  Consultez un professionnel avant tout achat. 229Voitures n'est pas un conseiller financier ou juridique.
+  ⚠ Informations à titre indicatif — consultez un professionnel avant tout achat.
 </div>
 
 </body>
