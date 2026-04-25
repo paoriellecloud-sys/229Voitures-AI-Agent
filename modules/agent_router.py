@@ -10,8 +10,17 @@ import re
 import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
+import unicodedata
 
 load_dotenv()
+
+
+def _normalize_text(s: str) -> str:
+    s = str(s).lower()
+    s = unicodedata.normalize('NFD', s)
+    s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+    s = s.replace('-', ' ')
+    return s
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 DB_PATH = os.environ.get("DB_PATH", "/home/ubuntu/data/229voitures.db")
@@ -1374,25 +1383,24 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         elif _shown:
             # Chercher le véhicule mentionné dans le message avec score de priorité
             _rdv_vehicle = None
-            msg_lower_rdv = message.lower()
+            msg_norm = _normalize_text(message)
             _best_score = -1
             for k, v in _shown.items():
-                make = str(v.get("make", "")).lower()
-                model = str(v.get("model", "")).lower()
-                year = str(v.get("year", ""))
-                dealer = str(v.get("dealer_name", "")).lower()
-                city = str(v.get("city", "")).lower()
+                make   = _normalize_text(v.get("make", ""))
+                model  = _normalize_text(v.get("model", ""))
+                year   = str(v.get("year", ""))
+                dealer = _normalize_text(v.get("dealer_name", ""))
+                city   = _normalize_text(v.get("city", ""))
                 _score = 0
-                if model and model in msg_lower_rdv:
-                    _score += 2
-                if make and make in msg_lower_rdv:
-                    _score += 1
-                if year and year in msg_lower_rdv:
-                    _score += 1
-                if dealer and dealer in msg_lower_rdv:
-                    _score += 2  # dealer = fort signal de spécificité
-                if city and city in msg_lower_rdv:
-                    _score += 2  # ville = fort signal de spécificité
+                if model  and model  in msg_norm: _score += 2
+                if make   and make   in msg_norm: _score += 1
+                if year   and year   in msg_norm: _score += 1
+                if dealer and dealer in msg_norm: _score += 2
+                if city   and city   in msg_norm: _score += 2
+                for mot in dealer.split():
+                    if len(mot) > 3 and mot in msg_norm: _score += 1
+                for mot in city.split():
+                    if len(mot) > 3 and mot in msg_norm: _score += 1
                 if _score > _best_score:
                     _best_score = _score
                     if _score > 0:
@@ -1450,7 +1458,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     else:
         # Chercher par description dans vehicle_shown avant appel Gemini
         if session.get("vehicle_shown"):
-            msg_lower = message.lower()
+            msg_norm = _normalize_text(message)
             _shown = session["vehicle_shown"]
             _desc_best_score = 0
             _desc_best_vehicle = None
@@ -1459,53 +1467,53 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             _years    = [int(sv.get("year", 0) or 0) for sv in _shown.values()]
             for k, v in _shown.items():
                 _dscore = 0
-                _d_make         = str(v.get("make", "")).lower()
-                _d_model        = str(v.get("model", "")).lower()
+                _d_make         = _normalize_text(v.get("make", ""))
+                _d_model        = _normalize_text(v.get("model", ""))
                 _d_year         = str(v.get("year", ""))
-                _d_dealer       = str(v.get("dealer_name", "")).lower()
-                _d_city         = str(v.get("city", "")).lower()
-                _d_color        = str(v.get("color", "")).lower()
-                _d_fuel         = str(v.get("fuel_type", "")).lower()
-                _d_transmission = str(v.get("transmission", "")).lower()
-                _d_drivetrain   = str(v.get("drivetrain", "")).lower()
+                _d_dealer       = _normalize_text(v.get("dealer_name", ""))
+                _d_city         = _normalize_text(v.get("city", ""))
+                _d_color        = _normalize_text(v.get("color", ""))
+                _d_fuel         = _normalize_text(v.get("fuel_type", ""))
+                _d_transmission = _normalize_text(v.get("transmission", ""))
+                _d_drivetrain   = _normalize_text(v.get("drivetrain", ""))
                 _d_price        = float(v.get("price", 0) or 0)
                 _d_mileage      = int(v.get("mileage", 0) or 0)
                 _d_year_int     = int(v.get("year", 0) or 0)
                 # Champs de base
-                if _d_model  and _d_model  in msg_lower: _dscore += 2
-                if _d_dealer and _d_dealer in msg_lower: _dscore += 2
-                if _d_city   and _d_city   in msg_lower: _dscore += 2
-                if _d_color  and _d_color  in msg_lower: _dscore += 2
-                if _d_year   and _d_year   in msg_lower: _dscore += 3
-                if _d_make   and _d_make   in msg_lower: _dscore += 1
+                if _d_model  and _d_model  in msg_norm: _dscore += 2
+                if _d_dealer and _d_dealer in msg_norm: _dscore += 2
+                if _d_city   and _d_city   in msg_norm: _dscore += 2
+                if _d_color  and _d_color  in msg_norm: _dscore += 2
+                if _d_year   and _d_year   in msg_norm: _dscore += 3
+                if _d_make   and _d_make   in msg_norm: _dscore += 1
                 # Carburant
-                if _d_fuel and _d_fuel in msg_lower: _dscore += 2
-                if "hybrid"    in msg_lower and "hybrid"  in _d_fuel: _dscore += 2
-                if "hybride"   in msg_lower and "hybrid"  in _d_fuel: _dscore += 2
-                if "électrique" in msg_lower and "electr" in _d_fuel: _dscore += 2
-                if "essence"   in msg_lower and "essence" in _d_fuel: _dscore += 2
-                if "phev"      in msg_lower and "phev"    in _d_fuel: _dscore += 2
+                if _d_fuel and _d_fuel in msg_norm: _dscore += 2
+                if "hybrid"     in msg_norm and "hybrid"  in _d_fuel: _dscore += 2
+                if "hybride"    in msg_norm and "hybrid"  in _d_fuel: _dscore += 2
+                if "electrique" in msg_norm and "electr"  in _d_fuel: _dscore += 2
+                if "essence"    in msg_norm and "essence" in _d_fuel: _dscore += 2
+                if "phev"       in msg_norm and "phev"    in _d_fuel: _dscore += 2
                 # Couleur
                 for _cw, _cf in [("blanc","blanc"),("noir","noir"),("bleu","bleu"),
                                   ("rouge","rouge"),("gris","gris"),("argent","argent")]:
-                    if _cw in msg_lower and _cf in _d_color: _dscore += 2
+                    if _cw in msg_norm and _cf in _d_color: _dscore += 2
                 # Traction
-                if "intégrale" in msg_lower and "intégrale" in _d_drivetrain: _dscore += 2
-                if "awd"       in msg_lower and "intégrale" in _d_drivetrain: _dscore += 2
-                if "4x4"       in msg_lower and ("4 roues" in _d_drivetrain or "intégrale" in _d_drivetrain): _dscore += 2
+                if "integrale" in msg_norm and "integrale" in _d_drivetrain: _dscore += 2
+                if "awd"       in msg_norm and "integrale" in _d_drivetrain: _dscore += 2
+                if "4x4"       in msg_norm and ("4 roues" in _d_drivetrain or "integrale" in _d_drivetrain): _dscore += 2
                 # Prix relatif
                 if _prices:
-                    if any(w in msg_lower for w in ["moins cher","plus abordable","économique","budget"]):
+                    if any(w in msg_norm for w in ["moins cher","plus abordable","economique","budget"]):
                         if _d_price == min(_prices): _dscore += 3
-                    if any(w in msg_lower for w in ["plus cher","haut de gamme","premium","luxe"]):
+                    if any(w in msg_norm for w in ["plus cher","haut de gamme","premium","luxe"]):
                         if _d_price == max(_prices): _dscore += 3
                 # Kilométrage relatif
                 if _mileages:
-                    if any(w in msg_lower for w in ["moins de km","moins kilométré","faible kilométrage"]):
+                    if any(w in msg_norm for w in ["moins de km","moins kilometre","faible kilometrage"]):
                         if _d_mileage == min(_mileages): _dscore += 3
                 # Année la plus récente
                 if _years:
-                    if any(w in msg_lower for w in ["plus récent","plus neuf","dernière année"]):
+                    if any(w in msg_norm for w in ["plus recent","plus neuf","derniere annee"]):
                         if _d_year_int == max(_years): _dscore += 3
                 if _dscore > _desc_best_score:
                     _desc_best_score = _dscore
