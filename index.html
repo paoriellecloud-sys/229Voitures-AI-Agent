@@ -913,7 +913,7 @@
       <button class="image-send-btn" onclick="sendImageWithContext()">Analyser →</button>
     </div>
 
-    <div class="input-bar">
+    <div class="input-bar" style="display:none">
       <div class="input-wrap">
         <button id="upload-btn" title="Analyser un contrat ou une photo" onclick="document.getElementById('file-input').click()">📎</button>
         <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
@@ -1350,6 +1350,7 @@ async function sendMessage() {
   if (placeholder.style.display !== 'none') {
     placeholder.style.display = 'none';
     messages.style.display = 'flex';
+    document.querySelector('.input-bar').style.display = 'block';
   }
   addMsg('user', text);
   input.disabled = true;
