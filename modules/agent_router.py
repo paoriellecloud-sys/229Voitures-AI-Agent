@@ -1367,6 +1367,8 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         _rdv_prop = extract_proposition_number(message)
         if _rdv_prop and _shown.get(_rdv_prop):
             _rdv_vehicle = _shown[_rdv_prop]
+        elif session["context"].get("selected_vehicle"):
+            _rdv_vehicle = session["context"]["selected_vehicle"]
         elif len(_shown) == 1:
             _rdv_vehicle = _shown[1]
         elif _shown:
@@ -1580,6 +1582,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 print(f"[smart_chat] Intérêt implicite détecté → Proposition 1 (seul véhicule en session)")
         if _prop_num and _shown.get(_prop_num):
             v = _shown[_prop_num]
+            session["context"]["selected_vehicle"] = v
             _veh_ctx = f"""
 CONTEXTE — L'utilisateur parle de la Proposition {_prop_num} présentée dans cette session.
 Réponds UNIQUEMENT sur CE véhicule. Ne PAS relancer de recherche. Ne PAS réafficher les 3 propositions.
