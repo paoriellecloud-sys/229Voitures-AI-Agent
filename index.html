@@ -827,7 +827,8 @@
     }
 
     .sidebar {
-      display: none !important;
+      transform: translateX(-100%);
+      display: flex !important;
       position: fixed;
       top: 66px;
       left: 0;
@@ -835,10 +836,11 @@
       height: calc(100vh - 66px);
       z-index: 200;
       flex-direction: column;
+      transition: transform 0.3s ease;
     }
 
     .sidebar.open {
-      display: flex !important;
+      transform: translateX(0);
     }
 
     .app {
@@ -1002,15 +1004,9 @@ function setStatus(on, label) {
 function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
   const overlay = document.getElementById('sidebar-overlay');
-  const isOpen = sidebar.style.display === 'flex' ||
-                 sidebar.style.display === 'block';
-  if (isOpen) {
-    sidebar.style.display = 'none';
-    overlay.style.display = 'none';
-  } else {
-    sidebar.style.display = 'flex';
-    overlay.style.display = 'block';
-  }
+  sidebar.classList.toggle('open');
+  const isOpen = sidebar.classList.contains('open');
+  overlay.style.display = isOpen ? 'block' : 'none';
 }
 
 function autoResize(el) {
