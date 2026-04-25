@@ -823,58 +823,61 @@
   @media (max-width: 768px) {
 
     .sidebar {
-      display: none;
+      display: none !important;
     }
 
     .app {
-      padding-left: 0;
+      padding-left: 0 !important;
       margin-top: 66px;
       height: calc(100vh - 66px);
-    }
-
-    .chat {
-      width: 100%;
+      flex-direction: column;
     }
 
     #placeholder {
-      padding: 40px 16px 120px 16px;
+      width: 100%;
+      padding: 60px 16px 100px 16px;
+      box-sizing: border-box;
     }
 
     .welcome-screen {
+      width: 100%;
       max-width: 100%;
       padding: 0 16px;
+      box-sizing: border-box;
     }
 
     .welcome-input-wrap {
       width: 100%;
+      box-sizing: border-box;
+    }
+
+    .welcome-title {
+      font-size: 1.5rem;
     }
 
     .input-bar {
-      left: 0;
+      left: 0 !important;
+      right: 0 !important;
       bottom: 28px;
-      padding: 10px 12px;
     }
 
     .legal-footer {
-      left: 0;
+      left: 0 !important;
+      right: 0 !important;
       font-size: 10px;
-      padding: 4px 12px;
-    }
-
-    .message {
-      max-width: 100%;
-    }
-
-    .bubble {
-      max-width: 85vw;
     }
 
     #messages {
       padding: 16px 12px 160px 12px;
     }
 
+    .bubble {
+      max-width: 90vw;
+    }
+
     .vehicle-card {
       max-width: 100% !important;
+      width: 100% !important;
     }
 
   }
