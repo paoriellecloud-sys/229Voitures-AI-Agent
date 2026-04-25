@@ -975,7 +975,6 @@ Question clé : "L'utilisateur mentionne-t-il un véhicule, une marque, un modè
   - "t'as-tu un Escape" → SEARCH, vehicle_filter="ford escape"
   - "je me magasine un VUS" → SEARCH, vehicle_filter="vus"
   - "c'est quoi tes prix sur les Civic" → SEARCH, vehicle_filter="honda civic"
-  - "un RAV4 c'est bien ?" → SEARCH, vehicle_filter="toyota rav4"
   - "je pense à un Kona" → SEARCH, vehicle_filter="hyundai kona"
   - "qu'est-ce que t'as comme berline" → SEARCH, vehicle_filter="berline"
   - "show me some SUVs" → SEARCH, vehicle_filter="suv"
@@ -988,8 +987,24 @@ Question clé : "L'utilisateur mentionne-t-il un véhicule, une marque, un modè
   - "j'ai un Elantra, je veux un VUS" → SEARCH, vehicle_filter="vus"
   - "j'ai une berline, je cherche une camionnette" → SEARCH, vehicle_filter="camionnette"
 
-  EN CAS DE DOUTE → SEARCH. Un faux positif SEARCH est toujours mieux qu'un CHAT qui dit
-  "je n'ai pas ce véhicule" alors qu'il l'a.
+EXCEPTION — QUESTIONS D'OPINION :
+Ces messages doivent être classifiés CHAT
+même s'ils mentionnent un modèle :
+- "que penses-tu du Seltos 2022 ?"
+- "est-ce que le RAV4 est fiable ?"
+- "quels sont les problèmes du CR-V ?"
+- "c'est quoi les défauts du Kona ?"
+- "vaut-il la peine d'acheter un Tucson ?"
+
+Mots-clés → CHAT (pas SEARCH) :
+"que penses-tu", "penses-tu", "fiable",
+"problèmes", "défauts", "avis", "opinion",
+"vaut-il", "c'est bien", "recommandes-tu",
+"quels sont les"
+
+  EN CAS DE DOUTE → SEARCH.
+  SAUF si le message contient un des
+  mots-clés d'opinion ci-dessus → CHAT.
 
 - CHAT : SI NON — question générale sans véhicule spécifique mentionné
   * "c'est quoi la différence entre AWD et 4x4" → CHAT
