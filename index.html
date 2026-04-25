@@ -822,8 +822,23 @@
 
   @media (max-width: 768px) {
 
+    #hamburger {
+      display: block !important;
+    }
+
     .sidebar {
       display: none !important;
+      position: fixed;
+      top: 66px;
+      left: 0;
+      width: 280px;
+      height: calc(100vh - 66px);
+      z-index: 200;
+      flex-direction: column;
+    }
+
+    .sidebar.open {
+      display: flex !important;
     }
 
     .app {
@@ -886,6 +901,10 @@
 <body>
 
 <header>
+  <button id="hamburger" onclick="toggleSidebar()"
+    style="display:none; background:none; border:none;
+    color:var(--text); font-size:1.4rem; cursor:pointer;
+    padding:8px; margin-right:8px;">☰</button>
   <div class="logo">
     <div class="logo-badge"><span>229</span></div>
     <div class="logo-text">
@@ -898,6 +917,13 @@
     <span id="status-text">Connexion...</span>
   </div>
 </header>
+
+<div id="sidebar-overlay"
+  onclick="toggleSidebar()"
+  style="display:none; position:fixed; top:0;
+  left:0; right:0; bottom:0;
+  background:rgba(0,0,0,0.5); z-index:99;">
+</div>
 
 <div class="app">
 
@@ -971,6 +997,20 @@ const userId = sessionStorage.getItem('user_id') || (() => {
 function setStatus(on, label) {
   document.getElementById('status-dot').className = 'status-dot' + (on ? ' online' : '');
   document.getElementById('status-text').textContent = label;
+}
+
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const isOpen = sidebar.style.display === 'flex' ||
+                 sidebar.style.display === 'block';
+  if (isOpen) {
+    sidebar.style.display = 'none';
+    overlay.style.display = 'none';
+  } else {
+    sidebar.style.display = 'flex';
+    overlay.style.display = 'block';
+  }
 }
 
 function autoResize(el) {
