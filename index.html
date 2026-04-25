@@ -42,16 +42,17 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body, html {
-    overflow: hidden;
     height: 100%;
     margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 
   body {
     font-family: 'DM Sans', sans-serif;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
+    height: 100%;
     display: flex;
     flex-direction: column;
   }
@@ -147,6 +148,7 @@
   .app {
     display: flex;
     flex-direction: row;
+    margin-top: 66px;
     height: calc(100vh - 66px);
     padding-left: 260px;
     overflow: hidden;
@@ -226,8 +228,7 @@
     flex: 1;
     overflow-y: auto;
     min-height: 0;
-    padding-bottom: 80px;
-    background: var(--bg);
+    height: 100%;
   }
 
   #placeholder {
@@ -236,7 +237,8 @@
     align-items: center;
     justify-content: center;
     width: 100%;
-    padding: 80px 20px 120px 20px;
+    height: 100%;
+    padding-bottom: 80px;
   }
 
   .welcome-screen {
@@ -305,13 +307,10 @@
   }
 
   #messages {
-    overflow-y: visible;
-    padding: 20px 24px;
-    padding-bottom: 100px;
+    padding: 20px 24px 160px 24px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    scroll-behavior: smooth;
   }
 
   #messages::-webkit-scrollbar { width: 3px; }
