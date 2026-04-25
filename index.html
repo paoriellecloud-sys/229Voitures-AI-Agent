@@ -148,8 +148,10 @@
 
   /* SIDEBAR */
   .sidebar {
+    position: static;
     width: 260px;
     flex-shrink: 0;
+    height: 100vh;
     background: var(--surface);
     border-right: 0.5px solid var(--border);
     display: flex;
@@ -833,24 +835,12 @@
     <div class="sidebar-section">
       <div class="section-label">Suggestions</div>
       <div class="suggestions">
-        <button class="chip" onclick="sendSuggestion('Trouve moi un Kia Seltos LX 2021 au Quebec')">
-          <span class="chip-icon">🔍</span>Kia Seltos LX 2021
-        </button>
-        <button class="chip" onclick="sendSuggestion('Toyota Corolla 2020 pour 15000, bonne affaire?')">
-          <span class="chip-icon">🚗</span>Toyota Corolla 2020
-        </button>
-        <button class="chip" onclick="sendSuggestion('Compare Honda CRV vs Toyota RAV4 2021 au Quebec')">
-          <span class="chip-icon">⚖️</span>Comparer 2 SUV
-        </button>
-        <button class="chip" onclick="sendSuggestion('Quelle voiture fiable pour famille de 4 sous 20000?')">
-          <span class="chip-icon">👨‍👩‍👧</span>Voiture familiale
-        </button>
-        <button class="chip" onclick="sendSuggestion('Trouve moi un VUS AWD 2020 sous 25000 au Canada')">
-          <span class="chip-icon">🛻</span>VUS AWD sous 25 000$
-        </button>
-        <button class="chip" onclick="sendSuggestion('Quels sont les problemes connus de la Honda Civic 2019?')">
-          <span class="chip-icon">🔧</span>Fiabilité Honda Civic
-        </button>
+        <button class="chip" onclick="injectSuggestion('Je cherche une auto')">Recherche d'auto</button>
+        <button class="chip" onclick="injectSuggestion('Je veux prendre un rendez-vous')">Prise de RDV</button>
+        <button class="chip" onclick="injectSuggestion('Je veux vérifier un NIV')">Vérification de NIV</button>
+        <button class="chip" onclick="injectSuggestion('Je veux analyser un contrat')">Analyser un contrat</button>
+        <button class="chip" onclick="injectSuggestion('Quels sont mes droits en concession?')">Mes droits en concession</button>
+        <button class="chip" onclick="injectSuggestion('Calcule mes mensualités')">Calculer mes mensualités</button>
       </div>
     </div>
     <div class="about-box">
