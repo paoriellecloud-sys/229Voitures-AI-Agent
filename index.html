@@ -41,6 +41,12 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  body, html {
+    overflow: hidden;
+    height: 100%;
+    margin: 0;
+  }
+
   body {
     font-family: 'DM Sans', sans-serif;
     background: var(--bg);
@@ -141,8 +147,7 @@
   .app {
     display: flex;
     flex-direction: row;
-    height: 100vh;
-    padding-top: 66px;
+    height: calc(100vh - 66px);
     padding-left: 260px;
     overflow: hidden;
   }
@@ -220,7 +225,7 @@
   .chat {
     flex: 1;
     overflow-y: auto;
-    height: 100vh;
+    height: 100%;
     background: var(--bg);
   }
 
@@ -298,8 +303,7 @@
   }
 
   #messages {
-    flex: 1;
-    overflow-y: auto;
+    overflow-y: visible;
     padding: 20px 24px;
     padding-bottom: 100px;
     display: flex;
