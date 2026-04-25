@@ -161,7 +161,7 @@ def format_vehicle_card(v: dict) -> str:
 
     # Carte sur une seule ligne — évite que formatText convertisse \n en <br> dans le HTML
     return (
-        '<div style="border-radius:10px;border:1px solid rgba(255,255,255,0.10);overflow:hidden;'
+        '<div class="vehicle-card" style="border-radius:10px;border:1px solid rgba(255,255,255,0.10);overflow:hidden;'
         'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:560px;margin:8px 0;background:rgba(255,255,255,0.04);">'
         # En-tête
         '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.08);">'

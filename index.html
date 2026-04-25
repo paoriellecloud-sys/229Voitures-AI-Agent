@@ -995,7 +995,37 @@ function addMsg(role, text, rawHtml = '') {
 
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.innerHTML = role === 'ai' ? (formatText(text) + rawHtml) : text.replace(/\n/g, '<br>');
+  if (role === 'ai' && rawHtml && text) {
+    const comments = {};
+    const propRegex = /Proposition\s+(\d+)\s*[:\-–]\s*([\s\S]*?)(?=Proposition\s+\d|$)/gi;
+    let match;
+    while ((match = propRegex.exec(text)) !== null) {
+      comments[match[1]] = match[2].trim();
+    }
+    if (Object.keys(comments).length > 0) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = rawHtml;
+      const cards = tempDiv.querySelectorAll('.vehicle-card');
+      if (cards.length > 0) {
+        cards.forEach((card, i) => {
+          const propNum = String(i + 1);
+          if (comments[propNum]) {
+            const commentDiv = document.createElement('div');
+            commentDiv.style.cssText = 'padding:8px 12px;margin:4px 0 12px 0;font-size:0.9em;color:#ccc;border-left:2px solid #f5a623;';
+            commentDiv.textContent = '💬 ' + comments[propNum];
+            card.appendChild(commentDiv);
+          }
+        });
+        bubble.innerHTML = formatText(text) + tempDiv.innerHTML;
+      } else {
+        bubble.innerHTML = formatText(text) + rawHtml;
+      }
+    } else {
+      bubble.innerHTML = formatText(text) + rawHtml;
+    }
+  } else {
+    bubble.innerHTML = role === 'ai' ? (formatText(text) + rawHtml) : text.replace(/\n/g, '<br>');
+  }
 
   row.appendChild(avatar);
   row.appendChild(bubble);
