@@ -143,22 +143,21 @@
     flex-direction: row;
     height: 100vh;
     padding-top: 66px;
+    padding-left: 260px;
     overflow: hidden;
   }
 
   /* SIDEBAR */
   .sidebar {
-    position: sticky;
-    top: 0;
-    height: 100vh;
+    position: fixed;
+    top: 66px;
+    left: 0;
     width: 260px;
-    flex-shrink: 0;
-    background: var(--surface);
-    border-right: 0.5px solid var(--border);
-    display: flex;
-    flex-direction: column;
+    height: calc(100vh - 66px);
     overflow-y: auto;
-    overflow-x: hidden;
+    background: #111;
+    border-right: 1px solid #222;
+    z-index: 100;
   }
 
   .sidebar-section {
