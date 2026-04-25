@@ -229,26 +229,71 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    text-align: center;
     padding: 40px;
   }
 
-  #placeholder .icon { font-size: 3rem; margin-bottom: 8px; }
-
-  #placeholder h2 {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: 0.04em;
+  .welcome-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+    max-width: 600px;
+    animation: fadeIn 0.4s ease;
   }
 
-  #placeholder p {
-    font-size: 13px;
+  .welcome-logo { font-size: 3.5rem; margin-bottom: 4px; }
+
+  .welcome-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  .welcome-subtitle {
+    font-size: 1rem;
     color: var(--text-muted);
-    max-width: 360px;
+    margin: 0;
+  }
+
+  .welcome-tagline {
+    font-size: 0.9rem;
+    color: var(--text-muted);
     line-height: 1.6;
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  .welcome-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .welcome-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 10px 18px;
+    font-size: 0.85rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .welcome-chip:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   #messages {
@@ -816,9 +861,18 @@
 
   <section class="chat">
     <div id="placeholder">
-      <div class="icon">🚘</div>
-      <h2>229VOITURES AI</h2>
-      <p>Votre compagnon automobile intelligent au Canada. Connexion en cours...</p>
+      <div class="welcome-screen">
+        <div class="welcome-logo">🚗</div>
+        <h1 class="welcome-title">229Voitures</h1>
+        <p class="welcome-subtitle">Ton conseiller automobile au Québec</p>
+        <p class="welcome-tagline">Je suis là pour t'aider à trouver le bon véhicule<br>sans te faire avoir en concession.</p>
+        <div class="welcome-suggestions">
+          <button class="welcome-chip" onclick="injectSuggestion('Je cherche un VUS fiable sous 30 000$')">🔍 Je cherche un VUS</button>
+          <button class="welcome-chip" onclick="injectSuggestion('Est-ce que les frais de préparation sont légaux?')">⚖️ Mes droits en concession</button>
+          <button class="welcome-chip" onclick="injectSuggestion('Comment négocier le prix d\'un véhicule?')">💡 Négocier un prix</button>
+          <button class="welcome-chip" onclick="injectSuggestion('Je veux analyser un contrat ou une soumission')">📄 Analyser un contrat</button>
+        </div>
+      </div>
     </div>
     <div id="messages" style="display:none"></div>
     <!-- Image context bar — shown when image is selected -->
@@ -884,6 +938,16 @@ async function tryLogin() {
 function enableChat() {
   document.getElementById('placeholder').style.display = 'none';
   document.getElementById('messages').style.display = 'flex';
+}
+
+function smartScroll() {
+  const container = document.getElementById('messages');
+  if (!container) return;
+  const threshold = 150;
+  const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+  if (isNearBottom) {
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+  }
 }
 
 async function wakeServer() {
@@ -1087,17 +1151,9 @@ function addMsg(role, text, rawHtml = '') {
   }
 
   container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-  setTimeout(() => container.scrollTop = container.scrollHeight, 50);
+  smartScroll();
   return div;
 }
-
-function scrollToBottom() {
-  const container = document.getElementById('messages');
-  container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-}
-
-// MutationObserver initialized on window load
 
 function addTyping() {
   const container = document.getElementById('messages');
@@ -1119,7 +1175,7 @@ function addTyping() {
   row.appendChild(bubble);
   div.appendChild(row);
   container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  smartScroll();
 }
 
 function removeTyping() {
@@ -1229,13 +1285,20 @@ async function sendImageWithContext() {
     const reply = data.response || data.error || "Impossible d'analyser cette image.";
     const aiMsg = addMsg('ai', reply);
     lastAIMessage = { question: text, response: reply, intent: data.intent || 'CHAT' };
-    setTimeout(scrollToBottom, 100);
+    smartScroll();
   } catch(err) {
     removeTyping();
     addMsg('ai', "Erreur lors de l'analyse de l'image.");
   } finally {
     document.getElementById('send-btn').disabled = false;
   }
+}
+
+function injectSuggestion(text) {
+  const input = document.getElementById('chat-input');
+  input.value = text;
+  autoResize(input);
+  sendMessage();
 }
 
 async function sendMessage() {
@@ -1296,7 +1359,7 @@ async function sendMessage() {
       reply = data.response || data.message || data.reply || data.answer || data.content || JSON.stringify(data);
     }
     addMsg('ai', reply, data.html_cards || '');
-    setTimeout(scrollToBottom, 100);
+    smartScroll();
 
   } catch(err) {
     removeTyping();
@@ -1315,14 +1378,6 @@ function sendSuggestion(text) {
 
 window.addEventListener('load', () => {
   autoLogin();
-  // Init MutationObserver after DOM ready
-  const msgs = document.getElementById('messages');
-  if (msgs) {
-    const obs = new MutationObserver(() => {
-      msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'smooth' });
-    });
-    obs.observe(msgs, { childList: true, subtree: true });
-  }
 });
 </script>
 
