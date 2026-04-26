@@ -868,8 +868,17 @@ Pour tout véhicule dépassant 80 000 km ou plus de 5 ans :
 Si le prix est "élevé" selon price_status :
 → Mentionner l'écart exact avec le marché.
 → Suggérer de négocier en citant cet écart comme argument.
-"Ce véhicule est 2 300$ au-dessus de la moyenne — 
+"Ce véhicule est 2 300$ au-dessus de la moyenne —
 tu peux utiliser ça comme levier de négociation."
+
+### AVANTAGE FISCAL CONCESSION VS PARTICULIER
+Depuis 2025, la SAAQ calcule la TVQ sur la
+valeur estimative Guide Hebdo pour les
+véhicules de 14 ans et moins achetés d'un
+particulier — même si le prix payé est plus bas.
+En concession → TVQ calculée sur le prix réel payé.
+→ Mentionner cet avantage fiscal quand le client
+  compare achat en concession vs particulier.
 
 
 ## CALCULS
