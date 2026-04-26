@@ -381,7 +381,9 @@ def _rows_to_dicts(rows) -> list[dict]:
 
 
 def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = None,
-                           fuel_filter: str = None, year_filter: str = None) -> list[dict]:
+                           fuel_filter: str = None, year_filter: str = None,
+                           price_max: int = None, mileage_max: int = None,
+                           drivetrain_filter: str = None) -> list[dict]:
     """
     Recherche flexible dans inventory_cache.
     1. Essai strict (AND) avec vehicle_filter ou query nettoyée
@@ -501,12 +503,18 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
             except Exception as e:
                 print(f"[search] fuel direct error: {e}")
 
-        # ── Conditions extra (fuel_type, year) ─────────────────────────────
+        # ── Conditions extra (fuel_type, year, price, mileage, drivetrain) ──
         extra_conditions = []
         if fuel_filter:
             extra_conditions.append(f"LOWER(fuel_type) LIKE '%{fuel_filter.lower()}%'")
         if year_filter:
             extra_conditions.append(f"year = {year_filter}")
+        if price_max:
+            extra_conditions.append(f"price <= {int(price_max)}")
+        if mileage_max:
+            extra_conditions.append(f"mileage <= {int(mileage_max)}")
+        if drivetrain_filter:
+            extra_conditions.append(f"LOWER(drivetrain) LIKE '%{drivetrain_filter.lower()}%'")
 
         # ── Essai 1 : AND strict sur max 3 mots-clés véhicule ──────────────
         kw_strict = keywords[:3]
@@ -2123,9 +2131,39 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         _year_match = _re.search(r'\b(20\d{2})\b', vehicle_filter or '')
         _year_filter = _year_match.group(1) if _year_match else None
 
+        # Extraire price_max du message : "sous 20000", "moins de 25 000$", "budget 30000"
+        _price_match = _re.search(
+            r'(?:sous|moins de|budget|max|maximum)\s*(\d[\d\s]{2,})\s*(?:\$|dollars?)?',
+            message.lower()
+        )
+        _price_max = int(_price_match.group(1).replace(' ', '')) if _price_match else None
+
+        # Extraire mileage_max du message : "moins de 80 000 km", "sous 100000 km"
+        _mileage_match = _re.search(
+            r'(?:sous|moins de|max|maximum)?\s*(\d[\d\s]{2,})\s*(?:km|kilomètre)',
+            message.lower()
+        )
+        _mileage_max = int(_mileage_match.group(1).replace(' ', '')) if _mileage_match else None
+
+        # Extraire drivetrain_filter du message : AWD, 4x4, 4RM, intégrale, FWD, RWD
+        _drivetrain_map = {
+            'awd': 'awd', '4x4': '4x4', '4rm': '4rm',
+            'intégrale': 'awd', 'integrale': 'awd',
+            'quatre roues motrices': '4x4', '4 roues': '4x4',
+            'traction avant': 'fwd', 'fwd': 'fwd',
+            'propulsion': 'rwd', 'rwd': 'rwd',
+        }
+        _drivetrain_filter = None
+        _msg_lower = message.lower()
+        for _kw, _val in _drivetrain_map.items():
+            if _kw in _msg_lower:
+                _drivetrain_filter = _val
+                break
 
         cache_results = search_inventory_cache(query, limit=3, vehicle_filter=vehicle_filter,
-                                               fuel_filter=_fuel_filter, year_filter=_year_filter)
+                                               fuel_filter=_fuel_filter, year_filter=_year_filter,
+                                               price_max=_price_max, mileage_max=_mileage_max,
+                                               drivetrain_filter=_drivetrain_filter)
 
         if cache_results:
             vehicles_3 = cache_results[:3]
