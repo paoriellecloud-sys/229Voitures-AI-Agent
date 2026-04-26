@@ -2138,63 +2138,101 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             # Sauvegarder les véhicules complets pour la référence par proposition
             session["vehicle_shown"] = {i + 1: r for i, r in enumerate(vehicles_3)}
 
-            _n = len(vehicles_3)
-            prompt = f"""
-{SYSTEM_PROMPT}
+            # ─── Structured output : JSON des véhicules pour Gemini ───
+            vehicles_for_gemini = {}
+            for i, v in enumerate(vehicles_3):
+                key = f"prop_{i+1}"
+                vehicles_for_gemini[key] = {
+                    "annee": v.get("year", ""),
+                    "modele": f"{v.get('make', '')} {v.get('model', '')}",
+                    "prix": v.get("price", 0),
+                    "km": v.get("mileage", 0),
+                    "carburant": v.get("fuel_type", ""),
+                    "traction": v.get("drivetrain", ""),
+                    "prix_marche": v.get("avg_market_price", 0),
+                    "ecart": v.get("price_diff", 0),
+                    "statut_prix": v.get("price_status", ""),
+                    "concessionnaire": v.get("dealer_name", ""),
+                    "ville": v.get("city", "")
+                }
 
-Historique:
-{history_str}
+            structured_prompt = f"""{SYSTEM_PROMPT}
 
-Contexte: {context_summary}
+Tu es un analyste automobile.
+Tu dois commenter exactement ces véhicules.
 
-{cache_text}
+RÈGLES ABSOLUES :
+- Utilise UNIQUEMENT les données fournies ci-dessous
+- N'invente AUCUN prix, kilométrage ou donnée
+- Chaque commentaire = 2-3 phrases maximum
+- Mentionne l'écart de prix par rapport au marché
+- Si km > 80000 → mentionne inspection obligatoire
+- Ton direct, tutoiement, français québécois
 
-RECHERCHE DE L'UTILISATEUR : "{query}"
+FORMAT DE SORTIE — JSON STRICT UNIQUEMENT :
+{{
+  "prop_1": "commentaire proposition 1",
+  "prop_2": "commentaire proposition 2",
+  "prop_3": "commentaire proposition 3"
+}}
 
-INSTRUCTIONS STRICTES :
-- Voici exactement {_n} véhicule(s) disponibles dans l'inventaire. Décris UNIQUEMENT ces {_n} véhicules, dans l'ordre, sans en mentionner d'autres.
-- Nomme-les Proposition 1, Proposition 2, Proposition 3 (selon le nombre fourni). NE PAS aller au-delà.
-- Les fiches véhicules sont affichées automatiquement — NE PAS répéter leurs spécifications (prix, km, moteur, transmission, etc.)
-- Fournis UNIQUEMENT une courte analyse (1 à 3 phrases) : points forts, ce qui les distingue, ou un conseil d'achat
-- Si le kilométrage > 100 000 km, mentionne brièvement de vérifier le VIN
-- Termine avec une question concrète (vérifier VIN, voir plus de détails, comparer ?)
-- NE PAS inventer de données — utilise seulement ce qui est fourni
-- NE PAS inclure de HTML brut dans ta réponse
+Ne retourne RIEN d'autre que ce JSON.
+Pas d'introduction, pas de conclusion.
+
+DONNÉES VÉHICULES :
+{json.dumps(vehicles_for_gemini, ensure_ascii=False, indent=2)}
+
+CONTEXTE CONVERSATION :
+{context_summary}
+
+QUESTION UTILISATEUR : {message}
 """
             # Token guard — SEARCH cache
-            _tok = estimate_tokens(prompt)
+            _tok = estimate_tokens(structured_prompt)
             if _tok > 25000:
                 print(f"[smart_chat/SEARCH-cache] ⚠️  WARNING: prompt ~{_tok} tokens (seuil 25 000)")
-            if _tok > 30000:
-                print(f"[smart_chat/SEARCH-cache] 🔴 TRUNCATION: ~{_tok} tokens > 30 000 → historique réduit à 10 messages")
-                history_str = _short_history(session, 10)
-                prompt = f"""
-{SYSTEM_PROMPT}
 
-Historique:
-{history_str}
+            response = client.models.generate_content(model="gemini-2.5-flash", contents=structured_prompt)
 
-Contexte: {context_summary}
+            # ─── Parser et valider le JSON retourné ───
+            import re as _re_json
+            try:
+                raw = response.text.strip()
+                json_match = _re_json.search(r'\{.*\}', raw, _re_json.DOTALL)
+                if json_match:
+                    comments = json.loads(json_match.group())
+                else:
+                    comments = {}
+            except Exception:
+                comments = {}
 
-{cache_text}
+            # Validation anti-hallucination
+            FORBIDDEN = ["excellent", "incroyable", "parfait",
+                         "super bonne affaire", "coup de coeur"]
+            for key in comments:
+                for word in FORBIDDEN:
+                    if word in comments.get(key, "").lower():
+                        comments[key] = comments[key].replace(word, "")
 
-RECHERCHE DE L'UTILISATEUR : "{query}"
+            # ─── Assembler la réponse finale ───
+            response_text = ""
+            for i, v in enumerate(vehicles_3):
+                key = f"prop_{i+1}"
+                comment = comments.get(key, "")
+                if comment:
+                    make = v.get("make", "")
+                    model = v.get("model", "")
+                    year = v.get("year", "")
+                    response_text += f"**Proposition {i+1} : {year} {make} {model}**\n{comment}\n\n"
 
-INSTRUCTIONS STRICTES :
-- Voici exactement {_n} véhicule(s) disponibles dans l'inventaire. Décris UNIQUEMENT ces {_n} véhicules, dans l'ordre, sans en mentionner d'autres.
-- Nomme-les Proposition 1, Proposition 2, Proposition 3 (selon le nombre fourni). NE PAS aller au-delà.
-- Les fiches véhicules sont affichées automatiquement — NE PAS répéter leurs spécifications (prix, km, moteur, transmission, etc.)
-- Fournis UNIQUEMENT une courte analyse (1 à 3 phrases) : points forts, ce qui les distingue, ou un conseil d'achat
-- Si le kilométrage > 100 000 km, mentionne brièvement de vérifier le VIN
-- Termine avec une question concrète (vérifier VIN, voir plus de détails, comparer ?)
-- NE PAS inventer de données — utilise seulement ce qui est fourni
-- NE PAS inclure de HTML brut dans ta réponse
-"""
-            response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+            # Fallback texte Gemini si JSON vide
+            if not response_text:
+                response_text = response.text
+
             html_cards = format_vehicles_html_block(vehicles_3)
             result = {
                 "intent": "SEARCH",
-                "response": response.text,
+                "response": response_text,
                 "_html_cards": html_cards,
                 "urls_found": [r["url"] for r in cache_results],
                 "scraped_count": len(cache_results),
