@@ -1629,7 +1629,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             print(f"[smart_chat] Interception RDV → formulaire pour {_rdv_titre}")
             return {"intent": "CONTACT", "response": _rdv_resp, "html_cards": _rdv_form}
         else:
-            _rdv_no_veh = "Pour quel v\u00e9hicule souhaitez-vous prendre rendez-vous ? Faites une recherche d'abord et je vous afficherai le formulaire de contact."
+            _rdv_no_veh = "Je n'ai plus le v\u00e9hicule en m\u00e9moire \u2014 dis-moi le mod\u00e8le exact que tu veux voir (ex\u00a0: 'Ford Escape 2023 chez Ford Donnacona') et je t'affiche le formulaire de contact."
             session["history"].append({"role": "assistant", "content": _rdv_no_veh})
             session["history"] = session["history"][-20:]
             save_session(user_id, sessions.get(user_id, {}))
