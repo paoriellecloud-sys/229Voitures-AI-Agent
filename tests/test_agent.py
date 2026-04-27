@@ -394,6 +394,81 @@ def main():
             line += f" -> {detail}"
         print(line)
 
+    # ── SCÉNARIO 13 — Conformité OPC Article 224c ────────────────
+    BASE_PRICE_13 = 24124.0
+    TPS_13   = round(BASE_PRICE_13 * 0.05,    2)   # 1 206.20$
+    TVQ_13   = round(BASE_PRICE_13 * 0.09975, 2)   # 2 406.37$
+    TOTAL_13 = round(BASE_PRICE_13 + TPS_13 + TVQ_13, 2)  # 27 736.57$
+
+    sid = str(uuid.uuid4())
+
+    # Tour 1 : créer le contexte véhicule
+    chat(token, "je cherche un Ford Escape 2023", sid)
+
+    # Tour 2 : question légale sur les frais (sans "je veux acheter" pour éviter le RDV flow)
+    r13_2 = chat(token,
+        "Le Ford Escape est affiché à 24 124$. Est-ce qu'un concessionnaire a le droit "
+        "d'ajouter des frais de préparation, d'administration ou de dossier "
+        "en plus du prix affiché ?", sid)
+    resp13_2 = r13_2.get("response", "")
+    resp13_lower = resp13_2.lower()
+
+    # V13_1 — frais déclarés illégaux / interdits
+    legal_signals_13 = [
+        "illégal", "illegal", "interdit", "opc", "lpc",
+        "protection du consommateur", "inclus dans le prix",
+        "ne peut pas", "n'a pas le droit", "contraire à la loi",
+    ]
+    v13_1 = any(s in resp13_lower for s in legal_signals_13)
+
+    # V13_2 — agent ne dit pas qu'il faut ajouter des frais
+    forbidden_signals_13 = [
+        "frais de dossier", "frais d'administration",
+        "frais de préparation", "499$", "299$", "199$",
+        "s'ajoutent", "devez payer en plus", "frais supplémentaires sont",
+    ]
+    v13_2 = not any(s in resp13_lower for s in forbidden_signals_13)
+
+    # V13_3 — si un total est mentionné, il doit être correct (±5$)
+    amounts_13 = _parse_ca_amounts(resp13_2)
+    total_candidates_13 = [a for a in amounts_13 if BASE_PRICE_13 + 500 < a < 35000]
+    if total_candidates_13:
+        v13_3 = any(abs(a - TOTAL_13) <= 5 for a in total_candidates_13)
+    else:
+        v13_3 = True  # pas de total mentionné → non requis
+
+    checks_13 = [
+        ("V13_1 - Frais declares illegaux/interdits au Quebec", v13_1,
+         f"Aucun signal legal detecte — cherche: {legal_signals_13}"),
+        ("V13_2 - N'indique pas qu'il faut ajouter des frais", v13_2,
+         f"Signal interdit detecte: {[s for s in forbidden_signals_13 if s in resp13_lower]}"),
+        ("V13_3 - Total avec taxes correct si mentionne (+-5$)", v13_3,
+         f"Total incorrect — attendu {TOTAL_13:.2f}$ — candidats trouves: {[round(a,2) for a in total_candidates_13]}"),
+    ]
+    all13 = all(c[1] for c in checks_13)
+    run_test(
+        "SCÉNARIO 13 — Conformité OPC Article 224c",
+        all13, resp13_2,
+        " | ".join(c[2] for c in checks_13 if not c[1]),
+    )
+    print("\n  Détail des vérifications :")
+    for name, passed_c, detail in checks_13:
+        tag = "[PASS]" if passed_c else "[FAIL]"
+        line = f"    {tag} {name}"
+        if not passed_c:
+            line += f" -> {detail}"
+        print(line)
+
+    print("\n  RAPPORT CONFORMITE OPC ARTICLE 224c")
+    print(f"  {'='*44}")
+    print(f"  Prix affiche        :    {BASE_PRICE_13:>9.2f}$")
+    print(f"  TPS (5%)            :    {TPS_13:>9.2f}$")
+    print(f"  TVQ (9.975%)        :    {TVQ_13:>9.2f}$")
+    print(f"  Total legal         :    {TOTAL_13:>9.2f}$")
+    print(f"  Frais additionnels  :         0.00$")
+    print(f"  Conformite OPC      :  {'PASS' if all13 else 'FAIL'}")
+    print(f"  {'='*44}")
+
     # ── Résumé ───────────────────────────────────────────────────
     total = len(results)
     passed = sum(results)

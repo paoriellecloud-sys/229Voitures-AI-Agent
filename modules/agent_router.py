@@ -2357,7 +2357,7 @@ QUESTION UTILISATEUR : {message}
             if alt_results and keywords_alt:
                 requested_kw = keywords_alt[0].lower()
                 brand_present = any(
-                    requested_kw in (r.get("make", "") + " " + r.get("title", "")).lower()
+                    requested_kw in ((r.get("make") or "") + " " + (r.get("title") or "")).lower()
                     for r in alt_results
                 )
                 if not brand_present:
