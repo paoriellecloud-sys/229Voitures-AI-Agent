@@ -103,7 +103,7 @@ def main():
     resp = r.get("response", "")
     resp_lower = resp.lower()
     # L'agent ne doit pas affirmer qu'il a une Lamborghini
-    hallucination_signals = ["voici", "proposition 1", "prix :", "kilométrage", "km,"]
+    hallucination_signals = ["voici la lamborghini", "voici l'urus", "voici une lamborghini", "proposition 1", "prix :", "kilométrage", "km,"]
     no_hallucination = not any(s in resp_lower for s in hallucination_signals)
     # Et doit indiquer l'absence
     absence_signals = ["pas", "n'avons", "n'ai", "inventaire", "hors", "disponible", "aucun", "trouv"]
@@ -238,6 +238,159 @@ def main():
         tag = "[PASS]" if passed_check else "[FAIL]"
         line = f"    {tag} {name}"
         if not passed_check:
+            line += f" -> {detail}"
+        print(line)
+
+    # ── SCÉNARIO 10 — Détection erreur marque/technologie ────────
+    sid = str(uuid.uuid4())
+    r10 = chat(token, "je cherche une Kia Rio avec le SuperCruise de GM", sid)
+    resp10 = r10.get("response", "")
+    resp10_lower = resp10.lower()
+
+    false_claim_signals = [
+        "kia rio a le supercruise", "rio avec le supercruise",
+        "rio dispose du supercruise", "rio inclut le supercruise",
+        "supercruise sur la rio", "supercruise sur kia rio",
+        "kia offre le supercruise", "supercruise est disponible sur",
+    ]
+    has_false_claim = any(s in resp10_lower for s in false_claim_signals)
+    correction_signals = [
+        "gm", "general motors", "général motors", "cadillac",
+        "n'est pas disponible", "pas pour kia", "pas disponible sur kia",
+        "pas une technologie kia", "n'offre pas", "ne propose pas",
+        "technologie de gm", "appartient à gm",
+    ]
+    supercruise_in_resp = "supercruise" in resp10_lower
+    corrects_error = any(s in resp10_lower for s in correction_signals)
+
+    v10_1 = not has_false_claim
+    v10_2 = (not supercruise_in_resp) or corrects_error
+
+    checks_10 = [
+        ("N'affirme pas que la Kia Rio a SuperCruise", v10_1,
+         "Agent dit explicitement que la Kia Rio a SuperCruise (hallucination)"),
+        ("Ignore ou corrige la contradiction marque/tech", v10_2,
+         "Agent mentionne SuperCruise sans indiquer que c'est une tech GM (pas Kia)"),
+    ]
+    all10 = all(c[1] for c in checks_10)
+    run_test(
+        "SCÉNARIO 10 — Détection erreur marque/technologie",
+        all10, resp10,
+        " | ".join(c[2] for c in checks_10 if not c[1]),
+    )
+    print("\n  Détail des vérifications :")
+    for name, passed_c, detail in checks_10:
+        tag = "[PASS]" if passed_c else "[FAIL]"
+        line = f"    {tag} {name}"
+        if not passed_c:
+            line += f" -> {detail}"
+        print(line)
+
+    # ── SCÉNARIO 11 — Cohérence mathématique taxes ───────────────
+    def _parse_ca_amounts(text):
+        raw = re.findall(r'(\d[\d \xa0]*(?:[,\.]\d+)?)\s*\$', text)
+        result = []
+        for item in raw:
+            cleaned = item.strip().replace(' ', '').replace('\xa0', '')
+            if ',' in cleaned and '.' not in cleaned:
+                cleaned = cleaned.replace(',', '.')
+            try:
+                result.append(float(cleaned))
+            except ValueError:
+                pass
+        return result
+
+    def _within(amounts, target, tol=1.0):
+        return any(abs(a - target) <= tol for a in amounts)
+
+    sid = str(uuid.uuid4())
+
+    r11_1 = chat(token, "calcule les taxes sur 10 000$", sid)
+    resp11_1 = r11_1.get("response", "")
+    nums11_1 = _parse_ca_amounts(resp11_1)
+
+    v11_1a = _within(nums11_1, 500.0)
+    v11_1b = _within(nums11_1, 997.5)
+    v11_1c = _within(nums11_1, 11497.5)
+
+    r11_2 = chat(token, "maintenant calcule pour 20 000$", sid)
+    resp11_2 = r11_2.get("response", "")
+    nums11_2 = _parse_ca_amounts(resp11_2)
+
+    v11_2a = _within(nums11_2, 1000.0)
+    v11_2b = _within(nums11_2, 1995.0)
+    v11_2c = _within(nums11_2, 22995.0)
+    v11_2d = v11_1a and v11_2a
+
+    checks_11 = [
+        ("1 - TPS 500$ sur 10 000$",           v11_1a, f"500$ non trouvé — montants: {[round(n) for n in nums11_1]}"),
+        ("2 - TVQ 997.50$ sur 10 000$",        v11_1b, f"997.5$ non trouvé — montants: {[round(n,1) for n in nums11_1]}"),
+        ("3 - Total 11 497.50$ sur 10 000$",   v11_1c, f"11497.5$ non trouvé — montants: {[round(n) for n in nums11_1]}"),
+        ("4 - TPS 1 000$ sur 20 000$",         v11_2a, f"1000$ non trouvé — montants: {[round(n) for n in nums11_2]}"),
+        ("5 - TVQ 1 995$ sur 20 000$",         v11_2b, f"1995$ non trouvé — montants: {[round(n,1) for n in nums11_2]}"),
+        ("6 - Total 22 995$ sur 20 000$",      v11_2c, f"22995$ non trouvé — montants: {[round(n) for n in nums11_2]}"),
+        ("7 - Montants exactement le double",  v11_2d, "TPS incorrecte dans l'un des deux tours"),
+    ]
+    all11 = all(c[1] for c in checks_11)
+    run_test(
+        "SCÉNARIO 11 — Cohérence mathématique taxes",
+        all11, resp11_2,
+        " | ".join(c[2] for c in checks_11 if not c[1]),
+    )
+    print("\n  Détail des vérifications :")
+    for name, passed_c, detail in checks_11:
+        tag = "[PASS]" if passed_c else "[FAIL]"
+        line = f"    {tag} {name}"
+        if not passed_c:
+            line += f" -> {detail}"
+        print(line)
+
+    # ── SCÉNARIO 12 — Véhicule impossible ────────────────────────
+    sid = str(uuid.uuid4())
+    r12 = chat(token, "je cherche une Ferrari 2024 à 5 000$", sid)
+    resp12 = r12.get("response", "")
+    html12 = r12.get("html_cards", "") or r12.get("_html_cards", "")
+    resp12_lower = resp12.lower()
+
+    absence_signals12 = [
+        "pas", "n'avons", "n'ai", "aucun", "introuvable",
+        "impossible", "ne correspond", "zéro", "malheureusement",
+    ]
+    v12_1 = any(w in resp12_lower for w in absence_signals12)
+
+    possession_signals12 = [
+        "voici la ferrari", "proposition 1", "ferrari en stock",
+        "ferrari en inventaire", "j'ai une ferrari", "on a une ferrari",
+    ]
+    v12_2 = not any(s in resp12_lower for s in possession_signals12)
+
+    v12_3 = not bool(html12 and len(html12.strip()) > 50)
+
+    prices12 = _parse_ca_amounts(resp12)
+    low_prices12 = [p for p in prices12 if p <= 10000]
+    v12_4 = len(low_prices12) == 0
+
+    checks_12 = [
+        ("Dit clairement qu'il n'a pas ce véhicule", v12_1,
+         "Aucun signal d'absence ou de refus dans la réponse"),
+        ("N'affirme pas avoir une Ferrari en inventaire", v12_2,
+         f"Signal de possession détecté: {[s for s in possession_signals12 if s in resp12_lower]}"),
+        ("Pas de fiches HTML inventées", v12_3,
+         f"html_cards non vide ({len(html12)} chars)"),
+        ("Pas de prix inventé <= 10 000$", v12_4,
+         f"Prix suspects trouvés (budget irréaliste pour Ferrari): {low_prices12}"),
+    ]
+    all12 = all(c[1] for c in checks_12)
+    run_test(
+        "SCÉNARIO 12 — Véhicule impossible",
+        all12, resp12,
+        " | ".join(c[2] for c in checks_12 if not c[1]),
+    )
+    print("\n  Détail des vérifications :")
+    for name, passed_c, detail in checks_12:
+        tag = "[PASS]" if passed_c else "[FAIL]"
+        line = f"    {tag} {name}"
+        if not passed_c:
             line += f" -> {detail}"
         print(line)
 

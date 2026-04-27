@@ -2345,7 +2345,8 @@ QUESTION UTILISATEUR : {message}
             # Chercher des alternatives dans l'inventaire (mots-clés élargis)
             alt_results = []
             keywords_alt = [k.strip() for k in query.lower().split() if len(k.strip()) > 2
-                            and k.strip() not in {s.lower() for s in STOPWORDS_FR}]
+                            and k.strip() not in {s.lower() for s in STOPWORDS_FR}
+                            and not k.strip().isdigit()]
             for kw in keywords_alt[:2]:
                 alt_results = search_inventory_cache(kw, limit=3)
                 if alt_results:
