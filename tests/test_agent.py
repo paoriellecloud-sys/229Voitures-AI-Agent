@@ -169,6 +169,78 @@ def main():
     detail8 = f"Véhicules 5 places proposés : {found_compact}" if not passed8 else ""
     run_test("SCÉNARIO 8 — 7 places (pas de compactes)", passed8, resp, detail8)
 
+    # ── SCÉNARIO 9 — QA conversation multi-tours ─────────────────
+    import re as _re9
+    sid = str(uuid.uuid4())
+
+    # ── Tour 1 : recherche avec budget ──
+    r9_1 = chat(token, "Cherche des Ford Escape 2021 à 25 000$", sid)
+    resp9_1 = r9_1.get("response", "")
+    html9_1 = r9_1.get("html_cards", "") or r9_1.get("_html_cards", "")
+
+    v1a = bool(html9_1 and "escape" in html9_1.lower())
+    prices_raw = _re9.findall(r'(\d[\d \s]{2,})\s*\$', html9_1)
+    over_25k = []
+    for p in prices_raw:
+        try:
+            val = int(p.replace(" ", "").replace(" ", "").replace(" ", ""))
+            if val > 25000:
+                over_25k.append(val)
+        except ValueError:
+            pass
+    v1b = len(over_25k) == 0
+    v1c = bool(html9_1 and len(html9_1.strip()) > 50)
+
+    # ── Tour 2 : question générale fiscalité ──
+    r9_2 = chat(token, "Explique-moi le calcul de la TVQ", sid)
+    resp9_2 = r9_2.get("response", "")
+    html9_2 = r9_2.get("html_cards", "") or r9_2.get("_html_cards", "")
+
+    v2a = "9.975" in resp9_2 or "9,975" in resp9_2
+    v2b = "5" in resp9_2 and "tps" in resp9_2.lower()
+    v2c = not bool(html9_2 and len(html9_2.strip()) > 50)
+
+    # ── Tour 3 : RDV sur le véhicule du tour 1 ──
+    r9_3 = chat(token, "Ok, prends le premier Escape et prépare un RDV pour samedi", sid)
+    resp9_3 = r9_3.get("response", "")
+    html9_3 = r9_3.get("html_cards", "") or r9_3.get("_html_cards", "")
+
+    v3a = bool(html9_3 and len(html9_3.strip()) > 50)
+    v3b = "escape" in html9_3.lower()
+    v3c = "2021" in html9_3
+    v3d = not any(w in resp9_3.lower() for w in [
+        "faites une recherche", "cherchez d'abord", "recherche d'abord",
+        "trouver un véhicule d'abord", "aucun véhicule sélectionné",
+    ])
+
+    checks_9 = [
+        ("1a - Fiches Escape retournées",       v1a, f"html_cards vide ou sans 'escape' ({len(html9_1)} chars)"),
+        ("1b - Prix <= 25 000$",                v1b, f"Véhicules hors budget: {over_25k}"),
+        ("1c - vehicle_shown non vide",         v1c, "Aucune fiche retournée après recherche"),
+        ("2a - TVQ 9.975% mentionnée",          v2a, "Pas de '9.975' dans la réponse"),
+        ("2b - TPS 5% mentionnée",              v2b, "Pas de référence TPS + 5%"),
+        ("2c - Pas de fiches (question fisc.)", v2c, f"Fiches inattendues ({len(html9_2)} chars)"),
+        ("3a - Formulaire RDV affiché",         v3a, f"html_cards vide après demande RDV ({len(html9_3)} chars)"),
+        ("3b - Formulaire contient 'Escape'",   v3b, "Mot 'Escape' absent du formulaire"),
+        ("3c - Formulaire contient '2021'",     v3c, "Année '2021' absente du formulaire"),
+        ("3d - Pas de 'recherche d'abord'",     v3d, "Message demandant une recherche préalable détecté"),
+    ]
+
+    all9 = all(c[1] for c in checks_9)
+    run_test(
+        "SCÉNARIO 9 — QA conversation multi-tours",
+        all9,
+        resp9_3,
+        " | ".join(c[2] for c in checks_9 if not c[1]),
+    )
+    print("\n  Détail des vérifications :")
+    for name, passed_check, detail in checks_9:
+        tag = "[PASS]" if passed_check else "[FAIL]"
+        line = f"    {tag} {name}"
+        if not passed_check:
+            line += f" -> {detail}"
+        print(line)
+
     # ── Résumé ───────────────────────────────────────────────────
     total = len(results)
     passed = sum(results)
