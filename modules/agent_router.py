@@ -1351,6 +1351,22 @@ def _is_opinion_question(message: str) -> bool:
     return any(p in msg for p in patterns)
 
 
+def _is_advisory_question(message: str) -> bool:
+    """Détecte les questions légales/fiscales/administratives → forcer CHAT."""
+    msg = message.lower()
+    patterns = [
+        'admissible', 'éligible', 'eligibl',
+        'rabais gouvern', 'subvention', 'roulez vert', 'ivze',
+        'frais de préparat', "frais d'administrat", 'frais de dossier',
+        'frais illég', 'frais supplément', 'est-ce normal',
+        'opc', 'lpc', 'protection du consommateur',
+        'garantie légale', 'vice caché', 'inspection obligatoire',
+        'calcule les taxes', 'calcul des taxes', 'calcul de la tvq',
+        'calcul de la tps', 'c\'est quoi les taxes',
+    ]
+    return any(p in msg for p in patterns)
+
+
 def _needs_clarification(message: str, session: dict) -> bool:
     """
     Retourne True si l'agent doit poser une question
@@ -1706,8 +1722,8 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                     _desc_best_vehicle = v
             if _desc_best_score >= 2 and _desc_best_vehicle:
                 session["context"]["selected_vehicle"] = _desc_best_vehicle
-        # Interception opinion AVANT appel Gemini
-        if _is_opinion_question(message):
+        # Interception opinion/conseil AVANT appel Gemini
+        if _is_opinion_question(message) or _is_advisory_question(message):
             intent_data = {"intent": "CHAT", "query": None, "urls": [], "vin": None,
                            "site": None, "count": 3, "followup_action": None, "vehicle_filter": None}
         else:
@@ -2353,15 +2369,26 @@ QUESTION UTILISATEUR : {message}
                     print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
                     break
 
+            # Marques exotiques jamais en inventaire → supprimer les alternatives
+            _EXOTIC_BRANDS = {
+                "ferrari", "lamborghini", "mclaren", "bugatti", "rolls-royce", "rolls royce",
+                "bentley", "maserati", "koenigsegg", "pagani", "aston martin", "lotus",
+                "porsche 911", "rimac", "pininfarina",
+            }
+            _msg_lower_exotic = message.lower()
+            if any(b in _msg_lower_exotic for b in _EXOTIC_BRANDS):
+                if alt_results:
+                    print(f"[smart_chat] Marque exotique dans message → alt results supprimés")
+                alt_results = []
             # Supprimer les alternatives si aucune n'est de la marque demandée
-            if alt_results and keywords_alt:
+            elif alt_results and keywords_alt:
                 requested_kw = keywords_alt[0].lower()
                 brand_present = any(
                     requested_kw in ((r.get("make") or "") + " " + (r.get("title") or "")).lower()
                     for r in alt_results
                 )
                 if not brand_present:
-                    print(f"[smart_chat] Alt results ({len(alt_results)}) ignorés — marque '{requested_kw}' absente")
+                    print(f"[smart_chat] Alt results ({len(alt_results)}) ignorés — '{requested_kw}' absent")
                     alt_results = []
 
             if alt_results:

@@ -413,19 +413,23 @@ def main():
     resp13_2 = r13_2.get("response", "")
     resp13_lower = resp13_2.lower()
 
-    # V13_1 — frais déclarés illégaux / interdits
+    # V13_1 — frais déclarés illégaux / interdits (singulier ET pluriel)
     legal_signals_13 = [
-        "illégal", "illegal", "interdit", "opc", "lpc",
-        "protection du consommateur", "inclus dans le prix",
-        "ne peut pas", "n'a pas le droit", "contraire à la loi",
+        "illégal", "illégaux", "illegal", "interdit", "interdits",
+        "opc", "lpc", "protection du consommateur",
+        "inclus dans le prix", "ne peut pas", "n'a pas le droit",
+        "contraire à la loi", "pas le droit d'ajouter",
+        "ne doit pas", "doit être inclus",
     ]
     v13_1 = any(s in resp13_lower for s in legal_signals_13)
 
-    # V13_2 — agent ne dit pas qu'il faut ajouter des frais
+    # V13_2 — agent ne dit pas qu'il faut PAYER des frais (mention seule = OK si contexte illégal)
     forbidden_signals_13 = [
-        "frais de dossier", "frais d'administration",
-        "frais de préparation", "499$", "299$", "199$",
-        "s'ajoutent", "devez payer en plus", "frais supplémentaires sont",
+        "499$", "299$", "199$",
+        "s'ajoutent au prix", "devez payer en plus",
+        "frais supplémentaires sont normaux", "frais supplémentaires sont permis",
+        "oui il y a des frais", "vous devez payer ces frais",
+        "il faut ajouter ces frais",
     ]
     v13_2 = not any(s in resp13_lower for s in forbidden_signals_13)
 
