@@ -2672,7 +2672,7 @@ INSTRUCTIONS :
                     model="gemini-2.5-flash",
                     contents=full_prompt
                 )
-            chat_html_cards = format_vehicles_html_block(chat_cache) if chat_cache else ""
+            chat_html_cards = format_vehicles_html_block(chat_cache) if (chat_cache and not _is_opinion_question(message)) else ""
             result = {"intent": "CHAT", "response": response.text, "_html_cards": chat_html_cards}
 
     response_text = result.get("response", "")
