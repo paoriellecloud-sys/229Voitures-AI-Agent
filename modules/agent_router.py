@@ -1839,6 +1839,45 @@ RÈGLES :
             if city in message.lower():
                 criteria["city"] = city
                 break
+
+        # Modèle
+        _model_keywords = [
+            'escape', 'rav4', 'kona', 'tucson', 'seltos',
+            'sorento', 'telluride', 'palisade', 'cr-v', 'crv',
+            'rogue', 'qashqai', 'forester', 'outback',
+            'highlander', 'pilot', 'traverse', 'equinox',
+            'niro', 'ioniq', 'bolt', 'leaf', 'model 3',
+            'civic', 'corolla', 'camry', 'accord', 'sentra',
+            'maverick', 'f-150', 'silverado', 'ram'
+        ]
+        _msg_lower_alert = message.lower()
+        for _kw in _model_keywords:
+            if _kw in _msg_lower_alert:
+                criteria["model"] = _kw
+                break
+
+        # Kilométrage max
+        _km_match = re.search(
+            r'(?:moins de|max|maximum|sous)\s*(\d[\d\s]*)\s*km',
+            _msg_lower_alert
+        )
+        if _km_match:
+            criteria["km_max"] = int(_km_match.group(1).replace(' ', ''))
+
+        # Carburant
+        if any(w in _msg_lower_alert for w in ['hybride branchable', 'phev', 'plug-in']):
+            criteria["fuel_type"] = "phev"
+        elif any(w in _msg_lower_alert for w in ['hybride', 'hybrid', 'hev']):
+            criteria["fuel_type"] = "hybride"
+        elif any(w in _msg_lower_alert for w in ['électrique', 'electrique', 'ev', 'bev']):
+            criteria["fuel_type"] = "électrique"
+
+        # Traction
+        if any(w in _msg_lower_alert for w in ['awd', '4x4', '4rm', 'intégrale', 'integrale', 'all-wheel']):
+            criteria["drivetrain"] = "awd"
+        elif any(w in _msg_lower_alert for w in ['fwd', 'traction avant', '2rm']):
+            criteria["drivetrain"] = "fwd"
+
         session["context"]["pending_alert"] = criteria
         _alert_email = re.search(r'[\w\.\-]+@[\w\.\-]+\.\w+', message)
         if _alert_email:
@@ -1849,7 +1888,7 @@ RÈGLES :
                 save_alert(user_id, _alert_email.group(0), criteria)
                 result = {
                     "intent": "CREATE_ALERT",
-                    "response": f"✅ Alerte créée ! Vous recevrez un email à {_alert_email.group(0)} dès qu'un véhicule correspondant à vos critères sera disponible.",
+                    "response": f"✅ Alerte créée ! Tu recevras un email à {_alert_email.group(0)} dès qu'un véhicule correspondant à ton critère sera disponible.",
                 }
             except Exception as e:
                 print(f"[create_alert] error: {e}")
