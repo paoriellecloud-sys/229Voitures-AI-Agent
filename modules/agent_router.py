@@ -2353,6 +2353,17 @@ QUESTION UTILISATEUR : {message}
                     print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
                     break
 
+            # Supprimer les alternatives si aucune n'est de la marque demandée
+            if alt_results and keywords_alt:
+                requested_kw = keywords_alt[0].lower()
+                brand_present = any(
+                    requested_kw in (r.get("make", "") + " " + r.get("title", "")).lower()
+                    for r in alt_results
+                )
+                if not brand_present:
+                    print(f"[smart_chat] Alt results ({len(alt_results)}) ignorés — marque '{requested_kw}' absente")
+                    alt_results = []
+
             if alt_results:
                 alt_text = format_cache_results_for_prompt(alt_results)
                 session["context"]["last_listings"] = [r["url"] for r in alt_results]

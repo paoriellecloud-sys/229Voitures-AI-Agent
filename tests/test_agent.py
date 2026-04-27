@@ -359,8 +359,9 @@ def main():
     v12_1 = any(w in resp12_lower for w in absence_signals12)
 
     possession_signals12 = [
-        "voici la ferrari", "proposition 1", "ferrari en stock",
-        "ferrari en inventaire", "j'ai une ferrari", "on a une ferrari",
+        "voici la ferrari", "proposition 1 : ferrari", "proposition 1: ferrari",
+        "ferrari en stock", "ferrari en inventaire",
+        "j'ai une ferrari", "on a une ferrari",
     ]
     v12_2 = not any(s in resp12_lower for s in possession_signals12)
 
