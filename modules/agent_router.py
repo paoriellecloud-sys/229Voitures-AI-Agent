@@ -1706,11 +1706,13 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                     _desc_best_vehicle = v
             if _desc_best_score >= 2 and _desc_best_vehicle:
                 session["context"]["selected_vehicle"] = _desc_best_vehicle
-        intent_data = detect_intent(message, context_summary)
+        # Interception opinion AVANT appel Gemini
+        if _is_opinion_question(message):
+            intent_data = {"intent": "CHAT", "query": None, "urls": [], "vin": None,
+                           "site": None, "count": 3, "followup_action": None, "vehicle_filter": None}
+        else:
+            intent_data = detect_intent(message, context_summary)
     intent = intent_data.get("intent", "CHAT")
-    # Si question d'opinion/conseil → forcer CHAT, pas de recherche inventaire
-    if intent == "SEARCH" and _is_opinion_question(message):
-        intent = "CHAT"
     # Si contexte ambigu (échange, trade) → demander clarification avant de chercher
     if intent == "SEARCH" and _needs_clarification(message, session):
         return {"intent": "CHAT", "response": _get_clarification_message(message, session), "html_cards": ""}
