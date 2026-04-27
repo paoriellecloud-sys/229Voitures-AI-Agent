@@ -2645,7 +2645,7 @@ Message de l'utilisateur: {message}
 INSTRUCTIONS :
 - Réponds directement sans préambule
 {_vehicle_instructions}- Si budget mentionné → vérifie si le prix est réaliste sur le marché canadien
-- Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné
+- Calcule toujours TPS 5% + TVQ 9.975% si un prix est mentionné — FORMAT OBLIGATOIRE: "TPS (5%) = X$, TVQ (9,975%) = Y$, Total = Z$"
 - NE PAS inclure de HTML brut dans ta réponse
 """
             full_prompt = _build_chat_prompt(history_str)

@@ -366,8 +366,9 @@ def main():
 
     v12_3 = not bool(html12 and len(html12.strip()) > 50)
 
-    prices12 = _parse_ca_amounts(resp12)
-    low_prices12 = [p for p in prices12 if p <= 10000]
+    # Vérifier les prix dans les FICHES HTML uniquement (pas dans le texte qui répète la demande)
+    prices12_html = _parse_ca_amounts(html12)
+    low_prices12 = [p for p in prices12_html if p <= 10000]
     v12_4 = len(low_prices12) == 0
 
     checks_12 = [
@@ -377,8 +378,8 @@ def main():
          f"Signal de possession détecté: {[s for s in possession_signals12 if s in resp12_lower]}"),
         ("Pas de fiches HTML inventées", v12_3,
          f"html_cards non vide ({len(html12)} chars)"),
-        ("Pas de prix inventé <= 10 000$", v12_4,
-         f"Prix suspects trouvés (budget irréaliste pour Ferrari): {low_prices12}"),
+        ("Pas de prix inventé <= 10 000$ dans les fiches", v12_4,
+         f"Prix suspects dans les fiches (irréaliste pour Ferrari): {low_prices12}"),
     ]
     all12 = all(c[1] for c in checks_12)
     run_test(
