@@ -2358,48 +2358,54 @@ QUESTION UTILISATEUR : {message}
             except Exception:
                 pass
 
-            # Chercher des alternatives dans l'inventaire (mots-clés élargis)
-            alt_results = []
-            keywords_alt = [k.strip() for k in query.lower().split() if len(k.strip()) > 2
-                            and k.strip() not in {s.lower() for s in STOPWORDS_FR}
-                            and not k.strip().isdigit()]
-            for kw in keywords_alt[:2]:
-                alt_results = search_inventory_cache(kw, limit=3)
-                if alt_results:
-                    print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
-                    break
-
-            # Marques exotiques jamais en inventaire → supprimer les alternatives
-            _EXOTIC_BRANDS = {
-                "ferrari", "lamborghini", "mclaren", "bugatti", "rolls-royce", "rolls royce",
-                "bentley", "maserati", "koenigsegg", "pagani", "aston martin", "lotus",
-                "porsche 911", "rimac", "pininfarina",
+            LUXURY_BRANDS = {
+                "ferrari", "lamborghini", "bugatti", "mclaren",
+                "rolls royce", "rolls-royce", "bentley", "aston martin", "koenigsegg",
             }
-            _msg_lower_exotic = message.lower()
-            if any(b in _msg_lower_exotic for b in _EXOTIC_BRANDS):
-                if alt_results:
-                    print(f"[smart_chat] Marque exotique dans message → alt results supprimés")
+            _q_lower = query.lower()
+            _msg_lux = message.lower()
+            if any(b in _q_lower or b in _msg_lux for b in LUXURY_BRANDS):
+                print(f"[smart_chat] Marque luxe/exotique → réponse directe sans alternatives")
+                result = {
+                    "intent": "SEARCH",
+                    "response": "On n'a pas ça en inventaire. Tu cherches quelque chose de précis dans notre sélection ?",
+                    "_html_cards": "",
+                    "urls_found": [],
+                    "scraped_count": 0,
+                    "source": "inventory_cache_no_luxury",
+                }
+            else:
+                # Chercher des alternatives dans l'inventaire (mots-clés élargis)
                 alt_results = []
-            # Supprimer les alternatives si aucune n'est de la marque demandée
-            elif alt_results and keywords_alt:
-                requested_kw = keywords_alt[0].lower()
-                brand_present = any(
-                    requested_kw in ((r.get("make") or "") + " " + (r.get("title") or "")).lower()
-                    for r in alt_results
-                )
-                if not brand_present:
-                    print(f"[smart_chat] Alt results ({len(alt_results)}) ignorés — '{requested_kw}' absent")
-                    alt_results = []
+                keywords_alt = [k.strip() for k in query.lower().split() if len(k.strip()) > 2
+                                and k.strip() not in {s.lower() for s in STOPWORDS_FR}
+                                and not k.strip().isdigit()]
+                for kw in keywords_alt[:2]:
+                    alt_results = search_inventory_cache(kw, limit=3)
+                    if alt_results:
+                        print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
+                        break
 
-            if alt_results:
-                alt_text = format_cache_results_for_prompt(alt_results)
-                session["context"]["last_listings"] = [r["url"] for r in alt_results]
-                session["context"]["last_results"] = [
-                    {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
-                    for r in alt_results
-                ]
-                session["vehicle_shown"] = {i + 1: r for i, r in enumerate(alt_results[:3])}
-                no_stock_prompt = f"""
+                # Supprimer les alternatives si aucune n'est de la marque demandée
+                if alt_results and keywords_alt:
+                    requested_kw = keywords_alt[0].lower()
+                    brand_present = any(
+                        requested_kw in ((r.get("make") or "") + " " + (r.get("title") or "")).lower()
+                        for r in alt_results
+                    )
+                    if not brand_present:
+                        print(f"[smart_chat] Alt results ({len(alt_results)}) ignorés — '{requested_kw}' absent")
+                        alt_results = []
+
+                if alt_results:
+                    alt_text = format_cache_results_for_prompt(alt_results)
+                    session["context"]["last_listings"] = [r["url"] for r in alt_results]
+                    session["context"]["last_results"] = [
+                        {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
+                        for r in alt_results
+                    ]
+                    session["vehicle_shown"] = {i + 1: r for i, r in enumerate(alt_results[:3])}
+                    no_stock_prompt = f"""
 {SYSTEM_PROMPT}
 
 Historique:
@@ -2421,8 +2427,8 @@ INSTRUCTIONS :
 - N'invente AUCUN véhicule supplémentaire
 - Propose à l'utilisateur de créer une alerte email pour être notifié si le modèle arrive en inventaire
 """
-            else:
-                no_stock_prompt = f"""
+                else:
+                    no_stock_prompt = f"""
 {SYSTEM_PROMPT}
 
 Historique:
@@ -2442,21 +2448,21 @@ INSTRUCTIONS STRICTES :
 - Demande si l'utilisateur veut qu'on cherche un modèle similaire dans notre inventaire
 """
 
-            _tok = estimate_tokens(no_stock_prompt)
-            if _tok > 30000:
-                history_str = _short_history(session, 10)
-                no_stock_prompt = no_stock_prompt.replace(history_str, _short_history(session, 10))
+                _tok = estimate_tokens(no_stock_prompt)
+                if _tok > 30000:
+                    history_str = _short_history(session, 10)
+                    no_stock_prompt = no_stock_prompt.replace(history_str, _short_history(session, 10))
 
-            no_stock_response = client.models.generate_content(model="gemini-2.5-flash", contents=no_stock_prompt)
-            alt_html_cards = format_vehicles_html_block(alt_results) if alt_results else ""
-            result = {
-                "intent": "SEARCH",
-                "response": no_stock_response.text,
-                "_html_cards": alt_html_cards,
-                "urls_found": [r["url"] for r in alt_results] if alt_results else [],
-                "scraped_count": len(alt_results),
-                "source": "inventory_cache_alternatives"
-            }
+                no_stock_response = client.models.generate_content(model="gemini-2.5-flash", contents=no_stock_prompt)
+                alt_html_cards = format_vehicles_html_block(alt_results) if alt_results else ""
+                result = {
+                    "intent": "SEARCH",
+                    "response": no_stock_response.text,
+                    "_html_cards": alt_html_cards,
+                    "urls_found": [r["url"] for r in alt_results] if alt_results else [],
+                    "scraped_count": len(alt_results),
+                    "source": "inventory_cache_alternatives"
+                }
 
     elif not result:
         # ─── CHAT — conseils, fiabilité, prix, etc. ───
