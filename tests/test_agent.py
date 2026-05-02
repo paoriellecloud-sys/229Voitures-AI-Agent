@@ -355,6 +355,8 @@ def main():
     absence_signals12 = [
         "pas", "n'avons", "n'ai", "aucun", "introuvable",
         "impossible", "ne correspond", "zéro", "malheureusement",
+        "on n'a pas ça", "n'a pas ça", "pas ça en inventaire",
+        "something précis dans notre sélection", "quelque chose de précis dans notre sélection",
     ]
     v12_1 = any(w in resp12_lower for w in absence_signals12)
 
