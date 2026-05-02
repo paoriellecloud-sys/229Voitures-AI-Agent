@@ -2226,10 +2226,30 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
                 _drivetrain_filter = _val
                 break
 
-        cache_results = search_inventory_cache(query, limit=3, vehicle_filter=vehicle_filter,
-                                               fuel_filter=_fuel_filter, year_filter=_year_filter,
-                                               price_max=_price_max, mileage_max=_mileage_max,
-                                               drivetrain_filter=_drivetrain_filter)
+        # Vérification luxury AVANT la recherche DB
+        LUXURY_BRANDS = {
+            "ferrari", "lamborghini", "bugatti", "mclaren",
+            "rolls royce", "rolls-royce", "bentley", "aston martin", "koenigsegg",
+        }
+        _msg_lux = message.lower()
+        _query_lux = (query or "").lower()
+        if any(b in _msg_lux or b in _query_lux for b in LUXURY_BRANDS):
+            print(f"[smart_chat] Marque luxe/exotique → réponse directe sans recherche DB")
+            result = {
+                "intent": "SEARCH",
+                "response": "On n'a pas ça en inventaire. Tu cherches quelque chose de précis dans notre sélection ?",
+                "_html_cards": "",
+                "urls_found": [],
+                "scraped_count": 0,
+                "source": "inventory_cache_no_luxury",
+            }
+
+        cache_results = []
+        if not result:
+            cache_results = search_inventory_cache(query, limit=3, vehicle_filter=vehicle_filter,
+                                                   fuel_filter=_fuel_filter, year_filter=_year_filter,
+                                                   price_max=_price_max, mileage_max=_mileage_max,
+                                                   drivetrain_filter=_drivetrain_filter)
 
         if cache_results:
             vehicles_3 = cache_results[:3]

@@ -407,11 +407,10 @@ def main():
     # Tour 1 : créer le contexte véhicule
     chat(token, "je cherche un Ford Escape 2023", sid)
 
-    # Tour 2 : question légale sur les frais (sans "je veux acheter" pour éviter le RDV flow)
+    # Tour 2 : question légale sans mention de marque/modèle → classifié CHAT, pas SEARCH
     r13_2 = chat(token,
-        "Le Ford Escape est affiché à 24 124$. Est-ce qu'un concessionnaire a le droit "
-        "d'ajouter des frais de préparation, d'administration ou de dossier "
-        "en plus du prix affiché ?", sid)
+        "Est-ce qu'un concessionnaire au Québec a le droit d'ajouter des frais de "
+        "préparation au prix affiché ?", sid)
     resp13_2 = r13_2.get("response", "")
     resp13_lower = resp13_2.lower()
 
