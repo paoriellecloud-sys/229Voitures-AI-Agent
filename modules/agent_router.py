@@ -2273,6 +2273,16 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
                 _price_max = round(_price_max / 1.14975)
                 print(f"[smart_chat] Budget tout inclus → prix avant taxes estimé {_price_max}$")
 
+        # ÉTAPE 2 — Récupérer price_max depuis session si absent du message courant
+        if not _price_max:
+            _price_max = session.get("context", {}).get("price_max")
+            if _price_max:
+                print(f"[smart_chat] price_max récupéré depuis session: {_price_max}$")
+
+        # ÉTAPE 1 — Sauvegarder price_max en session pour les messages suivants
+        if _price_max:
+            session["context"]["price_max"] = _price_max
+
         # Extraire mileage_max du message : "moins de 80 000 km", "sous 100000 km"
         _mileage_match = _re.search(
             r'(?:sous|moins de|max|maximum)?\s*(\d[\d\s]{2,})\s*(?:km|kilomètre)',
