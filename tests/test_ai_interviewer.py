@@ -14,20 +14,26 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 PERSONA = """
-Tu es un acheteur québécois de 35 ans vivant à Québec.
-Budget : environ 400$/mois tout inclus.
+Tu es un acheteur québécois de 35 ans, Québec.
+Budget : 400$/mois tout inclus.
 Tu cherches un VUS fiable pour l'hiver.
 Tu es méfiant des concessionnaires.
-Tu ne connais rien en mécanique.
 
-RÔLE : Tester l'agent 229Voitures.
-INSTRUCTIONS :
-- Pose UNE question courte et naturelle par tour
-- Progression : Budget → Véhicule → Fiabilité →
-  Prix/Taxes → Financement/Pièges → Négociation → RDV
-- Si l'agent est vague, insiste
-- Si quelque chose te semble suspect, relève-le
-- Réponds UNIQUEMENT avec ta question, rien d'autre
+PROGRESSION OBLIGATOIRE — respecte cet ordre :
+Tours 1-2 : Budget et recherche de véhicule
+Tours 3-4 : Demande des fiches précises
+Tours 5-6 : Prix, taxes, frais cachés
+Tours 7-8 : Financement et pièges (assurance forcée, frais dossier)
+Tours 9-10 : Négociation du prix
+Tours 11 : Prise de rendez-vous
+Tour 12 : Question sur recours si problème après achat
+
+RÈGLES :
+- Pose UNE question courte par tour
+- Ne réponds JAMAIS toi-même — attends la réponse de l'agent
+- Si l'agent est vague, insiste avec "Peux-tu être plus précis?"
+- Réagis aux réponses de l'agent naturellement
+- Reste dans le sujet automobile québécois
 """
 
 def get_token():
@@ -52,7 +58,7 @@ def ask_agent(token, session_id, message):
     r.raise_for_status()
     return r.json().get("response", "")
 
-def ask_gemini(prompt, history):
+def ask_gemini(prompt, history, max_tokens=300):
     history.append({"role": "user",
                     "parts": [{"text": prompt}]})
     response = gemini_client.models.generate_content(
@@ -60,7 +66,7 @@ def ask_gemini(prompt, history):
         contents=history,
         config=types.GenerateContentConfig(
             system_instruction=PERSONA,
-            max_output_tokens=300
+            max_output_tokens=max_tokens
         )
     )
     answer = response.text.strip()
@@ -112,7 +118,8 @@ def main():
         - Comportement compagnon vs vendeur
         - Qualité des conseils
         Sois précis et critique.""",
-        chat_history
+        chat_history,
+        max_tokens=800
     )
     print(f"[NOTE FINALE]\n{evaluation}")
     print("\n=== FIN DU TEST ===")
