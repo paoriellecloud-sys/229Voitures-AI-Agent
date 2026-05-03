@@ -64,7 +64,7 @@ def parse_prices(html: str) -> list:
 
 scenarios = [
     {"persona": "Pragmatique", "steps": [
-        "Cherche un vehicule sous 30 000$ tout inclus",  # T1
+        "Cherche un RAV4 sous 30 000$ tout inclus",       # T1
         "montre moi des RAV4",                           # T1b : peuple vehicle_shown
         "Quels sont les frais caches?",                  # T2
         "RDV mardi 16h",                                 # T3
@@ -77,7 +77,7 @@ scenarios = [
     ]},
     {"persona": "Sceptique", "steps": [
         "Vous vendez des autos accidentees?",            # T1
-        "montre moi ce que tu as",                       # T1b : peuple vehicle_shown
+        "as-tu des RAV4 ou des Escape en inventaire",       # T1b : peuple vehicle_shown
         "Pourquoi je devrais te faire confiance?",       # T2
         "RDV, note inspection",                          # T3
     ]},
