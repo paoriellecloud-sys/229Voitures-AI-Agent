@@ -119,7 +119,7 @@ def main():
         - Qualité des conseils
         Sois précis et critique.""",
         chat_history,
-        max_tokens=800
+        max_tokens=1500
     )
     print(f"[NOTE FINALE]\n{evaluation}")
     print("\n=== FIN DU TEST ===")
