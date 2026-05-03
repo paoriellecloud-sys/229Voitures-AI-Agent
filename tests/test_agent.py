@@ -313,7 +313,7 @@ def main():
     v11_1b = _within(nums11_1, 997.5)
     v11_1c = _within(nums11_1, 11497.5)
 
-    r11_2 = chat(token, "maintenant calcule pour 20 000$", sid)
+    r11_2 = chat(token, "calcule moi les taxes sur 20 000$", sid)
     resp11_2 = r11_2.get("response", "")
     nums11_2 = _parse_ca_amounts(resp11_2)
 
