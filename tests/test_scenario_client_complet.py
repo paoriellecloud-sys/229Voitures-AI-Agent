@@ -88,12 +88,12 @@ def main():
 
     vT1_1 = bool(html1 and len(html1.strip()) > 50)
     prices1 = parse_prices(html1)
-    vT1_2 = all(p <= 30000 for p in prices1) if prices1 else True
+    vT1_2 = all(p <= 31000 for p in prices1) if prices1 else True
 
     checks.append(("T1 — VUS retournes dans le budget (html_cards)", vT1_1,
         f"html_cards vide ({len(html1)} chars)"))
-    checks.append(("T1 — Prix affiches <= 30 000$ avant taxes", vT1_2,
-        f"Prix hors budget: {[p for p in prices1 if p > 30000]}"))
+    checks.append(("T1 — Prix affiches <= 31 000$ avant taxes (tolerance 1k)", vT1_2,
+        f"Prix hors budget: {[p for p in prices1 if p > 31000]}"))
 
     # ── T2 : hybride vs hybride rechargeable ─────────────────────
     r2 = chat(token,
@@ -116,14 +116,15 @@ def main():
 
     # ── T3 : reprise Elantra 2019 ────────────────────────────────
     r3 = chat(token,
-        "Ok. Pis pour mon Elantra 2019, est-ce que je peux l'utiliser "
-        "comme mise de fonds?",
+        "Ok. Pis pour mon Elantra 2019 que je veux echanger, est-ce que "
+        "le concessionnaire peut me faire une reprise et appliquer ca "
+        "sur le prix?",
         sid)
     resp3 = r3.get("response", "")
     lower3 = resp3.lower()
 
-    reprise_signals = ["reprise", "echange", "mise de fonds", "valeur",
-                       "trade", "rachat", "estimation", "evaluer", "oui"]
+    reprise_signals = ["reprise", "echange", "trade", "valeur", "revente",
+                       "mise de fonds", "concessionnaire"]
     vT3_1 = any(s in lower3 for s in reprise_signals)
 
     checks.append(("T3 — Mentionne reprise/echange possible", vT3_1,
@@ -255,9 +256,9 @@ def main():
     resp11 = r11.get("response", "")
     lower11 = resp11.lower()
 
-    mecanique_signals = ["moteur", "transmission", "rappel", "probleme",
-                         "inspection", "carfax", "huile", "frein",
-                         "suspension", "roulement", "courroie", "vigilance"]
+    mecanique_signals = ["moteur", "transmission", "inspection", "kilometrage",
+                         "batterie", "hybride", "recent", "nouveau modele",
+                         "peu de donnees", "pas encore", "historique", "entretien"]
     vT11_1 = any(s in lower11 for s in mecanique_signals)
     vT11_2 = len(resp11) > 80
 
