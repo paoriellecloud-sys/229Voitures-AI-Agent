@@ -2313,6 +2313,12 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
                 "source": "inventory_cache_no_luxury",
             }
 
+        # Query vague + budget défini → élargir aux modèles connus du segment
+        _vague_vus = ['vus', 'suv', 'crossover', 'vehicule', 'véhicule', 'auto', 'voiture']
+        if _price_max and not result and any(w in (query or '').lower() for w in _vague_vus):
+            query = "rogue kona escape tucson seltos cx-5 crv rav4 forester qashqai soul niro ioniq"
+            print(f"[smart_chat] Query vague + budget → élargi aux modèles VUS courants")
+
         cache_results = []
         if not result:
             cache_results = search_inventory_cache(query, limit=3, vehicle_filter=vehicle_filter,
