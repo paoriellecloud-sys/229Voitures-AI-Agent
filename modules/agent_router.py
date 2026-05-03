@@ -2394,7 +2394,7 @@ QUESTION UTILISATEUR : {message}
                          "super bonne affaire", "coup de coeur"]
             for key in comments:
                 for word in FORBIDDEN:
-                    if word in comments.get(key, "").lower():
+                    if word in (comments.get(key) or "").lower():
                         comments[key] = comments[key].replace(word, "")
 
             # ─── Assembler la réponse finale ───
