@@ -1582,27 +1582,44 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         elif len(_shown) == 1:
             _rdv_vehicle = _shown[1]
         elif _shown:
+            def _normalize_rdv(s: str) -> str:
+                """Normalise pour matching RDV : minuscules + tirets→espaces + accents."""
+                import unicodedata
+                s = str(s).lower()
+                s = s.replace('-', ' ')
+                s = s.replace('·', ' ')
+                s = unicodedata.normalize('NFD', s)
+                s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+                return s
+
             # Chercher le véhicule mentionné dans le message avec score de priorité
             _rdv_vehicle = None
-            msg_lower_rdv = message.lower()
+            msg_norm_rdv = _normalize_rdv(message)
             _best_score = -1
             for k, v in _shown.items():
-                make = str(v.get("make", "")).lower()
-                model = str(v.get("model", "")).lower()
-                year = str(v.get("year", ""))
-                dealer = str(v.get("dealer_name", "")).lower()
-                city = str(v.get("city", "")).lower()
+                make   = _normalize_rdv(v.get("make", ""))
+                model  = _normalize_rdv(v.get("model", ""))
+                year   = str(v.get("year", ""))
+                dealer = _normalize_rdv(v.get("dealer_name", ""))
+                city   = _normalize_rdv(v.get("city", ""))
                 _score = 0
-                if model and model in msg_lower_rdv:
-                    _score += 2
-                if make and make in msg_lower_rdv:
-                    _score += 1
-                if year and year in msg_lower_rdv:
-                    _score += 1
-                if dealer and dealer in msg_lower_rdv:
-                    _score += 2  # dealer = fort signal de spécificité
-                if city and city in msg_lower_rdv:
-                    _score += 2  # ville = fort signal de spécificité
+                if model  and model  in msg_norm_rdv: _score += 2
+                if make   and make   in msg_norm_rdv: _score += 1
+                if year   and year   in msg_norm_rdv: _score += 1
+                if dealer and dealer in msg_norm_rdv: _score += 2
+                if city   and city   in msg_norm_rdv: _score += 2
+                # Matching partiel sur mots du dealer (>3 chars)
+                for mot in dealer.split():
+                    if len(mot) > 3 and mot in msg_norm_rdv:
+                        _score += 1
+                for mot in city.split():
+                    if len(mot) > 3 and mot in msg_norm_rdv:
+                        _score += 1
+                # Pénalité faux positif "québec" générique :
+                # si l'utilisateur mentionne "ste foy", pénaliser les dealers sans "ste"/"foy"
+                if "ste foy" in msg_norm_rdv:
+                    if "ste" not in dealer and "foy" not in dealer:
+                        _score -= 3
                 if _score > _best_score:
                     _best_score = _score
                     if _score > 0:
