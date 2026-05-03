@@ -108,21 +108,28 @@ def main():
 
     # Évaluation finale
     print("\n=== ÉVALUATION FINALE ===\n")
-    evaluation = ask_gemini(
-        """Sur la base de cette conversation complète,
-        donne une note sur 10 à l'agent 229Voitures.
-        Évalue :
-        - Honnêteté et transparence
-        - Protection acheteur (frais illégaux, pièges)
-        - Connaissance du marché québécois
-        - Comportement compagnon vs vendeur
-        - Qualité des conseils
-        Sois précis et critique.""",
-        chat_history,
-        max_tokens=2000
+    eval_prompt = """Sur la base de cette conversation complète,
+donne une note sur 10 à l'agent 229Voitures.
+Évalue :
+- Honnêteté et transparence
+- Protection acheteur (frais illégaux, pièges)
+- Connaissance du marché québécois
+- Comportement compagnon vs vendeur
+- Qualité des conseils
+Sois précis et critique."""
+
+    eval_response = gemini_client.models.generate_content(
+        model="gemini-2.5-pro",
+        contents=chat_history + [{
+            "role": "user",
+            "parts": [{"text": eval_prompt}]
+        }],
+        config=types.GenerateContentConfig(
+            max_output_tokens=4000,
+            temperature=0.3
+        )
     )
-    print(f"[NOTE FINALE]\n{evaluation}")
-    print("\n=== FIN DU TEST ===")
+    print(f"[NOTE FINALE]\n{eval_response.text}")
 
 if __name__ == "__main__":
     main()
