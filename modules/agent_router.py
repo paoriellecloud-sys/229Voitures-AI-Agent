@@ -342,7 +342,8 @@ def _run_cache_sql(cursor, conditions: list, params: list, limit: int) -> list:
                tps, tvq, total_taxes, total_with_taxes,
                options, vehicle_id, stock_number, raw_content, scraped_at
         FROM inventory_cache
-        WHERE {" AND ".join(conditions)}
+        WHERE price IS NOT NULL AND price > 0
+        AND {" AND ".join(conditions)}
         ORDER BY scraped_at DESC
         LIMIT ?
     """
