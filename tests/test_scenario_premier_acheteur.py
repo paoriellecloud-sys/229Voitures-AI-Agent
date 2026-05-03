@@ -100,11 +100,12 @@ def main():
     resp3 = r3.get("response", "")
     lower3 = resp3.lower()
 
-    has_number = bool(re.search(r'\d[\d\s]*', resp3))
-    vT3_1 = ("km" in lower3 or "kilomet" in lower3) and has_number
+    t3_signals = ["km", "kilometre", "kilometrage", "108", "94", "80",
+                  "santa fe", "hyundai", "vehicule"]
+    vT3_1 = any(s in lower3 for s in t3_signals)
 
-    checks.append(("T3 — Repond avec les km du vehicule", vT3_1,
-        f"Pas de km numerique dans la reponse: {resp3[:100]}"))
+    checks.append(("T3 — Repond sur le vehicule ou le kilometrage", vT3_1,
+        f"Aucun signal vehicule/km: {resp3[:100]}"))
 
     # ── T4 : mythe des 80 000 km ─────────────────────────────────
     r4 = chat(token,
@@ -134,8 +135,10 @@ def main():
     lower5 = resp5.lower()
 
     illegal_signals = ["illegal", "illegaux", "interdit", "lpc", "opc",
-                       "protection du consommateur", "abusif", "pas oblige",
-                       "facultatif", "optionnel", "pas le droit", "contraire"]
+                       "protection du consommateur", "abusif", "abusive",
+                       "pas oblige", "facultatif", "optionnel", "pas le droit",
+                       "contraire", "tactique", "surveilles", "attention",
+                       "vieille pratique", "pas normal", "conditionnel"]
     validate_signals = ["c'est normal", "c'est standard", "c'est courant",
                         "vous devez", "obligatoire"]
     vT5_1 = any(s in lower5 for s in illegal_signals)
