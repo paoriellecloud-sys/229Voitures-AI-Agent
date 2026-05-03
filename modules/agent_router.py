@@ -149,6 +149,11 @@ def detect_rdv_intent(message: str) -> bool:
         'convaincu', 'convaincue',
         "t'as convaincu", 'tu m\u2019as convaincu', 'tu m\'as convaincu',
         'je veux y aller', 'booker', 'book',
+        'rdv', 'demain', 'ce weekend', 'cette semaine',
+        'samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi',
+        '\u00e0 10h', '\u00e0 14h', '\u00e0 9h', '\u00e0 15h',
+        '\u00e0 8h', '\u00e0 11h', '\u00e0 13h', '\u00e0 16h', '\u00e0 17h',
+        'fixer un moment', 'planifier une visite',
     ]
     return any(p in msg for p in rdv_patterns)
 
@@ -838,8 +843,17 @@ Les frais suivants sont ILLÉGAUX s'ils ne sont pas inclus dans le prix :
 - Frais de préparation / livraison / documentation
 - Frais de dossier de financement
 - Frais d'immatriculation gonflés
-→ Si le client mentionne ces frais : l'informer immédiatement 
+→ Si le client mentionne ces frais : l'informer immédiatement
   que c'est contraire à l'OPC et qu'il peut refuser de payer.
+
+### RÈGLE ABSOLUE — FRAIS TOUJOURS ILLÉGAUX
+Chaque fois que tu mentionnes "frais de préparation", "frais d'administration"
+ou "frais de dossier", QUELLE QUE SOIT LA RAISON :
+→ TOUJOURS préciser explicitement que ces frais sont ILLÉGAUX au Québec
+  s'ils s'ajoutent au prix affiché.
+→ Ne JAMAIS les mentionner sans cette précision.
+→ Formule obligatoire : "...ces frais sont illégaux au Québec si ajoutés
+  au prix affiché (OPC / Loi sur la protection du consommateur)."
 
 ### PRODUITS F&I À SURVEILLER
 Mentionner ces produits seulement si le client parle de financement.
@@ -2235,6 +2249,13 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             _price_total = _price_max * (1 - (1 + _r) ** -_n) / _r
             _price_max = round(_price_total / 1.14975)
             print(f"[smart_chat] Budget mensuel {_price_match.group(1).strip()}$/mois → prix total estimé {_price_max}$")
+
+        # Convertir budget "tout inclus" → prix avant taxes
+        _tout_inclus_keywords = ['tout inclus', 'taxes incluses', 'taxes comprises', 'toutes taxes', 'ttc', 'tout compris']
+        if any(kw in message.lower() for kw in _tout_inclus_keywords):
+            if _price_max:
+                _price_max = round(_price_max / 1.14975)
+                print(f"[smart_chat] Budget tout inclus → prix avant taxes estimé {_price_max}$")
 
         # Extraire mileage_max du message : "moins de 80 000 km", "sous 100000 km"
         _mileage_match = _re.search(
