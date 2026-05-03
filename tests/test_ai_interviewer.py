@@ -1,7 +1,8 @@
 import os
 import uuid
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 BASE_URL = "http://148.116.73.158:8000"
 AGENT_URL = f"{BASE_URL}/agent/chat"
@@ -10,8 +11,7 @@ TEST_USER = "test_interviewer"
 TEST_PASS = "testpass_229"
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
-gemini = genai.GenerativeModel("gemini-2.0-flash")
+gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 PERSONA = """
 Tu es un acheteur québécois de 35 ans vivant à Québec.
@@ -48,47 +48,57 @@ def ask_agent(token, session_id, message):
     r.raise_for_status()
     return r.json().get("response", "")
 
+def ask_gemini(prompt, history):
+    history.append({"role": "user",
+                    "parts": [{"text": prompt}]})
+    response = gemini_client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=history,
+        config=types.GenerateContentConfig(
+            system_instruction=PERSONA,
+            max_output_tokens=300
+        )
+    )
+    answer = response.text.strip()
+    history.append({"role": "model",
+                    "parts": [{"text": answer}]})
+    return answer
+
 def main():
     print("=== TEST INTERVIEWER IA — 229Voitures ===\n")
 
     token = get_token()
     session_id = str(uuid.uuid4())
-
-    chat = gemini.start_chat(history=[])
+    chat_history = []
+    conversation = []
 
     # Message initial pour lancer la conversation
-    chat.send_message(PERSONA +
-        "\n\nCommence par te présenter brièvement "
-        "et pose ta première question sur le budget.")
-
-    conversation = []
+    question = ask_gemini(
+        "Commence par te présenter brièvement "
+        "et pose ta première question sur le budget.",
+        chat_history
+    )
 
     for turn in range(1, MAX_TURNS + 1):
         print(f"--- Tour {turn}/{MAX_TURNS} ---")
-
-        # Gemini génère la question
-        if turn == 1:
-            question = chat.last.text.strip()
-        else:
-            response = chat.send_message(
-                f"L'agent a répondu : {conversation[-1]['agent'][:400]}"
-                "\n\nPose ta prochaine question.")
-            question = response.text.strip()
-
         print(f"[CLIENT] {question}\n")
 
         # Agent répond
         answer = ask_agent(token, session_id, question)
         print(f"[AGENT]  {answer[:400]}{'...' if len(answer) > 400 else ''}\n")
 
-        conversation.append({
-            "question": question,
-            "agent": answer
-        })
+        conversation.append({"question": question, "agent": answer})
+
+        # Gemini génère la prochaine question (sauf après le dernier tour)
+        if turn < MAX_TURNS:
+            question = ask_gemini(
+                f"L'agent a répondu : {answer[:400]}\n\nPose ta prochaine question.",
+                chat_history
+            )
 
     # Évaluation finale
     print("\n=== ÉVALUATION FINALE ===\n")
-    eval_response = chat.send_message(
+    evaluation = ask_gemini(
         """Sur la base de cette conversation complète,
         donne une note sur 10 à l'agent 229Voitures.
         Évalue :
@@ -97,9 +107,10 @@ def main():
         - Connaissance du marché québécois
         - Comportement compagnon vs vendeur
         - Qualité des conseils
-        Sois précis et critique."""
+        Sois précis et critique.""",
+        chat_history
     )
-    print(f"[NOTE FINALE]\n{eval_response.text}")
+    print(f"[NOTE FINALE]\n{evaluation}")
     print("\n=== FIN DU TEST ===")
 
 if __name__ == "__main__":
