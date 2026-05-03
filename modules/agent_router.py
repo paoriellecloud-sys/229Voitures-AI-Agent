@@ -144,6 +144,11 @@ def detect_rdv_intent(message: str) -> bool:
         'on y va', 'je le prends', 'je veux proc\u00e9der',
         'je suis convaincu', 'comment proc\u00e9der', 'met moi en contact',
         'mets moi en contact', 'contact avec eux',
+        'aller le voir', 'aller la voir', 'aller les voir',
+        "m'arranger", 'arranger \u00e7a', 'arranger ca',
+        'convaincu', 'convaincue',
+        "t'as convaincu", 'tu m\u2019as convaincu', 'tu m\'as convaincu',
+        'je veux y aller', 'booker', 'book',
     ]
     return any(p in msg for p in rdv_patterns)
 
@@ -2220,6 +2225,16 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             message.lower()
         )
         _price_max = int(_price_match.group(1).replace(' ', '')) if _price_match else None
+
+        # Convertir budget mensuel en prix total si nécessaire
+        _monthly_keywords = ['/mois', 'par mois', 'mensuel', 'mensuellement', 'par semaine']
+        _is_monthly = any(kw in message.lower() for kw in _monthly_keywords)
+        if _is_monthly and _price_max and _price_max < 2000:
+            _r = 0.0799 / 12
+            _n = 72
+            _price_total = _price_max * (1 - (1 + _r) ** -_n) / _r
+            _price_max = round(_price_total / 1.14975)
+            print(f"[smart_chat] Budget mensuel {_price_match.group(1).strip()}$/mois → prix total estimé {_price_max}$")
 
         # Extraire mileage_max du message : "moins de 80 000 km", "sous 100000 km"
         _mileage_match = _re.search(
