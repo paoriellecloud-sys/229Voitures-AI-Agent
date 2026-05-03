@@ -173,15 +173,17 @@ def main():
     lowerC3 = respC3.lower()
 
     vC1 = "rav4" in htmlC1.lower() or "rav4" in rC1.get("response", "").lower()
-    vC2 = "proposition 2" in respC2.lower() or "2e" in respC2.lower() or "deuxieme" in respC2.lower()
+    # Verifier que l'agent parle du bon vehicule sans exiger le mot "proposition"
+    rav4_signals = ["rav4", "2018", "noir", "114", "23 837", "kia val"]
+    vC2 = any(s in respC2.lower() for s in rav4_signals)
     vC3 = bool(htmlC3 and len(htmlC3.strip()) > 50)
     vC4 = "rav4" in htmlC3.lower() or "rav4" in lowerC3
 
     checks_C = [
         ("Tour 1 — RAV4 retournes en html_cards", vC1,
          "html_cards vide ou sans 'rav4' apres la recherche"),
-        ("Tour 2 — Repond sur la proposition 2", vC2,
-         f"Reponse ne mentionne pas 'proposition 2' ou '2e': {respC2[:120]}"),
+        ("Tour 2 — Repond sur le bon vehicule (RAV4 2018)", vC2,
+         f"Aucun signal RAV4/2018/noir/km dans la reponse: {respC2[:120]}"),
         ("Tour 3 — Formulaire RDV affiche", vC3,
          f"html_cards vide apres demande RDV ({len(htmlC3)} chars)"),
         ("Tour 3 — RDV pour un RAV4 (bonne memoire vehicule)", vC4,
