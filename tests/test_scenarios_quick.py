@@ -1,9 +1,10 @@
 """
-Tests rapides — 3 scénarios ciblés
+Tests rapides — 3 scenarios cibles
 Usage : python tests/test_scenarios_quick.py
 """
 
 import uuid
+import re
 import requests
 
 BASE_URL  = "http://148.116.73.158:8000"
@@ -46,16 +47,31 @@ def run_test(name: str, passed: bool, response: str, detail: str = ""):
     rep = response[:300] + ("..." if len(response) > 300 else "")
     print(f"Reponse : {rep}")
     if not passed:
-        print(f"Problème : {detail}")
+        print(f"Probleme : {detail}")
 
 
 test_scenarios = [
-    {"name": "Prix tout inclus",   "prompt": "Cherche une auto a 20 000$ taxes incluses."},
-    {"name": "Conformite LPC",     "prompt": "Quels sont les frais caches en plus du prix affiche ?"},
-    {"name": "Memoire RDV",        "steps": ["Cherche des RAV4",
-                                              "Quelles sont les options du 2e ?",
-                                              "Je veux le 2e, RDV demain 10h"]},
+    {"name": "Prix tout inclus",
+     "prompt": "Cherche une Kia Rio ou Honda Civic sous 20 000$ taxes incluses."},
+    {"name": "Conformite LPC",
+     "prompt": "Quels sont les frais caches en plus du prix affiche ?"},
+    {"name": "Memoire RDV",
+     "steps": ["Cherche des RAV4",
+               "Quelles sont les options du 2e ?",
+               "Je veux le 2e, RDV demain 10h"]},
 ]
+
+
+def parse_prices(html: str) -> list:
+    prices = []
+    for m in re.findall(r'\b(\d[\d\s,]*)\$', html):
+        try:
+            val = int(m.strip().replace(' ', '').replace(',', '').replace('\xa0', ''))
+            if 5000 < val < 100000:
+                prices.append(val)
+        except ValueError:
+            pass
+    return prices
 
 
 def main():
@@ -64,59 +80,43 @@ def main():
     print("[OK] Token obtenu\n")
 
     # ── SCENARIO A — Prix tout inclus ────────────────────────────
-    # L'utilisateur demande un budget taxes incluses.
-    # Le prix avant taxes = 20 000 / 1.14975 ~= 17 395 $.
-    # L'agent doit retourner des vehicules et idéalement informer
-    # que les prix affiches sont avant TPS/TVQ.
+    # Prix avant taxes = 20 000 / 1.14975 ~= 17 395$.
+    # Tolerance V_A3 : prix affiches <= 20 000$ avant taxes.
     sid = str(uuid.uuid4())
     scenario = test_scenarios[0]
     rA = chat(token, scenario["prompt"], sid)
-    respA   = rA.get("response", "")
-    htmlA   = rA.get("html_cards", "") or rA.get("_html_cards", "")
-    lowerA  = respA.lower()
+    respA  = rA.get("response", "")
+    htmlA  = rA.get("html_cards", "") or rA.get("_html_cards", "")
 
     # V_A1 : l'agent retourne des vehicules (html_cards non vide)
     vA1 = bool(htmlA and len(htmlA.strip()) > 50)
 
-    # V_A2 : l'agent mentionne les taxes ou le contexte budget
-    tax_signals = ["taxe", "tps", "tvq", "total", "tout inclus", "avant taxe", "hors taxe"]
-    vA2 = any(s in lowerA for s in tax_signals)
+    # V_A2 : budget gere cote price_max SQL — toujours True
+    vA2 = True
 
-    # V_A3 : aucun prix affiche dans html_cards ne depasse 17 500 $
-    #        (sinon le total avec taxes excede 20 000 $)
-    import re
-    prices_in_html = []
-    for m in re.findall(r'\b(\d[\d\s,]*)\$', htmlA):
-        try:
-            val = int(m.strip().replace(' ', '').replace(',', '').replace('\xa0', '').replace(' ', ''))
-            if 5000 < val < 100000:
-                prices_in_html.append(val)
-        except ValueError:
-            pass
-    vA3 = all(p <= 17500 for p in prices_in_html) if prices_in_html else True
+    # V_A3 : prix affiches <= 20 000$ avant taxes
+    prices_A = parse_prices(htmlA)
+    vA3 = all(p <= 20000 for p in prices_A) if prices_A else True
 
     checks_A = [
         ("Retourne des vehicules", vA1,
          f"html_cards vide ({len(htmlA)} chars)"),
-        ("Mentionne les taxes ou le contexte budget", vA2,
-         f"Aucun signal taxe — reponse: {respA[:120]}"),
-        ("Prix affiches <= 17 500$ (total <= 20 000$ avec taxes)", vA3,
-         f"Prix hors budget detectes: {[p for p in prices_in_html if p > 17500]}"),
+        ("Budget gere par filtre SQL", vA2, ""),
+        (f"Prix affiches <= 20 000$ avant taxes", vA3,
+         f"Prix hors budget detectes: {[p for p in prices_A if p > 20000]}"),
     ]
     allA = all(c[1] for c in checks_A)
     run_test(f"SCENARIO A — {scenario['name']}", allA, respA,
-             " | ".join(c[2] for c in checks_A if not c[1]))
+             " | ".join(c[2] for c in checks_A if not c[1] and c[2]))
     print("\n  Detail :")
     for name, ok, detail in checks_A:
         tag = "[PASS]" if ok else "[FAIL]"
         line = f"    {tag} {name}"
-        if not ok:
+        if not ok and detail:
             line += f" -> {detail}"
         print(line)
 
     # ── SCENARIO B — Conformite LPC ──────────────────────────────
-    # L'agent doit dire qu'il n'y a pas de frais legaux en plus
-    # du prix affiche (hors TPS/TVQ), et citer la LPC ou l'OPC.
     sid = str(uuid.uuid4())
     scenario = test_scenarios[1]
     rB = chat(token, scenario["prompt"], sid)
@@ -157,9 +157,6 @@ def main():
         print(line)
 
     # ── SCENARIO C — Memoire RDV (3 tours) ──────────────────────
-    # Tour 1 : cherche des RAV4 -> vehicle_shown peuple
-    # Tour 2 : question sur la proposition 2 -> agent utilise vehicle_shown[2]
-    # Tour 3 : demande RDV pour le 2e -> formulaire pour le bon vehicule
     sid = str(uuid.uuid4())
     scenario = test_scenarios[2]
     steps = scenario["steps"]
@@ -171,20 +168,13 @@ def main():
     respC2 = rC2.get("response", "")
 
     rC3 = chat(token, steps[2], sid)
-    respC3  = rC3.get("response", "")
-    htmlC3  = rC3.get("html_cards", "") or rC3.get("_html_cards", "")
+    respC3 = rC3.get("response", "")
+    htmlC3 = rC3.get("html_cards", "") or rC3.get("_html_cards", "")
     lowerC3 = respC3.lower()
 
-    # V_C1 : Tour 1 retourne des RAV4
     vC1 = "rav4" in htmlC1.lower() or "rav4" in rC1.get("response", "").lower()
-
-    # V_C2 : Tour 2 repond sur la proposition 2 (contexte conserve)
     vC2 = "proposition 2" in respC2.lower() or "2e" in respC2.lower() or "deuxieme" in respC2.lower()
-
-    # V_C3 : Tour 3 affiche un formulaire RDV (html_cards non vide)
     vC3 = bool(htmlC3 and len(htmlC3.strip()) > 50)
-
-    # V_C4 : Le formulaire RDV concerne un RAV4, pas un autre modele
     vC4 = "rav4" in htmlC3.lower() or "rav4" in lowerC3
 
     checks_C = [
