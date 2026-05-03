@@ -35,15 +35,11 @@ def get_token():
         params={"username": TEST_USER,
                 "password": TEST_PASS})
     r = requests.post(f"{BASE_URL}/login",
-        params={"username": TEST_USER,
-                "password": TEST_PASS})
-    data = r.json()
-    token = data.get("access_token") or \
-            data.get("token") or \
-            data.get("access_token")
+        data={"username": TEST_USER,
+              "password": TEST_PASS})
+    token = r.json().get("access_token")
     if not token:
-        print(f"Login response: {data}")
-        raise Exception("Token non trouvé")
+        raise Exception(f"Token non trouvé: {r.json()}")
     return token
 
 def ask_agent(token, session_id, message):
