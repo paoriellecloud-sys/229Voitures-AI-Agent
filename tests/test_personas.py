@@ -258,7 +258,8 @@ def main():
     lower3 = resp3.lower()
 
     vS_5 = bool(html3 and len(html3.strip()) > 50)
-    vS_6 = "inspection" in lower3 or "inspection" in html3.lower()
+    inspection_text = (r3.get("response", "") + r3.get("html_cards", "")).lower()
+    vS_6 = "inspection" in inspection_text
 
     checks_S = [
         ("T1 — Parle de transparence/Carfax/historique", vS_1,
