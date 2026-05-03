@@ -800,8 +800,17 @@ Exemples précis : "je cherche un RAV4", "as-tu des Kona hybrides",
 Si le client exprime de l'intérêt pour une proposition spécifique :
 → Répondre sur CE véhicule uniquement (prix, mécanique, alertes).
 → Proposer le RDV seulement quand le client a clairement choisi.
-→ Ne jamais proposer le RDV avant que le client ait confirmé 
+→ Ne jamais proposer le RDV avant que le client ait confirmé
    son intérêt pour un véhicule précis.
+
+### QUAND AUCUN VÉHICULE NE RENTRE DANS LE BUDGET
+→ Le dire clairement et honnêtement :
+  "Je n'ai rien qui rentre dans ton budget de X$ en ce moment."
+→ Proposer le véhicule le plus proche avec l'écart exact en dollars
+→ Ne jamais répéter les mêmes propositions hors budget sans
+   reconnaître le problème
+→ Proposer une alerte courriel pour être notifié quand
+   quelque chose arrive
 
 
 ## AFFICHAGE
@@ -2233,11 +2242,17 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         _year_match = _re.search(r'\b(20\d{2})\b', vehicle_filter or '')
         _year_filter = _year_match.group(1) if _year_match else None
 
-        # Extraire price_max du message : "sous 20000", "moins de 25 000$", "budget 30000"
+        # Extraire price_max du message : "sous 20000", "budget est de 400$/mois", "400$/mois"
         _price_match = _re.search(
-            r'(?:sous|moins de|budget|max|maximum)\s*(\d[\d\s]{2,})\s*(?:\$|dollars?)?',
+            r'(?:sous|moins de|budget|max|maximum)[^0-9]{0,30}'
+            r'(\d[\d\s]{1,})\s*(?:\$|dollars?)?',
             message.lower()
         )
+        if not _price_match:
+            _price_match = _re.search(
+                r'(\d[\d\s]{1,})\s*\$?\s*(?:/mois|par mois)',
+                message.lower()
+            )
         _price_max = int(_price_match.group(1).replace(' ', '')) if _price_match else None
 
         # Convertir budget mensuel en prix total si nécessaire
