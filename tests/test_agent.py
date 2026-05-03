@@ -474,6 +474,41 @@ def main():
     print(f"  Conformite OPC      :  {'PASS' if all13 else 'FAIL'}")
     print(f"  {'='*44}")
 
+    # ── SCÉNARIO 14 — RDV proposition non-1 (dealer spécifique) ──
+    sid = str(uuid.uuid4())
+
+    # Tour 1 : créer le contexte véhicule (3 Sorentos dont Ste-Foy en prop 3)
+    chat(token, "je cherche un Kia Sorento 2022", sid)
+
+    # Tour 2 : demander RDV en ciblant explicitement Ste-Foy
+    r14 = chat(token,
+        "je veux un RDV pour le sorento 2022 kia ste foy 113 730 km", sid)
+    html14 = r14.get("html_cards", "") or r14.get("_html_cards", "")
+    resp14 = r14.get("response", "")
+
+    v14_1 = "ste-foy" in html14.lower() or "ste foy" in html14.lower()
+    v14_2 = "kia québec" not in html14.lower() and "kia quebec" not in html14.lower()
+
+    checks_14 = [
+        ("Formulaire RDV contient Ste-Foy", v14_1,
+         f"'ste-foy'/'ste foy' absent du html_cards ({len(html14)} chars)"),
+        ("Formulaire RDV ne contient pas Kia Québec", v14_2,
+         "html_cards contient 'kia québec' — mauvais dealer sélectionné"),
+    ]
+    all14 = all(c[1] for c in checks_14)
+    run_test(
+        "SCÉNARIO 14 — RDV dealer spécifique Ste-Foy",
+        all14, resp14,
+        " | ".join(c[2] for c in checks_14 if not c[1]),
+    )
+    print("\n  Détail des vérifications :")
+    for name, passed_c, detail in checks_14:
+        tag = "[PASS]" if passed_c else "[FAIL]"
+        line = f"    {tag} {name}"
+        if not passed_c:
+            line += f" -> {detail}"
+        print(line)
+
     # ── Résumé ───────────────────────────────────────────────────
     total = len(results)
     passed = sum(results)
