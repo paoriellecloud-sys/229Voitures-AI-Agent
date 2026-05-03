@@ -37,13 +37,21 @@ def get_token():
     r = requests.post(f"{BASE_URL}/login",
         params={"username": TEST_USER,
                 "password": TEST_PASS})
-    return r.json().get("access_token")
+    data = r.json()
+    token = data.get("access_token") or \
+            data.get("token") or \
+            data.get("access_token")
+    if not token:
+        print(f"Login response: {data}")
+        raise Exception("Token non trouvé")
+    return token
 
 def ask_agent(token, session_id, message):
+    headers = {"Authorization": f"Bearer {token}"}
     r = requests.post(AGENT_URL,
         json={"message": message,
               "session_id": session_id},
-        headers={"Authorization": f"Bearer {token}"},
+        headers=headers,
         timeout=60)
     r.raise_for_status()
     return r.json().get("response", "")
