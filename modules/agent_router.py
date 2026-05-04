@@ -146,8 +146,8 @@ def detect_rdv_intent(message: str) -> bool:
         'mets moi en contact', 'contact avec eux',
         'aller le voir', 'aller la voir', 'aller les voir',
         "m'arranger", 'arranger \u00e7a', 'arranger ca',
-        'convaincu', 'convaincue',
-        "t'as convaincu", 'tu m\u2019as convaincu', 'tu m\'as convaincu',
+        "t'as convaincu, je veux", 'tu m\u2019as convaincu, je veux', 'tu m\'as convaincu, je veux',
+        'je suis convaincu, je veux', 'je suis convaincu et je veux',
         'je veux y aller', 'booker', 'book',
         'rdv', 'demain', 'ce weekend', 'cette semaine',
         'samedi', 'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi',
@@ -2304,6 +2304,19 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             if _kw in _msg_lower:
                 _drivetrain_filter = _val
                 break
+
+        # Détection famille nombreuse → forcer query 7 places
+        _family_keywords = [
+            'famille', 'enfants', 'enfant',
+            '4 enfants', '5 enfants', '6 enfants',
+            '7 places', '8 places', 'minivan',
+            'fourgonnette', '3e rangee', 'troisieme rangee',
+            'grand format',
+        ]
+        if any(kw in _msg_lower for kw in _family_keywords):
+            if not query or not any(m in (query or '').lower() for m in ['sorento', 'telluride', 'palisade', 'sienna', 'traverse', 'pilot', 'carnival', 'odyssey']):
+                query = "sorento telluride palisade traverse sienna carnival pilot odyssey"
+                print(f"[smart_chat] Famille détectée → query 7 places forcée")
 
         # Vérification luxury AVANT la recherche DB
         LUXURY_BRANDS = {
