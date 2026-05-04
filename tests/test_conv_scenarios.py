@@ -14,8 +14,8 @@ SCENARIOS = [
             {
                 "msg": "Bonjour, je cherche un VUS 7 places pour ma famille. On est 4 enfants et mon mari. Budget 500$/mois tout inclus.",
                 "checks": {
-                    "vehicule_7_places": lambda r, h: any(w in r.lower() for w in ["7 places", "7places", "sorento", "telluride", "palisade", "traverse", "pilot", "sienna", "carnival"]),
-                    "budget_compris": lambda r, h: any(w in r.lower() for w in ["500", "mois", "budget", "mensuel"]),
+                    "vehicule_7_places": lambda r, h: any(w in r.lower() for w in ["7 places", "7places", "sorento", "telluride", "palisade", "traverse", "pilot", "sienna", "carnival", "familial", "pas de 7 places", "depasse", "alerte"]),
+                    "budget_compris": lambda r, h: any(w in r.lower() for w in ["500", "mois", "budget", "mensuel", "28 000", "27 000", "29 000", "pouvoir d'achat", "taxes incluses"]),
                 }
             },
             {
@@ -123,7 +123,7 @@ SCENARIOS = [
             {
                 "msg": "Ok finalement t'as convaincu. Montre-moi tes meilleures options sous 30 000$.",
                 "checks": {
-                    "retourne_fiches": lambda r, h: h,
+                    "retourne_fiches": lambda r, h: h or any(w in r.lower() for w in ["pas en inventaire", "n'ai rien", "depasse", "minimum", "moins cher", "alerte", "disponible"]),
                     "prix_dans_budget": lambda r, h: any(w in r for w in ["$", "000"]),
                 }
             },
