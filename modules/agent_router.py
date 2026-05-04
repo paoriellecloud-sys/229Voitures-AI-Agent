@@ -1401,11 +1401,32 @@ def _needs_clarification(message: str, session: dict) -> bool:
     Retourne True si l'agent doit poser une question
     de clarification avant de chercher dans la DB.
     """
+    import re as _re_nc
+    msg = message.lower()
+
+    # Si le message contient déjà un budget → pas besoin de clarification
+    has_budget = bool(_re_nc.search(
+        r'\d+\s*\$?\s*(?:/mois|par mois|mensuel|comptant)',
+        msg
+    ))
+
+    # Si le message contient déjà un modèle ou type de véhicule précis
+    has_vehicle = any(w in msg for w in [
+        'vus', 'suv', 'berline', 'camion',
+        'pickup', 'hybride', 'electrique',
+        'rav4', 'kona', 'civic', 'corolla',
+        'escape', 'rogue', 'tucson', 'seltos',
+        '7 places', 'familial', 'famille',
+    ])
+
+    # Si les deux sont présents → pas de clarification
+    if has_budget and has_vehicle:
+        return False
+
     # Si on vient de poser une clarification → ne pas en reposer
     if session.get("context", {}).get("clarification_asked"):
         return False
 
-    msg = message.lower()
     user_data = session.get("user_data", {})
 
     # Si l'utilisateur mentionne un échange → clarifier
