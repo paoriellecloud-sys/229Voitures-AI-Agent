@@ -875,8 +875,18 @@ Toujours présenter les deux côtés (utile / inutile selon le contexte) :
   valeur faible. À éviter dans la majorité des cas.
 - Garantie prolongée → peut être utile sur véhicule hors garantie 
   usine ou à haut kilométrage. Négocier le prix.
-- Vente liée taux/produit → si le taux préférentiel est conditionnel 
+- Vente liée taux/produit → si le taux préférentiel est conditionnel
   à l'achat d'un produit F&I, calculer le coût réel avant d'accepter.
+
+### VENTE LIÉE TAUX/PRODUIT — RÈGLE ABSOLUE
+Si un vendeur conditionne un taux préférentiel à l'achat d'un produit
+(assurance vie, garantie prolongée, protection, etc.) :
+→ Dire explicitement que c'est une pratique ILLÉGALE au Québec
+  selon la Loi sur la protection du consommateur (LPC)
+→ Calculer le coût réel du produit sur la durée du prêt
+→ Conseiller de refuser et de négocier le taux indépendamment
+→ Formule obligatoire : "Cette pratique est illégale au Québec (LPC) —
+  un taux ne peut pas être conditionnel à l'achat d'un produit."
 
 ### ALERTES MÉCANIQUES PAR MODÈLE
 Mentionner automatiquement si ces modèles sont discutés :
@@ -2334,7 +2344,8 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             'fourgonnette', '3e rangee', 'troisieme rangee',
             'grand format',
         ]
-        if any(kw in _msg_lower for kw in _family_keywords):
+        _is_7places = any(kw in _msg_lower for kw in _family_keywords)
+        if _is_7places:
             if not query or not any(m in (query or '').lower() for m in ['sorento', 'telluride', 'palisade', 'sienna', 'traverse', 'pilot', 'carnival', 'odyssey']):
                 query = "sorento telluride palisade traverse sienna carnival pilot odyssey"
                 print(f"[smart_chat] Famille détectée → query 7 places forcée")
@@ -2567,7 +2578,38 @@ INSTRUCTIONS :
 - Propose à l'utilisateur de créer une alerte email pour être notifié si le modèle arrive en inventaire
 """
                 else:
-                    no_stock_prompt = f"""
+                    # Réponse spécifique 7 places hors budget
+                    if _is_7places and _price_max:
+                        result = {
+                            "intent": "SEARCH",
+                            "response": (
+                                f"Je n'ai pas de vehicule 7 places dans ton budget de {_price_max:,}$ en ce moment. "
+                                "Les modeles familiaux comme le Sorento, Telluride ou Sienna depassent generalement "
+                                "ce budget dans notre inventaire.\n\n"
+                                "Je peux :\n"
+                                "1. Te creer une alerte courriel des qu'un 7 places dans ton budget arrive\n"
+                                "2. Te montrer des options 5 places spacieuses si tu veux explorer"
+                            ),
+                            "_html_cards": "",
+                            "urls_found": [],
+                            "scraped_count": 0,
+                            "source": "no_7places_in_budget",
+                        }
+                    else:
+                        # Trouver le prix minimum disponible pour orienter le client
+                        _min_price_info = ""
+                        try:
+                            cursor_min = conn.cursor()
+                            cursor_min.execute(
+                                "SELECT title, price FROM inventory_cache WHERE price > 0 ORDER BY price ASC LIMIT 1"
+                            )
+                            _min_row = cursor_min.fetchone()
+                            if _min_row:
+                                _min_price_info = f"\nLe vehicule le moins cher en inventaire est actuellement a {int(_min_row[1]):,}$."
+                        except Exception:
+                            pass
+
+                        no_stock_prompt = f"""
 {SYSTEM_PROMPT}
 
 Historique:
@@ -2577,31 +2619,33 @@ Contexte: {context_summary}
 
 RECHERCHE DE L'UTILISATEUR : "{query}"
 
-RÉSULTAT DE RECHERCHE : Aucun véhicule trouvé dans l'inventaire pour cette recherche.
+RÉSULTAT DE RECHERCHE : Aucun véhicule trouvé dans l'inventaire pour cette recherche.{_min_price_info}
 
 INSTRUCTIONS STRICTES :
 - Dis HONNÊTEMENT qu'on n'a pas ce modèle en stock chez nos concessionnaires partenaires
+- Si un prix minimum est mentionné ci-dessus, cite-le pour orienter le client
 - NE PAS inventer de véhicules ou d'annonces
 - NE PAS chercher sur internet pour présenter des fiches
 - Propose : (1) créer une alerte email, (2) élargir la recherche à d'autres modèles similaires, (3) consulter directement AutoHebdo.net ou Kijiji Autos
 - Demande si l'utilisateur veut qu'on cherche un modèle similaire dans notre inventaire
 """
 
-                _tok = estimate_tokens(no_stock_prompt)
-                if _tok > 30000:
-                    history_str = _short_history(session, 10)
-                    no_stock_prompt = no_stock_prompt.replace(history_str, _short_history(session, 10))
+                if not result:
+                    _tok = estimate_tokens(no_stock_prompt)
+                    if _tok > 30000:
+                        history_str = _short_history(session, 10)
+                        no_stock_prompt = no_stock_prompt.replace(history_str, _short_history(session, 10))
 
-                no_stock_response = client.models.generate_content(model="gemini-2.5-flash", contents=no_stock_prompt)
-                alt_html_cards = format_vehicles_html_block(alt_results) if alt_results else ""
-                result = {
-                    "intent": "SEARCH",
-                    "response": no_stock_response.text,
-                    "_html_cards": alt_html_cards,
-                    "urls_found": [r["url"] for r in alt_results] if alt_results else [],
-                    "scraped_count": len(alt_results),
-                    "source": "inventory_cache_alternatives"
-                }
+                    no_stock_response = client.models.generate_content(model="gemini-2.5-flash", contents=no_stock_prompt)
+                    alt_html_cards = format_vehicles_html_block(alt_results) if alt_results else ""
+                    result = {
+                        "intent": "SEARCH",
+                        "response": no_stock_response.text,
+                        "_html_cards": alt_html_cards,
+                        "urls_found": [r["url"] for r in alt_results] if alt_results else [],
+                        "scraped_count": len(alt_results),
+                        "source": "inventory_cache_alternatives"
+                    }
 
     elif not result:
         # ─── CHAT — conseils, fiabilité, prix, etc. ───
