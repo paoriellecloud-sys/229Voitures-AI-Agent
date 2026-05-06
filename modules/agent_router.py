@@ -1017,114 +1017,45 @@ Retourne exactement ce format JSON :
   "vehicle_filter": null
 }}
 
-Règles d'intention :
+RÈGLE DE CLASSIFICATION :
 
-RÈGLE FONDAMENTALE DE CLASSIFICATION :
-Question clé : "L'utilisateur mentionne-t-il un véhicule, une marque, un modèle ou une catégorie ?"
+SEARCH — seulement si intention d'achat explicite :
+Signes : "cherche", "as-tu", "avez-vous",
+"montre-moi", "trouve-moi", "je veux un/une",
+"disponible", "en inventaire", "acheter",
+"j'aimerais voir", "aurais-tu"
 
-- SEARCH : SI OUI — l'utilisateur mentionne un véhicule, une marque, un modèle ou une catégorie (toujours, peu importe la formulation)
-  Exemples → SEARCH :
-  - "aurais-tu des Kona" → SEARCH, vehicle_filter="hyundai kona"
-  - "t'as-tu un Escape" → SEARCH, vehicle_filter="ford escape"
-  - "je me magasine un VUS" → SEARCH, vehicle_filter="vus"
-  - "c'est quoi tes prix sur les Civic" → SEARCH, vehicle_filter="honda civic"
-  - "je pense à un Kona" → SEARCH, vehicle_filter="hyundai kona"
-  - "qu'est-ce que t'as comme berline" → SEARCH, vehicle_filter="berline"
-  - "show me some SUVs" → SEARCH, vehicle_filter="suv"
-  - "do you have any Civics" → SEARCH, vehicle_filter="honda civic"
-  - "j'aimerais voir des électriques" → SEARCH, vehicle_filter="électrique"
-  - "je me cherche quelque chose d'économique" → SEARCH, vehicle_filter="économique"
-  - "Trouve moi un Toyota RAV4 2021" → SEARCH, vehicle_filter="toyota rav4 2021"
-  - "Cherche des Honda CRV sous 25000$" → SEARCH, vehicle_filter="honda crv"
-  - "je recherche une Seltos 2022 au Québec" → SEARCH, vehicle_filter="kia seltos 2022"
-  - "j'ai un Elantra, je veux un VUS" → SEARCH, vehicle_filter="vus"
-  - "j'ai une berline, je cherche une camionnette" → SEARCH, vehicle_filter="camionnette"
+CHAT — dans TOUS les autres cas, incluant :
+- "parle-moi de X", "c'est quoi X"
+- "X est-elle fiable?", "problèmes de X"
+- "différence entre X et Y"
+- "l'histoire de X", "X a été créé quand?"
+- "compare X et Y", "X vs Y"
+- Toute question informative ou d'opinion
+  même si une marque ou modèle est mentionné
 
-EXCEPTION — QUESTIONS INFORMATIVES ET D'OPINION :
-  Classer CHAT même si une marque ou modèle
-  est mentionné, quand le message demande
-  de l'INFORMATION et non un ACHAT.
+EN CAS DE DOUTE → CHAT
 
-  La distinction clé :
-  - ACHAT = l'utilisateur veut VOIR ou TROUVER
-    un véhicule dans l'inventaire
-  - INFORMATION = l'utilisateur veut APPRENDRE
-    quelque chose sur un véhicule ou une marque
+FOLLOWUP — réponse à une proposition précédente :
+- "le premier", "le 2", "celui-là",
+  "ce véhicule", "le moins cher",
+  "comment se fait-il que", "pourquoi il a",
+  "c'est quoi ses", "il a combien de",
+  "parle-moi de celui-là", "ce modèle"
+  → followup_action="select_listing"
 
-  Signes d'INFORMATION → CHAT :
-  "parle moi de", "parles-moi de",
-  "dis moi", "dis-moi",
-  "c'est quoi", "qu'est-ce que",
-  "raconte moi", "l'histoire de",
-  "a été créé", "a été fondé", "créée quand",
-  "comment fonctionne", "explique",
-  "que penses-tu", "penses-tu",
-  "fiable", "fiabilité", "problèmes",
-  "défauts", "avis", "opinion",
-  "vaut-il", "vaut la peine",
-  "c'est bien", "recommandes-tu",
-  "quels sont les", "différence entre",
-  "compare", " vs ", "avantages",
-  "inconvénients", "pour l'hiver",
-  "informations sur", "des infos sur",
-  "je veux savoir", "c'est fiable",
-  "réputation", "qualité de",
-  "origine de", "fondée quand",
-  "inventée quand"
-
-  Exemples → CHAT (information) :
-  - "parle moi des Acura" → CHAT
-  - "c'est quoi une Tesla?" → CHAT
-  - "les Honda sont-elles fiables?" → CHAT
-  - "l'histoire de Volkswagen" → CHAT
-  - "différence entre Kia et Hyundai" → CHAT
-  - "Volkswagen a été créée quand?" → CHAT
-  - "que penses-tu du RAV4?" → CHAT
-  - "les problèmes du CR-V 2019?" → CHAT
-  - "Tesla vs Toyota, lequel est mieux?" → CHAT
-  - "infos sur les Acura" → CHAT
-  - "c'est quoi les défauts du Kona?" → CHAT
-
-  Exemples → SEARCH (intention d'achat) :
-  - "as-tu des Acura?" → SEARCH
-  - "je cherche une Acura" → SEARCH
-  - "montre-moi des Honda" → SEARCH
-  - "trouve-moi un RAV4" → SEARCH
-  - "j'aimerais voir des Civic" → SEARCH
-  - "aurais-tu des Kona?" → SEARCH
-  - "t'as-tu un Escape?" → SEARCH
-
-  EN CAS DE DOUTE → CHAT
-  (si pas sûr que c'est un achat → CHAT)
-
-- CHAT : SI NON — question générale sans véhicule spécifique mentionné
-  * "c'est quoi la différence entre AWD et 4x4" → CHAT
-  * "comment négocier un prix" → CHAT
-  * "c'est quoi les taxes au Québec" → CHAT
-  * "explique-moi le financement" → CHAT
-  * Salutations, remerciements, questions générales sans marque/modèle/catégorie
-
-- ANALYZE_URL : le message contient exactement 1 URL
-- COMPARE_URLS : le message contient 2 URL ou plus
-- CHECK_VIN : le message contient un VIN (17 caractères alphanumériques)
-- FOLLOWUP : l'utilisateur répond à une suggestion précédente
-  * Sélection : "le premier", "le 2", "celui-là", "ce véhicule", "le moins cher" → followup_action="select_listing"
-  * Comparaison : "compare-les", "lequel est le mieux?", "compare" → followup_action="compare"
-  * VIN : "vérifie le VIN", "check le VIN", "rapport VIN" → followup_action="check_vin"
-  * Plus : "montre-m'en plus", "d'autres options?" → followup_action="more_results"
+ANALYZE_URL — message contient 1 URL
+COMPARE_URLS — message contient 2+ URLs
+CHECK_VIN — message contient un VIN 17 chars
 
 Pour SEARCH extraire :
-- query : termes de recherche exacts (marque, modèle, année, version, budget, ville)
-- vehicle_filter : marque + modèle spécifique (ex: "kia seltos 2022")
-  IMPORTANT — vehicle_filter = véhicule DÉSIRÉ uniquement.
-  Si l'utilisateur mentionne un véhicule qu'il POSSÈDE ('j'ai un X', 'mon X actuel', 'je veux changer mon X'),
-  vehicle_filter = le véhicule CHERCHÉ (Y), jamais X.
-  Si budget mensuel mentionné → l'inclure dans query uniquement.
-  Si trade-in mentionné → noter dans query, pas dans vehicle_filter.
-- site : domaine concessionnaire si mentionné, null sinon
-- count : nombre de résultats demandés (défaut 3)
+- query : termes de recherche
+- vehicle_filter : véhicule DÉSIRÉ uniquement
+- site : domaine si mentionné
+- count : nombre résultats (défaut 3)
 
-Retourne UNIQUEMENT le JSON, aucune explication.
+Retourne UNIQUEMENT le JSON,
+aucune explication.
 """
 
 
@@ -1828,46 +1759,6 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                     _desc_best_vehicle = v
             if _desc_best_score >= 2 and _desc_best_vehicle:
                 session["context"]["selected_vehicle"] = _desc_best_vehicle
-        # Interception luxury brands AVANT detect_intent
-        _LUXURY_BRANDS_E = {
-            "tesla", "ferrari", "lamborghini", "bugatti", "mclaren",
-            "rolls royce", "rolls-royce", "bentley", "aston martin", "koenigsegg",
-        }
-        _ACHAT_KW_E = [
-            "acheter", "as-tu", "avez-vous", "trouver",
-            "cherche", "veux un", "montre-moi", "inventaire", "prix",
-            "combien coûte", "en stock",
-        ]
-        _msg_e = message.lower()
-        if any(b in _msg_e for b in _LUXURY_BRANDS_E) and not any(w in _msg_e for w in _ACHAT_KW_E):
-            print(f"[smart_chat] Luxury brand + pas d'intention achat → encyclopédiste pré-detect_intent")
-            _enc_pre_prompt = f"""{SYSTEM_PROMPT}
-
-Historique:
-{history_str}
-
-Contexte: {context_summary}
-
-MODE : ENCYCLOPÉDISTE AUTOMOBILE
-Réponds directement à la question suivante sans chercher dans l'inventaire.
-Ne mentionne PAS que ce véhicule n'est pas en inventaire.
-
-QUESTION : {message}
-"""
-            _enc_pre_resp = client.models.generate_content(
-                model="gemini-2.5-flash", contents=_enc_pre_prompt
-            )
-            _resp_txt = _enc_pre_resp.text
-            session["history"].append({"role": "assistant", "content": _resp_txt})
-            session["history"] = session["history"][-20:]
-            save_session(user_id, sessions.get(user_id, {}))
-            return {
-                "intent": "CHAT",
-                "response": _resp_txt,
-                "html_cards": "",
-                "source": "encyclopediste_luxury",
-            }
-
         # Interception opinion/conseil AVANT appel Gemini
         if _is_opinion_question(message) or _is_advisory_question(message):
             intent_data = {"intent": "CHAT", "query": None, "urls": [], "vin": None,
