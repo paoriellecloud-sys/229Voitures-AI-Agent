@@ -2317,19 +2317,49 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         LUXURY_BRANDS = {
             "ferrari", "lamborghini", "bugatti", "mclaren",
             "rolls royce", "rolls-royce", "bentley", "aston martin", "koenigsegg",
+            "tesla",
         }
+        _INFO_KEYWORDS = ["info", "dis-moi", "c'est quoi", "fiable", "avis",
+                          "penses-tu", "différence", "compare"]
         _msg_lux = message.lower()
         _query_lux = (query or "").lower()
         if any(b in _msg_lux or b in _query_lux for b in LUXURY_BRANDS):
-            print(f"[smart_chat] Marque luxe/exotique → réponse directe sans recherche DB")
-            result = {
-                "intent": "SEARCH",
-                "response": "On n'a pas ça en inventaire. Tu cherches quelque chose de précis dans notre sélection ?",
-                "_html_cards": "",
-                "urls_found": [],
-                "scraped_count": 0,
-                "source": "inventory_cache_no_luxury",
-            }
+            if any(w in _msg_lux for w in _INFO_KEYWORDS):
+                print(f"[smart_chat] Marque luxe/Tesla + question info → mode encyclopédiste")
+                _enc_prompt = f"""{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+MODE : ENCYCLOPÉDISTE AUTOMOBILE
+Réponds directement à la question suivante sans chercher dans l'inventaire.
+Ne mentionne PAS que ce véhicule n'est pas en inventaire.
+
+QUESTION : {message}
+"""
+                _enc_response = client.models.generate_content(
+                    model="gemini-2.5-flash", contents=_enc_prompt
+                )
+                result = {
+                    "intent": "INFO",
+                    "response": _enc_response.text,
+                    "_html_cards": "",
+                    "urls_found": [],
+                    "scraped_count": 0,
+                    "source": "luxury_encyclopediste",
+                }
+            else:
+                print(f"[smart_chat] Marque luxe/exotique → réponse directe sans recherche DB")
+                result = {
+                    "intent": "SEARCH",
+                    "response": "On n'a pas ça en inventaire. Tu cherches quelque chose de précis dans notre sélection ?",
+                    "_html_cards": "",
+                    "urls_found": [],
+                    "scraped_count": 0,
+                    "source": "inventory_cache_no_luxury",
+                }
 
         # Query vague + budget défini → élargir aux modèles connus du segment
         _vague_vus = ['vus', 'suv', 'crossover', 'vehicule', 'véhicule', 'auto', 'voiture']
@@ -2474,6 +2504,7 @@ QUESTION UTILISATEUR : {message}
             LUXURY_BRANDS = {
                 "ferrari", "lamborghini", "bugatti", "mclaren",
                 "rolls royce", "rolls-royce", "bentley", "aston martin", "koenigsegg",
+                "tesla",
             }
             _q_lower = query.lower()
             _msg_lux = message.lower()
