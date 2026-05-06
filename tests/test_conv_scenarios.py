@@ -28,7 +28,15 @@ SCENARIOS = [
             {
                 "msg": "Si je fais financer a 8.99% sur 84 mois, c'est une bonne idee?",
                 "checks": {
-                    "deconseille_84_mois": lambda r, h: any(w in r.lower() for w in ["long", "interet", "couter", "attention", "risque", "depasse", "valeur"]),
+                    "deconseille_84_mois": lambda r, h: any(
+                        w in r.lower() for w in [
+                            "long", "interet", "intérêt",
+                            "couter", "coûter", "attention",
+                            "risque", "depasse", "dépasse",
+                            "valeur", "cher", "payer plus",
+                            "durée", "duree", "84", "total"
+                        ]
+                    ),
                     "pas_de_fiches": lambda r, h: not h,
                 }
             },
