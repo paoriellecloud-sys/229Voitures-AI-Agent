@@ -1762,6 +1762,46 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                     _desc_best_vehicle = v
             if _desc_best_score >= 2 and _desc_best_vehicle:
                 session["context"]["selected_vehicle"] = _desc_best_vehicle
+        # Interception luxury brands AVANT detect_intent
+        _LUXURY_BRANDS_E = {
+            "tesla", "ferrari", "lamborghini", "bugatti", "mclaren",
+            "rolls royce", "rolls-royce", "bentley", "aston martin", "koenigsegg",
+        }
+        _ACHAT_KW_E = [
+            "acheter", "as-tu", "avez-vous", "trouver",
+            "cherche", "veux un", "montre-moi", "inventaire", "prix",
+            "combien coûte", "en stock",
+        ]
+        _msg_e = message.lower()
+        if any(b in _msg_e for b in _LUXURY_BRANDS_E) and not any(w in _msg_e for w in _ACHAT_KW_E):
+            print(f"[smart_chat] Luxury brand + pas d'intention achat → encyclopédiste pré-detect_intent")
+            _enc_pre_prompt = f"""{SYSTEM_PROMPT}
+
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+MODE : ENCYCLOPÉDISTE AUTOMOBILE
+Réponds directement à la question suivante sans chercher dans l'inventaire.
+Ne mentionne PAS que ce véhicule n'est pas en inventaire.
+
+QUESTION : {message}
+"""
+            _enc_pre_resp = client.models.generate_content(
+                model="gemini-2.5-flash", contents=_enc_pre_prompt
+            )
+            _resp_txt = _enc_pre_resp.text
+            session["history"].append({"role": "assistant", "content": _resp_txt})
+            session["history"] = session["history"][-20:]
+            save_session(user_id, sessions.get(user_id, {}))
+            return {
+                "intent": "CHAT",
+                "response": _resp_txt,
+                "html_cards": "",
+                "source": "encyclopediste_luxury",
+            }
+
         # Interception opinion/conseil AVANT appel Gemini
         if _is_opinion_question(message) or _is_advisory_question(message):
             intent_data = {"intent": "CHAT", "query": None, "urls": [], "vin": None,
