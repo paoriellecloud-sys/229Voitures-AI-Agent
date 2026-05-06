@@ -1020,24 +1020,62 @@ Question clé : "L'utilisateur mentionne-t-il un véhicule, une marque, un modè
   - "j'ai un Elantra, je veux un VUS" → SEARCH, vehicle_filter="vus"
   - "j'ai une berline, je cherche une camionnette" → SEARCH, vehicle_filter="camionnette"
 
-EXCEPTION — QUESTIONS D'OPINION :
-Ces messages doivent être classifiés CHAT
-même s'ils mentionnent un modèle :
-- "que penses-tu du Seltos 2022 ?"
-- "est-ce que le RAV4 est fiable ?"
-- "quels sont les problèmes du CR-V ?"
-- "c'est quoi les défauts du Kona ?"
-- "vaut-il la peine d'acheter un Tucson ?"
+EXCEPTION — QUESTIONS INFORMATIVES ET D'OPINION :
+  Classer CHAT même si une marque ou modèle
+  est mentionné, quand le message demande
+  de l'INFORMATION et non un ACHAT.
 
-Mots-clés → CHAT (pas SEARCH) :
-"que penses-tu", "penses-tu", "fiable",
-"problèmes", "défauts", "avis", "opinion",
-"vaut-il", "c'est bien", "recommandes-tu",
-"quels sont les"
+  La distinction clé :
+  - ACHAT = l'utilisateur veut VOIR ou TROUVER
+    un véhicule dans l'inventaire
+  - INFORMATION = l'utilisateur veut APPRENDRE
+    quelque chose sur un véhicule ou une marque
 
-  EN CAS DE DOUTE → SEARCH.
-  SAUF si le message contient un des
-  mots-clés d'opinion ci-dessus → CHAT.
+  Signes d'INFORMATION → CHAT :
+  "parle moi de", "parles-moi de",
+  "dis moi", "dis-moi",
+  "c'est quoi", "qu'est-ce que",
+  "raconte moi", "l'histoire de",
+  "a été créé", "a été fondé", "créée quand",
+  "comment fonctionne", "explique",
+  "que penses-tu", "penses-tu",
+  "fiable", "fiabilité", "problèmes",
+  "défauts", "avis", "opinion",
+  "vaut-il", "vaut la peine",
+  "c'est bien", "recommandes-tu",
+  "quels sont les", "différence entre",
+  "compare", " vs ", "avantages",
+  "inconvénients", "pour l'hiver",
+  "informations sur", "des infos sur",
+  "je veux savoir", "c'est fiable",
+  "réputation", "qualité de",
+  "origine de", "fondée quand",
+  "inventée quand"
+
+  Exemples → CHAT (information) :
+  - "parle moi des Acura" → CHAT
+  - "c'est quoi une Tesla?" → CHAT
+  - "les Honda sont-elles fiables?" → CHAT
+  - "l'histoire de Volkswagen" → CHAT
+  - "différence entre Kia et Hyundai" → CHAT
+  - "Volkswagen a été créée quand?" → CHAT
+  - "que penses-tu du RAV4?" → CHAT
+  - "les problèmes du CR-V 2019?" → CHAT
+  - "Tesla vs Toyota, lequel est mieux?" → CHAT
+  - "infos sur les Acura" → CHAT
+  - "c'est quoi les défauts du Kona?" → CHAT
+
+  Exemples → SEARCH (intention d'achat) :
+  - "as-tu des Acura?" → SEARCH
+  - "je cherche une Acura" → SEARCH
+  - "montre-moi des Honda" → SEARCH
+  - "trouve-moi un RAV4" → SEARCH
+  - "j'aimerais voir des Civic" → SEARCH
+  - "aurais-tu des Kona?" → SEARCH
+  - "t'as-tu un Escape?" → SEARCH
+
+  EN CAS DE DOUTE → CHAT
+  (si pas sûr que c'est un achat → CHAT)
 
 - CHAT : SI NON — question générale sans véhicule spécifique mentionné
   * "c'est quoi la différence entre AWD et 4x4" → CHAT
