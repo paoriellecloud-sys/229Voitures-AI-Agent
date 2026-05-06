@@ -2319,13 +2319,26 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             "rolls royce", "rolls-royce", "bentley", "aston martin", "koenigsegg",
             "tesla",
         }
-        _INFO_KEYWORDS = ["info", "dis-moi", "c'est quoi", "fiable", "avis",
-                          "penses-tu", "différence", "compare"]
+        _ACHAT_KEYWORDS = [
+            "acheter", "prix", "combien", "as-tu", "avez-vous", "trouver",
+            "cherche", "veux un", "veux une", "montre-moi", "inventaire",
+        ]
         _msg_lux = message.lower()
         _query_lux = (query or "").lower()
         if any(b in _msg_lux or b in _query_lux for b in LUXURY_BRANDS):
-            if any(w in _msg_lux for w in _INFO_KEYWORDS):
-                print(f"[smart_chat] Marque luxe/Tesla + question info → mode encyclopédiste")
+            _is_achat = any(w in _msg_lux for w in _ACHAT_KEYWORDS)
+            if _is_achat:
+                print(f"[smart_chat] Marque luxe/exotique + intention achat → pas en inventaire")
+                result = {
+                    "intent": "SEARCH",
+                    "response": "On n'a pas ça en inventaire. Tu cherches quelque chose de précis dans notre sélection ?",
+                    "_html_cards": "",
+                    "urls_found": [],
+                    "scraped_count": 0,
+                    "source": "inventory_cache_no_luxury",
+                }
+            else:
+                print(f"[smart_chat] Marque luxe/Tesla + pas d'intention achat → mode encyclopédiste")
                 _enc_prompt = f"""{SYSTEM_PROMPT}
 
 Historique:
@@ -2349,16 +2362,6 @@ QUESTION : {message}
                     "urls_found": [],
                     "scraped_count": 0,
                     "source": "luxury_encyclopediste",
-                }
-            else:
-                print(f"[smart_chat] Marque luxe/exotique → réponse directe sans recherche DB")
-                result = {
-                    "intent": "SEARCH",
-                    "response": "On n'a pas ça en inventaire. Tu cherches quelque chose de précis dans notre sélection ?",
-                    "_html_cards": "",
-                    "urls_found": [],
-                    "scraped_count": 0,
-                    "source": "inventory_cache_no_luxury",
                 }
 
         # Query vague + budget défini → élargir aux modèles connus du segment
