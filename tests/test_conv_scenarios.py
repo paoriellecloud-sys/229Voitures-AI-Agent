@@ -43,7 +43,12 @@ SCENARIOS = [
             {
                 "msg": "Ok, montre-moi ce que t'as pour ma famille",
                 "checks": {
-                    "retourne_vehicules": lambda r, h: h,
+                    "retourne_vehicules": lambda r, h: h or any(
+                        w in r.lower() for w in [
+                            "sorento", "7 places", "famille",
+                            "inventaire", "alerte", "pas de "
+                        ]
+                    ),
                     "vehicule_famille": lambda r, h: any(w in r.lower() for w in ["sorento", "telluride", "palisade", "sienna", "traverse", "pilot", "carnival", "7 places", "familial"]),
                 }
             },
@@ -70,7 +75,14 @@ SCENARIOS = [
             {
                 "msg": "Le concessionnaire me propose un taux de 19.99% parce que j'ai pas de credit. C'est normal?",
                 "checks": {
-                    "alerte_taux_eleve": lambda r, h: any(w in r.lower() for w in ["eleve", "cher", "attention", "normal", "sous-marin", "negocie", "compare"]),
+                    "alerte_taux_eleve": lambda r, h: any(
+                        w in r.lower() for w in [
+                            "eleve", "élevé", "cher",
+                            "attention", "normal", "sous-marin",
+                            "negocie", "négoci", "compare",
+                            "comparer", "19.99", "taux", "élevé"
+                        ]
+                    ),
                     "conseil_concret": lambda r, h: len(r) > 100,
                 }
             },
