@@ -1837,6 +1837,40 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 print(f"[smart_chat] Intérêt implicite détecté → Proposition 1 (seul véhicule en session)")
         if _prop_num and _shown.get(_prop_num):
             v = _shown[_prop_num]
+            # Vérifier si une marque mentionnée dans le message
+            # ne correspond pas au vehicle_shown actuel
+            _v_make  = (v.get("make")  or "").lower()
+            _v_model = (v.get("model") or "").lower()
+            _msg_chk = message.lower()
+            _brand_mismatch = False
+            for _b in ["rav4", "toyota", "honda", "cr-v", "crv",
+                       "kia", "ford", "hyundai", "mazda", "nissan",
+                       "subaru", "volkswagen", "vw", "bmw", "audi",
+                       "chevrolet", "dodge", "ram", "jeep", "gmc",
+                       "sorento", "tucson", "rogue", "civic", "corolla"]:
+                if _b in _msg_chk:
+                    if _b not in _v_make and _b not in _v_model:
+                        _brand_mismatch = True
+                        break
+            if _brand_mismatch:
+                # Chercher dans vehicle_history le bon véhicule
+                _v_history = session.get("context", {}).get(
+                    "vehicle_history", {})
+                for _hk in reversed(sorted(_v_history.keys())):
+                    _h_veh = _v_history[_hk]
+                    if _prop_num in _h_veh:
+                        _h_v = _h_veh[_prop_num]
+                        _h_make  = ((_h_v.get("make")  or "") + " " +
+                                    (_h_v.get("model") or "")).lower()
+                        for _b in _msg_chk.split():
+                            if len(_b) > 2 and _b in _h_make:
+                                v = _h_v
+                                print(f"[smart_chat] Brand mismatch corrigé "
+                                      f"→ {_h_v.get('make')} depuis vehicle_history")
+                                break
+                        else:
+                            continue
+                        break
             _veh_ctx = f"""
 CONTEXTE — L'utilisateur parle de la Proposition {_prop_num} présentée dans cette session.
 Réponds UNIQUEMENT sur CE véhicule. Ne PAS relancer de recherche. Ne PAS réafficher les 3 propositions.
@@ -2390,6 +2424,13 @@ QUESTION : {message}
             ]
             # Sauvegarder les véhicules complets pour la référence par proposition
             session["vehicle_shown"] = {i + 1: r for i, r in enumerate(vehicles_3)}
+            import time as _t_vs
+            session["context"].setdefault("vehicle_history", {})
+            session["context"]["vehicle_history"][str(int(_t_vs.time()))] = \
+                {k: v for k, v in session["vehicle_shown"].items()}
+            if len(session["context"]["vehicle_history"]) > 5:
+                _oldest = min(session["context"]["vehicle_history"].keys())
+                del session["context"]["vehicle_history"][_oldest]
 
             # ─── Structured output : JSON des véhicules pour Gemini ───
             vehicles_for_gemini = {}
@@ -2549,6 +2590,13 @@ QUESTION UTILISATEUR : {message}
                         for r in alt_results
                     ]
                     session["vehicle_shown"] = {i + 1: r for i, r in enumerate(alt_results[:3])}
+                    import time as _t_vs2
+                    session["context"].setdefault("vehicle_history", {})
+                    session["context"]["vehicle_history"][str(int(_t_vs2.time()))] = \
+                        {k: v for k, v in session["vehicle_shown"].items()}
+                    if len(session["context"]["vehicle_history"]) > 5:
+                        _oldest2 = min(session["context"]["vehicle_history"].keys())
+                        del session["context"]["vehicle_history"][_oldest2]
                     no_stock_prompt = f"""
 {SYSTEM_PROMPT}
 
