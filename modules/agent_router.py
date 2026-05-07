@@ -1362,6 +1362,29 @@ def _is_opinion_question(message: str) -> bool:
         'c\'est quoi comme', 'comment est',
         'bonne voiture', 'bon choix',
         'fiabilite', 'fiabilité',
+        # Patterns encyclopédistes — historique
+        'a été fondée', 'a été fondé',
+        'a été créée', 'a été créé',
+        'a été inventée', 'a été inventé',
+        'fondée quand', 'créée quand',
+        'qui a fondé', 'qui a créé',
+        'l\'histoire de', 'l\'origine de',
+        'depuis quand', 'quand est-ce que',
+        # Patterns encyclopédistes — information
+        'parle-moi de', 'parle moi de',
+        'dis-moi', 'dis moi',
+        'raconte-moi', 'raconte moi',
+        'explique-moi', 'explique moi',
+        'c\'est quoi la différence',
+        'quelle est la différence',
+        'différence entre',
+        'compare ', ' vs ',
+        'pour l\'hiver', 'en hiver au québec',
+        'informations sur', 'infos sur',
+        'je veux savoir', 'j\'aimerais savoir',
+        'réputation de', 'points forts',
+        'points faibles', 'avantages et',
+        'inconvénients de',
     ]
     return any(p in msg for p in patterns)
 
