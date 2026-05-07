@@ -1683,9 +1683,14 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                     _best_score = _score
                     if _score > 0:
                         _rdv_vehicle = v
-            # Si toujours rien → prendre Proposition 1
+            # Si toujours rien → fallback universel (last_discussed > selected > prop 1)
             if not _rdv_vehicle:
-                _rdv_vehicle = _shown[min(_shown.keys())]
+                _last = (session.get("context", {}).get("last_discussed_vehicle") or
+                         session.get("context", {}).get("selected_vehicle"))
+                if _last:
+                    _rdv_vehicle = _last
+                elif _shown:
+                    _rdv_vehicle = _shown[min(_shown.keys())]
         else:
             _rdv_vehicle = None
 
@@ -1974,6 +1979,9 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                         else:
                             continue
                         break
+            # Sauvegarder le véhicule discuté — fallback universel pour le RDV
+            session["context"]["last_discussed_vehicle"] = v
+
             _veh_ctx = f"""
 CONTEXTE — L'utilisateur parle de la Proposition {_prop_num} présentée dans cette session.
 Réponds UNIQUEMENT sur CE véhicule. Ne PAS relancer de recherche. Ne PAS réafficher les 3 propositions.
