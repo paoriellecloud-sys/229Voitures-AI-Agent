@@ -392,9 +392,8 @@ def format_vehicles_html_block(results: list) -> str:
     for r in results:
         if n >= 3:
             break
-        prix  = r.get("price", "")
         titre = r.get("title", "")
-        if not prix or not titre:
+        if not titre:
             continue
         n += 1
         label = (

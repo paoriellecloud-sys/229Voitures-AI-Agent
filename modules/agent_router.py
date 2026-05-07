@@ -1799,7 +1799,7 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
             if _desc_best_score >= 2 and _desc_best_vehicle:
                 session["context"]["selected_vehicle"] = _desc_best_vehicle
         # RÈGLE 2 — "fiche pour la proposition X" → FOLLOWUP direct (jamais relancer recherche)
-        _r2_fiche_kw = ["fiche", "les détails", "les infos de", "plus de détails"]
+        _r2_fiche_kw = ["fiche", "détail", "détaillé", "les détails", "les infos de", "plus de détails", "plus d'info sur"]
         _r2_prop = None
         if any(kw in message.lower() for kw in _r2_fiche_kw):
             _r2_prop = extract_proposition_number(message)
