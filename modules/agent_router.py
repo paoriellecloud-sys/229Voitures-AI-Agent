@@ -1031,8 +1031,24 @@ CHAT — dans TOUS les autres cas, incluant :
 - "différence entre X et Y"
 - "l'histoire de X", "X a été créé quand?"
 - "compare X et Y", "X vs Y"
+- "admissible", "est-il admissible"
+- "a été fondé", "a été créé"
+- "l'histoire", "depuis quand"
+- "qui a créé", "qui a fondé"
 - Toute question informative ou d'opinion
   même si une marque ou modèle est mentionné
+
+Exemples → CHAT (information, même avec marque) :
+- "Volkswagen a été fondée quand?" → CHAT
+- "Tesla vs Toyota lequel est mieux?" → CHAT
+- "Le RAV4 Prime usagé est-il admissible
+   aux rabais Roulez Vert?" → CHAT
+- "C'est quoi les problèmes du CR-V 2019?" → CHAT
+- "Les Honda sont-elles fiables?" → CHAT
+- "Parle-moi des Acura" → CHAT
+- "C'est quoi la différence entre AWD et 4WD?" → CHAT
+- "L'histoire de Volkswagen" → CHAT
+- "Les Tesla sont-elles bonnes pour l'hiver?" → CHAT
 
 EN CAS DE DOUTE → CHAT
 
