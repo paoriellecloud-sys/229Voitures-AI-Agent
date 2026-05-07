@@ -1798,40 +1798,68 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                     _desc_best_vehicle = v
             if _desc_best_score >= 2 and _desc_best_vehicle:
                 session["context"]["selected_vehicle"] = _desc_best_vehicle
-        # Interception opinion/conseil AVANT appel Gemini
-        if _is_opinion_question(message) or _is_advisory_question(message):
-            # Extraire et sauvegarder le topic encyclopédiste pour réutilisation future
-            _topic_brands = [
-                "toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
-                "ford", "chevrolet", "nissan", "mazda", "volkswagen", "lexus",
-                "subaru", "mitsubishi", "jeep", "dodge", "ram", "gmc", "buick",
-                "tesla", "volvo", "acura", "infiniti", "cadillac", "lincoln",
-            ]
-            _topic_models = [
-                "civic", "corolla", "camry", "accord", "rav4", "cr-v", "crv",
-                "rogue", "tucson", "elantra", "sentra", "altima", "forester",
-                "seltos", "qashqai", "escape", "equinox", "trax",
-                "sportage", "outlander", "cx-5", "cx5", "tiguan", "golf",
-                "f-150", "f150", "silverado", "sierra", "tundra",
-                "tacoma", "sienna", "odyssey", "sorento", "palisade",
-                "model 3", "model y", "ioniq", "jetta", "passat",
-            ]
-            _msg_topic = message.lower()
-            session.setdefault("context", {})
-            for _tb in _topic_brands:
-                if _tb in _msg_topic:
-                    session["context"]["last_topic"] = _tb
-                    print(f"[smart_chat] last_topic sauvegardé: '{_tb}'")
-                    break
-            for _tm in _topic_models:
-                if _tm in _msg_topic:
-                    session["context"]["last_topic"] = _tm
-                    print(f"[smart_chat] last_topic sauvegardé: '{_tm}'")
-                    break
-            intent_data = {"intent": "CHAT", "query": None, "urls": [], "vin": None,
-                           "site": None, "count": 3, "followup_action": None, "vehicle_filter": None}
+        # RÈGLE 2 — "fiche pour la proposition X" → FOLLOWUP direct (jamais relancer recherche)
+        _r2_fiche_kw = ["fiche", "les détails", "les infos de", "plus de détails"]
+        _r2_prop = None
+        if any(kw in message.lower() for kw in _r2_fiche_kw):
+            _r2_prop = extract_proposition_number(message)
+        if _r2_prop and session.get("vehicle_shown", {}).get(_r2_prop):
+            intent_data = {"intent": "FOLLOWUP", "followup_action": "select_listing",
+                           "query": None, "urls": [], "vin": None, "site": None,
+                           "count": 3, "vehicle_filter": None}
+            print(f"[smart_chat] RÈGLE 2 — fiche proposition {_r2_prop} → FOLLOWUP forcé")
         else:
-            intent_data = detect_intent(message, context_summary)
+            # RÈGLE 1 — Affirmative après réponse encyclopédiste → SEARCH last_topic
+            _lt_show = session.get("context", {}).get("last_topic")
+            _show_triggers = [
+                "montre-moi", "montre moi", "vas-y", "vas y", "allons-y",
+                "ok montre", "oui montre", "go", "lance", "fais-le", "fais le",
+            ]
+            _msg_r1 = message.lower().strip()
+            _is_show_request = (
+                any(t in _msg_r1 for t in _show_triggers)
+                or _msg_r1 in {"oui", "ouais", "ok", "yes", "oi", "yep",
+                               "d'accord", "parfait", "bien sûr", "super", "cool",
+                               "allez", "avec plaisir", "génial"}
+            )
+            if _lt_show and _is_show_request:
+                intent_data = {"intent": "SEARCH", "query": _lt_show, "vehicle_filter": _lt_show,
+                               "urls": [], "vin": None, "site": None, "count": 3, "followup_action": None}
+                print(f"[smart_chat] RÈGLE 1 — affirmative après encyclopédiste → SEARCH '{_lt_show}'")
+            # Interception opinion/conseil AVANT appel Gemini
+            elif _is_opinion_question(message) or _is_advisory_question(message):
+                # Extraire et sauvegarder le topic encyclopédiste pour réutilisation future
+                _topic_brands = [
+                    "toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
+                    "ford", "chevrolet", "nissan", "mazda", "volkswagen", "lexus",
+                    "subaru", "mitsubishi", "jeep", "dodge", "ram", "gmc", "buick",
+                    "tesla", "volvo", "acura", "infiniti", "cadillac", "lincoln",
+                ]
+                _topic_models = [
+                    "civic", "corolla", "camry", "accord", "rav4", "cr-v", "crv",
+                    "rogue", "tucson", "elantra", "sentra", "altima", "forester",
+                    "seltos", "qashqai", "escape", "equinox", "trax",
+                    "sportage", "outlander", "cx-5", "cx5", "tiguan", "golf",
+                    "f-150", "f150", "silverado", "sierra", "tundra",
+                    "tacoma", "sienna", "odyssey", "sorento", "palisade",
+                    "model 3", "model y", "ioniq", "jetta", "passat",
+                ]
+                _msg_topic = message.lower()
+                session.setdefault("context", {})
+                for _tb in _topic_brands:
+                    if _tb in _msg_topic:
+                        session["context"]["last_topic"] = _tb
+                        print(f"[smart_chat] last_topic sauvegardé: '{_tb}'")
+                        break
+                for _tm in _topic_models:
+                    if _tm in _msg_topic:
+                        session["context"]["last_topic"] = _tm
+                        print(f"[smart_chat] last_topic sauvegardé: '{_tm}'")
+                        break
+                intent_data = {"intent": "CHAT", "query": None, "urls": [], "vin": None,
+                               "site": None, "count": 3, "followup_action": None, "vehicle_filter": None}
+            else:
+                intent_data = detect_intent(message, context_summary)
     intent = intent_data.get("intent", "CHAT")
     # ─── Injecter last_topic si SEARCH sans query précise ───
     if intent == "SEARCH":
@@ -2791,8 +2819,8 @@ INSTRUCTIONS STRICTES :
 - Si un prix minimum est mentionné ci-dessus, cite-le pour orienter le client
 - NE PAS inventer de véhicules ou d'annonces
 - NE PAS chercher sur internet pour présenter des fiches
-- Propose : (1) créer une alerte email, (2) élargir la recherche à d'autres modèles similaires, (3) consulter directement AutoHebdo.net ou Kijiji Autos
-- Demande si l'utilisateur veut qu'on cherche un modèle similaire dans notre inventaire
+- Propose directement : (1) créer une alerte courriel, (2) élargir à des modèles similaires de même catégorie
+- NE JAMAIS demander "quel modèle t'intéresse?" — proposer des alternatives concrètes
 """
 
                 if not result:

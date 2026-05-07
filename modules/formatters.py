@@ -144,7 +144,7 @@ def format_vehicle_card(v: dict) -> str:
         taxes = calc_taxes(prix_float)
 
     mecanique   = f"{moteur} \u00a0\u00b7\u00a0 {transmission}" if moteur and moteur != "N/D" else transmission
-    prix_str    = fmt_prix(prix_float) if prix_float else "N/D"
+    prix_str    = fmt_prix(prix_float) if prix_float else "Prix sur demande"
     marche_str  = fmt_prix(marche_float) if marche_float else "N/D"
     km_str      = fmt_km(v.get("mileage") or v.get("kilometrage") or 0)
     couleur_str = couleur.title() if couleur else "N/D"
@@ -216,12 +216,18 @@ def format_vehicle_card(v: dict) -> str:
         f'<span style="font-size:12px;font-weight:500;color:#c0c0c0;font-family:\'Courier New\',monospace;letter-spacing:0.05em;">{vin}</span>'
         '</div>'
         '</div>'
-        # Pied — taxes
+        # Pied — taxes si prix connu, sinon "Prix sur demande"
+        + (
         '<div style="border-top:1px solid rgba(255,255,255,0.08);padding:12px 18px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);">'
         f'<span style="font-size:12px;color:#666;">TPS {taxes["tps"]} &nbsp;+&nbsp; TVQ {taxes["tvq"]}</span>'
         f'<span style="font-size:16px;font-weight:700;color:#f0f0f0;">Total {taxes["total"]}</span>'
         '</div>'
+        if prix_float else
+        '<div style="border-top:1px solid rgba(255,255,255,0.08);padding:12px 18px;text-align:center;background:rgba(255,255,255,0.03);">'
+        '<span style="font-size:13px;color:#888;font-style:italic;">Prix sur demande — contactez le concessionnaire</span>'
         '</div>'
+        )
+        + '</div>'
     )
 
 
