@@ -1800,11 +1800,47 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 session["context"]["selected_vehicle"] = _desc_best_vehicle
         # Interception opinion/conseil AVANT appel Gemini
         if _is_opinion_question(message) or _is_advisory_question(message):
+            # Extraire et sauvegarder le topic encyclopédiste pour réutilisation future
+            _topic_brands = [
+                "toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
+                "ford", "chevrolet", "nissan", "mazda", "volkswagen", "lexus",
+                "subaru", "mitsubishi", "jeep", "dodge", "ram", "gmc", "buick",
+                "tesla", "volvo", "acura", "infiniti", "cadillac", "lincoln",
+            ]
+            _topic_models = [
+                "civic", "corolla", "camry", "accord", "rav4", "cr-v", "crv",
+                "rogue", "tucson", "elantra", "sentra", "altima", "forester",
+                "seltos", "qashqai", "escape", "equinox", "trax",
+                "sportage", "outlander", "cx-5", "cx5", "tiguan", "golf",
+                "f-150", "f150", "silverado", "sierra", "tundra",
+                "tacoma", "sienna", "odyssey", "sorento", "palisade",
+                "model 3", "model y", "ioniq", "jetta", "passat",
+            ]
+            _msg_topic = message.lower()
+            session.setdefault("context", {})
+            for _tb in _topic_brands:
+                if _tb in _msg_topic:
+                    session["context"]["last_topic"] = _tb
+                    print(f"[smart_chat] last_topic sauvegardé: '{_tb}'")
+                    break
+            for _tm in _topic_models:
+                if _tm in _msg_topic:
+                    session["context"]["last_topic"] = _tm
+                    print(f"[smart_chat] last_topic sauvegardé: '{_tm}'")
+                    break
             intent_data = {"intent": "CHAT", "query": None, "urls": [], "vin": None,
                            "site": None, "count": 3, "followup_action": None, "vehicle_filter": None}
         else:
             intent_data = detect_intent(message, context_summary)
     intent = intent_data.get("intent", "CHAT")
+    # ─── Injecter last_topic si SEARCH sans query précise ───
+    if intent == "SEARCH":
+        if not intent_data.get("vehicle_filter") and not intent_data.get("query"):
+            _lt = session.get("context", {}).get("last_topic")
+            if _lt:
+                intent_data["query"] = _lt
+                intent_data["vehicle_filter"] = _lt
+                print(f"[smart_chat] last_topic injecté dans SEARCH: '{_lt}'")
     # Si contexte ambigu (échange, trade) → demander clarification avant de chercher
     if intent == "SEARCH" and _needs_clarification(message, session):
         return {"intent": "CHAT", "response": _get_clarification_message(message, session), "html_cards": ""}
@@ -2677,20 +2713,68 @@ INSTRUCTIONS :
                             "source": "no_7places_in_budget",
                         }
                     else:
-                        # Trouver le prix minimum disponible pour orienter le client
-                        _min_price_info = ""
-                        try:
-                            cursor_min = conn.cursor()
-                            cursor_min.execute(
-                                "SELECT title, price FROM inventory_cache WHERE price > 0 ORDER BY price ASC LIMIT 1"
-                            )
-                            _min_row = cursor_min.fetchone()
-                            if _min_row:
-                                _min_price_info = f"\nLe vehicule le moins cher en inventaire est actuellement a {int(_min_row[1]):,}$."
-                        except Exception:
-                            pass
+                        # Si last_topic défini → chercher alternatives par catégorie avant le générique
+                        _lt_fallback = session.get("context", {}).get("last_topic")
+                        if _lt_fallback:
+                            for _cat_name, _cat_models in CATEGORIES_VEHICULES.items():
+                                if _lt_fallback in _cat_models:
+                                    _cat_q = " ".join(_cat_models[:4])
+                                    alt_results = search_inventory_cache(_cat_q, limit=3)
+                                    if alt_results:
+                                        print(f"[smart_chat] last_topic '{_lt_fallback}' → catégorie {_cat_name} → {len(alt_results)} alternatives")
+                                        _lt_alt_text = format_cache_results_for_prompt(alt_results)
+                                        session["context"]["last_listings"] = [r["url"] for r in alt_results]
+                                        session["context"]["last_results"] = [
+                                            {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
+                                            for r in alt_results
+                                        ]
+                                        session["vehicle_shown"] = {i + 1: r for i, r in enumerate(alt_results[:3])}
+                                        import time as _t_lt_fb
+                                        session["context"].setdefault("vehicle_history", {})
+                                        session["context"]["vehicle_history"][str(int(_t_lt_fb.time()))] = \
+                                            {k: v for k, v in session["vehicle_shown"].items()}
+                                        if len(session["context"]["vehicle_history"]) > 5:
+                                            _oldest_lt_fb = min(session["context"]["vehicle_history"].keys())
+                                            del session["context"]["vehicle_history"][_oldest_lt_fb]
+                                        no_stock_prompt = f"""
+{SYSTEM_PROMPT}
 
-                        no_stock_prompt = f"""
+Historique:
+{history_str}
+
+Contexte: {context_summary}
+
+RECHERCHE DE L'UTILISATEUR : "{query}"
+
+RÉSULTAT : Je n'ai pas de {_lt_fallback} en inventaire en ce moment.
+
+ALTERNATIVES DISPONIBLES (même catégorie — {_cat_name}) :
+{_lt_alt_text}
+
+INSTRUCTIONS :
+- Dis clairement qu'on n'a pas de {_lt_fallback} en ce moment dans notre inventaire
+- Les fiches alternatives sont affichées automatiquement — NE PAS répéter leurs specs
+- Courte phrase d'intro sur pourquoi ces alternatives sont pertinentes
+- NE PAS demander "quel modèle t'intéresse" — on propose directement des alternatives
+- Propose de créer une alerte courriel pour être notifié si un {_lt_fallback} arrive
+"""
+                                        break
+
+                        if not alt_results:
+                            # Trouver le prix minimum disponible pour orienter le client
+                            _min_price_info = ""
+                            try:
+                                cursor_min = conn.cursor()
+                                cursor_min.execute(
+                                    "SELECT title, price FROM inventory_cache WHERE price > 0 ORDER BY price ASC LIMIT 1"
+                                )
+                                _min_row = cursor_min.fetchone()
+                                if _min_row:
+                                    _min_price_info = f"\nLe vehicule le moins cher en inventaire est actuellement a {int(_min_row[1]):,}$."
+                            except Exception:
+                                pass
+
+                            no_stock_prompt = f"""
 {SYSTEM_PROMPT}
 
 Historique:
