@@ -362,12 +362,38 @@ def generate_rdv_form(vehicle: dict) -> str:
         vehicle.get("vehicle_id") or vehicle.get("fo_id") or abs(hash(veh))
     )) or "x"
 
+    price        = vehicle.get("price") or vehicle.get("prix") or 0
+    stock_number = (vehicle.get("stock_number") or vehicle.get("stock") or "").strip()
+    mileage      = vehicle.get("mileage") or vehicle.get("kilometrage") or 0
+    color        = (vehicle.get("color") or vehicle.get("couleur") or "").strip()
+    _dparts = []
+    if price:
+        try:
+            _dparts.append(f"Prix : {float(price):,.0f} $")
+        except (ValueError, TypeError):
+            _dparts.append(f"Prix : {price} $")
+    if stock_number:
+        _dparts.append(f"No. stock : {stock_number}")
+    if mileage:
+        try:
+            _dparts.append(f"Kilométrage : {int(mileage):,} km")
+        except (ValueError, TypeError):
+            _dparts.append(f"Kilométrage : {mileage} km")
+    if color:
+        _dparts.append(f"Couleur : {color}")
+    details_html = (
+        '<div class="rdv-vehicle-details" style="display:flex;flex-wrap:wrap;gap:5px 14px;margin:5px 0 0;">'
+        + "".join(f'<span style="font-size:11px;color:#888;">{p}</span>' for p in _dparts)
+        + '</div>'
+    ) if _dparts else ""
+
     return (
         '<div style="border-radius:10px;border:1px solid rgba(255,255,255,0.10);overflow:hidden;'
         'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:520px;margin:8px 0;background:rgba(255,255,255,0.04);">'
         '<div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.08);">'
         '<p style="font-size:10px;color:#666;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.06em;">Demande de rendez-vous</p>'
         f'<p style="font-size:16px;font-weight:600;margin:0;color:#f0f0f0;">{veh}</p>'
+        f'{details_html}'
         f'<p style="font-size:12px;color:#666;margin:3px 0 0;">{dealer} \u00b7 {ville}</p>'
         '</div>'
         '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">'
