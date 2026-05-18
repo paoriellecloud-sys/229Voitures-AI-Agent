@@ -109,7 +109,7 @@ def startup():
                 print(f"❌ Background scraper error: {e}")
                 import traceback
                 traceback.print_exc()
-            time.sleep(6 * 60 * 60)
+            time.sleep(2 * 60 * 60)
 
     t = threading.Thread(target=run_scraper, daemon=True)
     t.start()

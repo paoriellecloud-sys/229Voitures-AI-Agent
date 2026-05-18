@@ -223,6 +223,32 @@ async def scrape_forceoccasion_full() -> list:
     return vehicles
 
 
+def clean_sold_vehicles(conn, source: str, scraped_ids: set) -> int:
+    """
+    Supprime les véhicules qui ne sont plus dans le dernier scrape — donc vendus.
+    Ne s'exécute que si le scrape a ramené au moins 10 véhicules (garde-fou scrape incomplet).
+    """
+    if len(scraped_ids) < 10:
+        logger.warning(f"[NETTOYAGE] Scrape trop petit ({len(scraped_ids)} IDs) — nettoyage annulé")
+        return 0
+
+    cursor = conn.cursor()
+    cursor.execute("SELECT vehicle_id FROM inventory_cache WHERE source = ?", (source,))
+    db_ids = {row[0] for row in cursor.fetchall()}
+
+    sold_ids = db_ids - scraped_ids
+    if sold_ids:
+        placeholders = ",".join("?" * len(sold_ids))
+        cursor.execute(
+            f"DELETE FROM inventory_cache WHERE source = ? AND vehicle_id IN ({placeholders})",
+            (source, *sold_ids)
+        )
+        conn.commit()
+        logger.info(f"[NETTOYAGE] {len(sold_ids)} véhicules vendus supprimés de {source}")
+
+    return len(sold_ids)
+
+
 async def scrape_forceoccasion_for_background(db_conn) -> int:
     """
     Wrapper pour background_scraper.py
@@ -254,6 +280,7 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
         return 0
 
     saved = 0
+    scraped_ids = {v['vehicle_id'] for v in vehicles}
     cursor = db_conn.cursor()
 
     for v in vehicles:
@@ -305,6 +332,10 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
 
     db_conn.commit()
     logger.info(f"💾 {saved}/{len(vehicles)} véhicules sauvegardés dans inventory_cache")
+
+    cleaned = clean_sold_vehicles(db_conn, 'forceoccasion', scraped_ids)
+    if cleaned:
+        logger.info(f"🗑️ {cleaned} vendus retirés de l'inventaire")
 
     # Debug: afficher les 3 premiers véhicules sauvegardés avec tous les champs clés
     try:
