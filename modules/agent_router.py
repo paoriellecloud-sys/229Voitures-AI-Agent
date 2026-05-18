@@ -3102,6 +3102,14 @@ INSTRUCTIONS :
                     contents=full_prompt
                 )
             chat_html_cards = format_vehicles_html_block(chat_cache) if (chat_cache and not _is_opinion_question(message)) else ""
+            if chat_cache and chat_html_cards:
+                session["vehicle_shown"] = {
+                    i + 1: r for i, r in enumerate(chat_cache[:3])
+                }
+                import time
+                session.setdefault("context", {})
+                session["context"].setdefault("vehicle_history", {})
+                session["context"]["vehicle_history"][str(int(time.time()))] = session["vehicle_shown"].copy()
             result = {"intent": "CHAT", "response": response.text, "_html_cards": chat_html_cards}
 
     response_text = result.get("response", "")
