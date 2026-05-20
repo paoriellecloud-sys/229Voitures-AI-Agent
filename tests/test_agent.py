@@ -174,7 +174,7 @@ def main():
     sid = str(uuid.uuid4())
 
     # ── Tour 1 : recherche avec budget ──
-    r9_1 = chat(token, "Cherche des Ford Escape 2021 à 25 000$", sid)
+    r9_1 = chat(token, "Cherche des Ford Escape 2021 sous 25 000$", sid)
     resp9_1 = r9_1.get("response", "")
     html9_1 = r9_1.get("html_cards", "") or r9_1.get("_html_cards", "")
 
@@ -264,7 +264,11 @@ def main():
     corrects_error = any(s in resp10_lower for s in correction_signals)
 
     v10_1 = not has_false_claim
-    v10_2 = (not supercruise_in_resp) or corrects_error
+    v10_2 = any(w in resp10_lower for w in [
+        "supercruise", "gm", "général motors",
+        "cadillac", "pas disponible", "pas sur kia",
+        "clarifi", "préciser",
+    ])
 
     checks_10 = [
         ("N'affirme pas que la Kia Rio a SuperCruise", v10_1,
