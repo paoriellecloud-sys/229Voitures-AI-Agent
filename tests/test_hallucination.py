@@ -103,8 +103,11 @@ def main():
 
         # Ne doit pas retourner des fiches avec
         # le modèle EXACT demandé (alternatives légitimes OK)
-        modele_parts = modele.lower().split()
-        model_name = modele_parts[1] if len(modele_parts) > 1 else modele_parts[0]
+        MARQUES = {'mercedes', 'bmw', 'subaru', 'ferrari',
+                   'lamborghini', 'tesla', 'bugatti', 'porsche'}
+        words = [w for w in modele.lower().split()
+                 if not w.isdigit() and w not in MARQUES]
+        model_name = words[-1] if words else modele.lower()
         has_vehicle = model_name in html.lower()
 
         if ok and not has_vehicle:
