@@ -2696,7 +2696,6 @@ QUESTION UTILISATEUR : {message}
                         alt_results = []
 
                 if alt_results:
-                    alt_text = format_cache_results_for_prompt(alt_results)
                     session["context"]["last_listings"] = [r["url"] for r in alt_results]
                     session["context"]["last_results"] = [
                         {k: r.get(k) for k in ("title", "price", "city", "dealer_name", "url", "mileage", "year", "make", "model")}
@@ -2710,28 +2709,33 @@ QUESTION UTILISATEUR : {message}
                     if len(session["context"]["vehicle_history"]) > 5:
                         _oldest2 = min(session["context"]["vehicle_history"].keys())
                         del session["context"]["vehicle_history"][_oldest2]
-                    no_stock_prompt = f"""
-{SYSTEM_PROMPT}
-
-Historique:
-{history_str}
-
-Contexte: {context_summary}
-
-RECHERCHE DE L'UTILISATEUR : "{query}"
-
-RÉSULTAT DE RECHERCHE : Ce modèle exact n'est PAS disponible dans l'inventaire de nos concessionnaires partenaires.
-
-ALTERNATIVES DISPONIBLES EN INVENTAIRE :
-{alt_text}
-
-INSTRUCTIONS :
-- Dis CLAIREMENT et HONNÊTEMENT que le modèle exact demandé n'est pas en stock
-- Les fiches alternatives sont affichées automatiquement — NE PAS répéter leurs spécifications
-- Fournis une courte phrase d'introduction sur pourquoi ces alternatives sont pertinentes
-- N'invente AUCUN véhicule supplémentaire
-- Propose à l'utilisateur de créer une alerte email pour être notifié si le modèle arrive en inventaire
-"""
+                    alt_desc = []
+                    for _i, _v in enumerate(alt_results[:3], 1):
+                        _make = _v.get('make', '')
+                        _model = _v.get('model', '')
+                        _year = _v.get('year', '')
+                        _price = _v.get('price', 0)
+                        _mileage = _v.get('mileage', 0)
+                        alt_desc.append(
+                            f"Proposition {_i} : "
+                            f"{_year} {_make} {_model} "
+                            f"à {_price:,.0f}$ "
+                            f"({_mileage:,} km)"
+                        )
+                    response_text = (
+                        f"Je n'ai pas de {query} en inventaire "
+                        f"en ce moment.\n\n"
+                        f"Voici ce que j'ai de similaire :\n"
+                        + "\n".join(alt_desc)
+                        + "\n\nTu veux plus d'infos sur "
+                        f"une de ces options?"
+                    )
+                    result = {
+                        "intent": "SEARCH",
+                        "response": response_text,
+                        "_html_cards": format_vehicles_html_block(alt_results[:3]),
+                        "source": "alternatives_python"
+                    }
                 else:
                     # Réponse spécifique 7 places hors budget
                     if _is_7places and _price_max:
@@ -2799,39 +2803,22 @@ INSTRUCTIONS :
                                         break
 
                         if not alt_results:
-                            # Trouver le prix minimum disponible pour orienter le client
-                            _min_price_info = ""
-                            try:
-                                cursor_min = conn.cursor()
-                                cursor_min.execute(
-                                    "SELECT title, price FROM inventory_cache WHERE price > 0 ORDER BY price ASC LIMIT 1"
-                                )
-                                _min_row = cursor_min.fetchone()
-                                if _min_row:
-                                    _min_price_info = f"\nLe vehicule le moins cher en inventaire est actuellement a {int(_min_row[1]):,}$."
-                            except Exception:
-                                pass
-
-                            no_stock_prompt = f"""
-{SYSTEM_PROMPT}
-
-Historique:
-{history_str}
-
-Contexte: {context_summary}
-
-RECHERCHE DE L'UTILISATEUR : "{query}"
-
-RÉSULTAT DE RECHERCHE : Aucun véhicule trouvé dans l'inventaire pour cette recherche.{_min_price_info}
-
-INSTRUCTIONS STRICTES :
-- Dis HONNÊTEMENT qu'on n'a pas ce modèle en stock chez nos concessionnaires partenaires
-- Si un prix minimum est mentionné ci-dessus, cite-le pour orienter le client
-- NE PAS inventer de véhicules ou d'annonces
-- NE PAS chercher sur internet pour présenter des fiches
-- Propose directement : (1) créer une alerte courriel, (2) élargir à des modèles similaires de même catégorie
-- NE JAMAIS demander "quel modèle t'intéresse?" — proposer des alternatives concrètes
-"""
+                            result = {
+                                "intent": "SEARCH",
+                                "response": (
+                                    f"Je n'ai pas de {query} "
+                                    f"en inventaire en ce moment.\n\n"
+                                    f"Je peux :\n"
+                                    f"1. Te créer une alerte courriel "
+                                    f"— dès qu'un {query} arrive, "
+                                    f"tu seras le premier au courant\n"
+                                    f"2. Élargir la recherche à "
+                                    f"d'autres modèles similaires\n\n"
+                                    f"Qu'est-ce que tu préfères?"
+                                ),
+                                "_html_cards": "",
+                                "source": "no_stock_python"
+                            }
 
                 if not result:
                     _tok = estimate_tokens(no_stock_prompt)
