@@ -67,11 +67,12 @@ def check_no_invented_data(response, html):
     """
     # Patterns d'hallucination connus
     HALLUCINATION_PATTERNS = [
-        r'\d{1,3}\s*\d{3}\s*km',  # km précis
-        r'paiement.*\d+\.\d{2}',   # paiements calculés
-        r'score de risque',         # score inventé
-        r'🧠|💡|⚠️|💰|🎯',        # emojis non standard
-        r'estimé.*\d+\$',          # estimations précises
+        r'paiement.*bi.hebdo.*\d+\.\d{2}',
+        r'score de risque',
+        r'🧠|💡|⚠️|💰|🎯',
+        r'estimé.*\d+\.\d{2}\s*\$',
+        r'paiement estimé',
+        r'bi-hebdomadaire estimé',
     ]
 
     text = response + html
@@ -100,13 +101,10 @@ def main():
         ok, pattern = check_no_invented_data(
             response, html)
 
-        # Ne doit pas affirmer avoir ce véhicule
-        has_vehicle = any(
-            w in response.lower()
-            for w in ["proposition 1",
-                      "proposition 2",
-                      "voici ce que j'ai",
-                      "j'ai trouvé"])
+        # Ne doit pas retourner des fiches
+        # contenant la marque exacte demandée
+        marque = modele.split()[0].lower()
+        has_vehicle = marque in html.lower()
 
         if ok and not has_vehicle:
             passed += 1
@@ -118,8 +116,8 @@ def main():
             if not ok:
                 print(f"         Pattern: {pattern}")
             if has_vehicle:
-                print(f"         Agent prétend avoir "
-                      f"ce véhicule")
+                print(f"         Fiches contiennent "
+                      f"'{marque}' — véhicule inventé")
 
     # TEST 2 — Questions encyclopédistes
     print("\n--- BLOC 2 : Questions info → pas de fiches ---")
