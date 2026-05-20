@@ -101,10 +101,11 @@ def main():
         ok, pattern = check_no_invented_data(
             response, html)
 
-        # Ne doit pas retourner des fiches
-        # contenant la marque exacte demandée
-        marque = modele.split()[0].lower()
-        has_vehicle = marque in html.lower()
+        # Ne doit pas retourner des fiches avec
+        # le modèle EXACT demandé (alternatives légitimes OK)
+        modele_parts = modele.lower().split()
+        model_name = modele_parts[1] if len(modele_parts) > 1 else modele_parts[0]
+        has_vehicle = model_name in html.lower()
 
         if ok and not has_vehicle:
             passed += 1
@@ -117,7 +118,7 @@ def main():
                 print(f"         Pattern: {pattern}")
             if has_vehicle:
                 print(f"         Fiches contiennent "
-                      f"'{marque}' — véhicule inventé")
+                      f"'{model_name}' — modèle exact inventé")
 
     # TEST 2 — Questions encyclopédistes
     print("\n--- BLOC 2 : Questions info → pas de fiches ---")
