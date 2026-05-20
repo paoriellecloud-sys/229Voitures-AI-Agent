@@ -2369,6 +2369,8 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             'phev': 'phev', 'plug-in': 'phev',
             'diesel': 'diesel',
         }
+        if isinstance(vehicle_filter, dict):
+            vehicle_filter = vehicle_filter.get('query', '') or ''
         _vf_lower = (vehicle_filter or '').lower()
         _fuel_filter = None
         for kw, val in _fuel_map.items():
