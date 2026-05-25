@@ -162,15 +162,26 @@ def get_token():
     return r.json().get("access_token")
 
 def chat(token, session_id, message):
-    r = requests.post(f"{BASE_URL}/agent/chat",
-        json={"message": message,
-              "session_id": session_id},
-        headers={"Authorization":
-                 f"Bearer {token}"},
-        timeout=60)
-    data = r.json()
-    return (data.get("response", ""),
-            bool(data.get("html_cards", "")))
+    for attempt in range(3):
+        try:
+            r = requests.post(
+                f"{BASE_URL}/agent/chat",
+                json={"message": message,
+                      "session_id": session_id},
+                headers={"Authorization":
+                         f"Bearer {token}"},
+                timeout=90)
+            if r.status_code == 200 and r.text:
+                data = r.json()
+                return (
+                    data.get("response", ""),
+                    bool(data.get("html_cards","")))
+            import time
+            time.sleep(3)
+        except Exception:
+            import time
+            time.sleep(3)
+    return ("ERREUR", False)
 
 def run_check(fn, response, has_cards):
     try:
