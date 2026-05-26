@@ -1641,62 +1641,56 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         elif len(_shown) == 1:
             _rdv_vehicle = _shown[1]
         elif _shown:
-            # FIX B4/B7 — sans numéro de proposition → last_discussed_vehicle en priorité
-            _last_disc = session.get("context", {}).get("last_discussed_vehicle")
-            if not _rdv_prop and _last_disc:
-                _rdv_vehicle = _last_disc
-                print(f"[smart_chat] RDV → last_discussed_vehicle: {_last_disc.get('make')} {_last_disc.get('model')}")
-            else:
-                def _normalize_rdv(s: str) -> str:
-                    """Normalise pour matching RDV : minuscules + tirets→espaces + accents."""
-                    import unicodedata
-                    s = str(s).lower()
-                    s = s.replace('-', ' ')
-                    s = s.replace('·', ' ')
-                    s = unicodedata.normalize('NFD', s)
-                    s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
-                    return s
+            def _normalize_rdv(s: str) -> str:
+                """Normalise pour matching RDV : minuscules + tirets→espaces + accents."""
+                import unicodedata
+                s = str(s).lower()
+                s = s.replace('-', ' ')
+                s = s.replace('·', ' ')
+                s = unicodedata.normalize('NFD', s)
+                s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+                return s
 
-                # Chercher le véhicule mentionné dans le message avec score de priorité
-                _rdv_vehicle = None
-                msg_norm_rdv = _normalize_rdv(message)
-                _best_score = -1
-                for k, v in _shown.items():
-                    make   = _normalize_rdv(v.get("make", ""))
-                    model  = _normalize_rdv(v.get("model", ""))
-                    year   = str(v.get("year", ""))
-                    dealer = _normalize_rdv(v.get("dealer_name", ""))
-                    city   = _normalize_rdv(v.get("city", ""))
-                    _score = 0
-                    if model  and model  in msg_norm_rdv: _score += 2
-                    if make   and make   in msg_norm_rdv: _score += 1
-                    if year   and year   in msg_norm_rdv: _score += 1
-                    if dealer and dealer in msg_norm_rdv: _score += 2
-                    if city   and city   in msg_norm_rdv: _score += 2
-                    # Matching partiel sur mots du dealer (>3 chars)
-                    for mot in dealer.split():
-                        if len(mot) > 3 and mot in msg_norm_rdv:
-                            _score += 1
-                    for mot in city.split():
-                        if len(mot) > 3 and mot in msg_norm_rdv:
-                            _score += 1
-                    # Pénalité faux positif "québec" générique :
-                    # si l'utilisateur mentionne "ste foy", pénaliser les dealers sans "ste"/"foy"
-                    if "ste foy" in msg_norm_rdv:
-                        if "ste" not in dealer and "foy" not in dealer:
-                            _score -= 3
-                    if _score > _best_score:
-                        _best_score = _score
-                        if _score > 0:
-                            _rdv_vehicle = v
-                # Si toujours rien → fallback universel (last_discussed > selected > prop 1)
-                if not _rdv_vehicle:
-                    _last = (session.get("context", {}).get("last_discussed_vehicle") or
-                             session.get("context", {}).get("selected_vehicle"))
-                    if _last:
-                        _rdv_vehicle = _last
-                    elif _shown:
-                        _rdv_vehicle = _shown[min(_shown.keys())]
+            # Chercher le véhicule mentionné dans le message avec score de priorité
+            _rdv_vehicle = None
+            msg_norm_rdv = _normalize_rdv(message)
+            _best_score = -1
+            for k, v in _shown.items():
+                make   = _normalize_rdv(v.get("make", ""))
+                model  = _normalize_rdv(v.get("model", ""))
+                year   = str(v.get("year", ""))
+                dealer = _normalize_rdv(v.get("dealer_name", ""))
+                city   = _normalize_rdv(v.get("city", ""))
+                _score = 0
+                if model  and model  in msg_norm_rdv: _score += 2
+                if make   and make   in msg_norm_rdv: _score += 1
+                if year   and year   in msg_norm_rdv: _score += 1
+                if dealer and dealer in msg_norm_rdv: _score += 2
+                if city   and city   in msg_norm_rdv: _score += 2
+                # Matching partiel sur mots du dealer (>3 chars)
+                for mot in dealer.split():
+                    if len(mot) > 3 and mot in msg_norm_rdv:
+                        _score += 1
+                for mot in city.split():
+                    if len(mot) > 3 and mot in msg_norm_rdv:
+                        _score += 1
+                # Pénalité faux positif "québec" générique :
+                # si l'utilisateur mentionne "ste foy", pénaliser les dealers sans "ste"/"foy"
+                if "ste foy" in msg_norm_rdv:
+                    if "ste" not in dealer and "foy" not in dealer:
+                        _score -= 3
+                if _score > _best_score:
+                    _best_score = _score
+                    if _score > 0:
+                        _rdv_vehicle = v
+            # Si toujours rien → fallback universel (last_discussed > selected > prop 1)
+            if not _rdv_vehicle:
+                _last = (session.get("context", {}).get("last_discussed_vehicle") or
+                         session.get("context", {}).get("selected_vehicle"))
+                if _last:
+                    _rdv_vehicle = _last
+                elif _shown:
+                    _rdv_vehicle = _shown[min(_shown.keys())]
         else:
             _rdv_vehicle = None
 
@@ -2186,7 +2180,6 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             model="gemini-2.5-flash", contents=garanties_prompt
         )
         result = {"intent": "GARANTIES", "response": garanties_response.text,
-                  "_html_cards": "",
                   "risk_score": risk["score"], "risk_level": risk["level"]}
 
     elif not result and intent == "FOLLOWUP":
@@ -2722,19 +2715,9 @@ QUESTION UTILISATEUR : {message}
                 keywords_alt = [k.strip() for k in alt_query.lower().split() if len(k.strip()) > 2
                                 and k.strip() not in {s.lower() for s in STOPWORDS_FR}
                                 and not k.strip().isdigit()]
-                # FIX B1/B2/B5 — exclure le modèle demandé et les modèles sport des alternatives VUS
-                _orig_kws = set(k.strip() for k in (query or '').lower().split()
-                                if len(k.strip()) > 2 and not k.strip().isdigit())
-                if _category_detected:
-                    keywords_alt = [k for k in keywords_alt if k not in _orig_kws]
-                    if is_vus:
-                        keywords_alt = [k for k in keywords_alt if k not in set(_SPORT_MODELS)]
-                # FIX B3 — budget persistant dans la recherche d'alternatives
-                _alt_price_max = _price_max or session.get("context", {}).get("price_max")
                 _kw_limit = 4 if _category_detected else 2
                 for kw in keywords_alt[:_kw_limit]:
-                    alt_results = search_inventory_cache(kw, limit=3,
-                                                         price_max=_alt_price_max)
+                    alt_results = search_inventory_cache(kw, limit=3)
                     if alt_results:
                         print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
                         break
