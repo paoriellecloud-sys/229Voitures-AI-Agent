@@ -1631,6 +1631,26 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
         save_session(user_id, sessions.get(user_id, {}))
         return {"intent": "LEAD_SENT", "response": _rdv_confirmation, "html_cards": ""}
 
+    # ─── Interception frais illégaux AVANT tout (B6) ───
+    _FRAIS_ILLEGAUX_KW = [
+        'frais de préparat', 'frais de livraison', 'frais de dossier',
+        "frais d'administrat", 'frais supplément', 'frais de mise en route',
+        'frais de document', 'frais de transport',
+    ]
+    _msg_frais = message.lower()
+    if any(kw in _msg_frais for kw in _FRAIS_ILLEGAUX_KW):
+        _frais_resp = (
+            "Ces frais sont illégaux au Québec si ajoutés au prix affiché (OPC / LPC). "
+            "Le prix affiché doit être le prix total — le concessionnaire ne peut pas "
+            "ajouter ces frais par-dessus. Tu peux refuser de payer et signaler "
+            "à l'OPC si ça arrive."
+        )
+        session["history"].append({"role": "assistant", "content": _frais_resp})
+        session["history"] = session["history"][-20:]
+        save_session(user_id, sessions.get(user_id, {}))
+        return {"intent": "GARANTIES", "response": _frais_resp,
+                "html_cards": "", "_html_cards": ""}
+
     # ─── Interception RDV AVANT Gemini ───
     if detect_rdv_intent(message):
 
