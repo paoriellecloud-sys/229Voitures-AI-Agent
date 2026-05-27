@@ -2520,6 +2520,14 @@ QUESTION : {message}
                                                    fuel_filter=_fuel_filter, year_filter=_year_filter,
                                                    price_max=_price_max, mileage_max=_mileage_max,
                                                    drivetrain_filter=_drivetrain_filter)
+            _SPORT_EXCLUDE = ['mustang', 'camaro', 'challenger', 'corvette', 'supra', 'brz', 'gr86']
+            _vus_requested = any(w in (query or '').lower() for w in
+                                 ['vus', 'suv', 'rogue', 'kona', 'escape', 'tucson',
+                                  'rav4', 'cr-v', 'seltos', 'sportage'])
+            if _vus_requested:
+                cache_results = [r for r in cache_results if not any(
+                    s in (r.get('model', '') or r.get('modele', '')).lower()
+                    for s in _SPORT_EXCLUDE)]
 
         if cache_results:
             vehicles_3 = cache_results[:3]
