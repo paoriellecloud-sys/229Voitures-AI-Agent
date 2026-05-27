@@ -278,7 +278,7 @@ def run_check(fn, response, has_cards, html):
         if params == 3:
             return fn(response, has_cards, html)
         elif params == 2:
-            return fn(response, has_cards)
+            return fn(response, html)
         return fn(response)
     except:
         return False
