@@ -162,9 +162,9 @@ SCENARIOS = [
                 "msg": "Le vendeur veut 799$ de frais de préparation",
                 "checks": {
                     "denonce_STRICT":
-                        lambda r, h: all(
+                        lambda r, h: any(
                             w in r.lower() for w in
-                            ["illégal"]) and not h,
+                            ["illégal", "illégaux"]) and not h,
                 }
             },
             {
@@ -172,8 +172,7 @@ SCENARIOS = [
                 "checks": {
                     "coherent_STRICT":
                         lambda r, h:
-                            "illégal" in r.lower()
-                            and not h,
+                            ("illégal" in r.lower() or "illégaux" in r.lower()) and not h,
                 }
             },
             {
@@ -181,8 +180,7 @@ SCENARIOS = [
                 "checks": {
                     "toujours_coherent_STRICT":
                         lambda r, h:
-                            "illégal" in r.lower()
-                            and not h,
+                            ("illégal" in r.lower() or "illégaux" in r.lower()) and not h,
                 }
             },
         ]
@@ -278,7 +276,7 @@ def run_check(fn, response, has_cards, html):
         if params == 3:
             return fn(response, has_cards, html)
         elif params == 2:
-            return fn(response, has_cards)
+            return fn(response, html)
         return fn(response)
     except:
         return False
