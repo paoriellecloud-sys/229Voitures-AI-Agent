@@ -2745,7 +2745,7 @@ QUESTION UTILISATEUR : {message}
                                 and not k.strip().isdigit()]
                 _kw_limit = 4 if _category_detected else 2
                 for kw in keywords_alt[:_kw_limit]:
-                    alt_results = search_inventory_cache(kw, limit=3)
+                    alt_results = search_inventory_cache(kw, limit=3, price_max=_price_max)
                     if alt_results:
                         print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
                         break
@@ -2828,7 +2828,7 @@ QUESTION UTILISATEUR : {message}
                             for _cat_name, _cat_models in CATEGORIES_VEHICULES.items():
                                 if _lt_fallback in _cat_models:
                                     _cat_q = " ".join(_cat_models[:4])
-                                    alt_results = search_inventory_cache(_cat_q, limit=3)
+                                    alt_results = search_inventory_cache(_cat_q, limit=3, price_max=_price_max)
                                     if alt_results:
                                         print(f"[smart_chat] last_topic '{_lt_fallback}' → catégorie {_cat_name} → {len(alt_results)} alternatives")
                                         _lt_alt_text = format_cache_results_for_prompt(alt_results)
@@ -3002,7 +3002,7 @@ INSTRUCTIONS :
             chat_cache = []
             if chat_vehicle_query:
                 print(f"[smart_chat/CHAT] Véhicule détecté: '{chat_vehicle_query}' → recherche inventaire")
-                chat_cache = search_inventory_cache(chat_vehicle_query, limit=3)
+                chat_cache = search_inventory_cache(chat_vehicle_query, limit=3, price_max=_price_max)
                 if chat_cache:
                     chat_inventory_text = "\n\n" + format_cache_results_for_prompt(chat_cache)
                     # Mettre à jour last_results si pas encore de résultats dans la session
