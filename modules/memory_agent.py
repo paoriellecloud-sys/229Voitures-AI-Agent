@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent / "database" / "vehicles.db"
+DB_PATH = Path(__file__).parent.parent / "vehicles.db"
 
 def init_sessions_table():
     """Crée la table sessions si elle n'existe pas."""
