@@ -19,6 +19,30 @@ DB_PATH = os.environ.get("DB_PATH", "/home/ubuntu/data/229voitures.db")
 
 sessions = {}
 
+_SPORT_EXCLUDE = ['mustang', 'camaro', 'challenger', 'corvette', 'supra', 'brz', 'gr86']
+
+_VUS_KEYWORDS = [
+    'vus', 'suv', 'sorento', 'sportage', 'escape', 'rav4', 'tucson',
+    'rogue', 'seltos', 'kona', 'cr-v', 'tiguan', 'cx-5', 'outlander',
+    'equinox', 'palisade', 'telluride', 'traverse', 'pilot', 'highlander',
+]
+
+
+def _filter_sport(results: list, query: str) -> list:
+    """Exclut les modèles sport des résultats quand la recherche est dans un contexte VUS."""
+    if not results:
+        return results
+    query_lower = (query or '').lower()
+    if not any(w in query_lower for w in _VUS_KEYWORDS):
+        return results
+    return [
+        r for r in results
+        if not any(
+            s in (r.get('model', '') or r.get('modele', '') or '').lower()
+            for s in _SPORT_EXCLUDE
+        )
+    ]
+
 
 # =============================
 # SESSION PERSISTANCE SQLite
@@ -2546,14 +2570,7 @@ QUESTION : {message}
                                                    fuel_filter=_fuel_filter, year_filter=_year_filter,
                                                    price_max=_price_max, mileage_max=_mileage_max,
                                                    drivetrain_filter=_drivetrain_filter)
-            _SPORT_EXCLUDE = ['mustang', 'camaro', 'challenger', 'corvette', 'supra', 'brz', 'gr86']
-            _vus_requested = any(w in (query or '').lower() for w in
-                                 ['vus', 'suv', 'rogue', 'kona', 'escape', 'tucson',
-                                  'rav4', 'cr-v', 'seltos', 'sportage'])
-            if _vus_requested:
-                cache_results = [r for r in cache_results if not any(
-                    s in (r.get('model', '') or r.get('modele', '')).lower()
-                    for s in _SPORT_EXCLUDE)]
+            cache_results = _filter_sport(cache_results, query)
 
         if cache_results:
             vehicles_3 = cache_results[:3]
@@ -2752,6 +2769,7 @@ QUESTION UTILISATEUR : {message}
                 _kw_limit = 4 if _category_detected else 2
                 for kw in keywords_alt[:_kw_limit]:
                     alt_results = search_inventory_cache(kw, limit=3)
+                    alt_results = _filter_sport(alt_results, query)
                     if alt_results:
                         print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
                         break
@@ -2835,6 +2853,7 @@ QUESTION UTILISATEUR : {message}
                                 if _lt_fallback in _cat_models:
                                     _cat_q = " ".join(_cat_models[:4])
                                     alt_results = search_inventory_cache(_cat_q, limit=3)
+                                    alt_results = _filter_sport(alt_results, _cat_q)
                                     if alt_results:
                                         print(f"[smart_chat] last_topic '{_lt_fallback}' → catégorie {_cat_name} → {len(alt_results)} alternatives")
                                         _lt_alt_text = format_cache_results_for_prompt(alt_results)
@@ -3009,6 +3028,7 @@ INSTRUCTIONS :
             if chat_vehicle_query:
                 print(f"[smart_chat/CHAT] Véhicule détecté: '{chat_vehicle_query}' → recherche inventaire")
                 chat_cache = search_inventory_cache(chat_vehicle_query, limit=3)
+                chat_cache = _filter_sport(chat_cache, chat_vehicle_query)
                 if chat_cache:
                     chat_inventory_text = "\n\n" + format_cache_results_for_prompt(chat_cache)
                     # Mettre à jour last_results si pas encore de résultats dans la session
