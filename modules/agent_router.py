@@ -1522,9 +1522,6 @@ def _generate_vehicle_alerts(vehicle: dict) -> list:
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
 
-    # Initialisation globale — price_max lu depuis session dès le début, disponible pour tous les intents
-    _price_max = session["context"].get("price_max")
-
     # ─── PART 3 : Extraction user_data stricte (uniquement ce que l'user a dit) ───
     msg_lower = message.lower()
     ud = session["user_data"]
@@ -2415,34 +2412,32 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
                 r'(\d[\d\s]{1,})\s*\$?\s*(?:/mois|par mois)',
                 message.lower()
             )
-        # Mettre à jour price_max seulement si le message mentionne un nouveau budget
-        if _price_match:
-            _price_max = int(_price_match.group(1).replace(' ', ''))
+        _price_max = int(_price_match.group(1).replace(' ', '')) if _price_match else None
 
-        # Convertir budget mensuel en prix total si nécessaire (seulement si nouveau budget dans le message)
+        # Convertir budget mensuel en prix total si nécessaire
         _monthly_keywords = ['/mois', 'par mois', 'mensuel', 'mensuellement', 'par semaine']
         _is_monthly = any(kw in message.lower() for kw in _monthly_keywords)
-        if _is_monthly and _price_match and _price_max and _price_max < 2000:
+        if _is_monthly and _price_max and _price_max < 2000:
             _r = 0.0799 / 12
             _n = 72
             _price_total = _price_max * (1 - (1 + _r) ** -_n) / _r
             _price_max = round(_price_total / 1.14975)
             print(f"[smart_chat] Budget mensuel {_price_match.group(1).strip()}$/mois → prix total estimé {_price_max}$")
 
-        # Convertir budget "tout inclus" → prix avant taxes (seulement si nouveau budget dans le message)
+        # Convertir budget "tout inclus" → prix avant taxes
         _tout_inclus_keywords = ['tout inclus', 'taxes incluses', 'taxes comprises', 'toutes taxes', 'ttc', 'tout compris']
-        if _price_match and any(kw in message.lower() for kw in _tout_inclus_keywords):
+        if any(kw in message.lower() for kw in _tout_inclus_keywords):
             if _price_max:
                 _price_max = round(_price_max / 1.14975)
                 print(f"[smart_chat] Budget tout inclus → prix avant taxes estimé {_price_max}$")
 
-        # Fallback — price_max déjà initialisé depuis session au début de smart_chat ; ceci est un filet de sécurité
+        # ÉTAPE 2 — Récupérer price_max depuis session si absent du message courant
         if not _price_max:
-            _price_max = session["context"].get("price_max")
+            _price_max = session.get("context", {}).get("price_max")
             if _price_max:
-                print(f"[smart_chat] price_max récupéré depuis session (fallback): {_price_max}$")
+                print(f"[smart_chat] price_max récupéré depuis session: {_price_max}$")
 
-        # Sauvegarder price_max en session pour les messages suivants
+        # ÉTAPE 1 — Sauvegarder price_max en session pour les messages suivants
         if _price_max:
             session["context"]["price_max"] = _price_max
 
