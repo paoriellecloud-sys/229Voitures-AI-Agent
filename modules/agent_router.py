@@ -3,7 +3,7 @@ from google.genai import types
 from modules.scraper import analyze_listing, compare_listings, search_and_analyze
 from modules.vin_checker import get_vehicle_report
 from modules.formatters import format_vehicles_html_block, generate_rdv_form, generate_vin_report
-from modules.vin_decoder import decode_full as vin_decode_full, enrich_vin_report as vin_enrich_report
+from modules.vin_decoder import decode_full as vin_decode_full, enrich_vin_report as vin_enrich_report, check_known_issues as vin_check_issues
 from modules.theta2_alert import get_theta2_alert
 from database import log_search
 import os
@@ -2365,6 +2365,11 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
             _vin_decoded_local = vin_decode_full(_vin)
             _vin_data = vin_enrich_report(_vin_data, _vin)
             print(f"[vin_decoder] {_vin} → {_vin_decoded_local}")
+
+            # Alertes recours collectifs / rappels connus au Canada
+            _vin_data["known_issues"] = vin_check_issues(
+                _vin, int(_year or 0), _make, _model
+            )
 
             _vin_html    = generate_vin_report(_vin_data)
             _intro       = f"Voici le rapport VIN pour le {_year} {_make} {_model}.".strip()
