@@ -1,5 +1,6 @@
 """
-VIN Decoder — décode les informations véhicule depuis le VIN sans API externe.
+VIN Decoder — décode les informations véhicule via l'API NHTSA gratuite,
+avec fallback sur les tables manuelles si l'API est indisponible.
 
 Structure VIN (17 caractères, indices Python 0-based) :
   [0:3]  WMI  — fabricant / pays
@@ -9,6 +10,7 @@ Structure VIN (17 caractères, indices Python 0-based) :
   [10]   usine d'assemblage
   [11:]  numéro séquentiel
 """
+import requests as _requests
 
 # ── Tables de décodage ──────────────────────────────────────────────────────
 
@@ -107,15 +109,78 @@ def decode_toyota_vds(vin: str) -> dict:
     return _lookup_vds(vin, _TOYOTA_VDS)
 
 
-def decode_full(vin: str) -> dict:
+def _decode_nhtsa(vin: str) -> dict | None:
     """
-    Décode toutes les informations disponibles depuis le VIN.
-    Retourne un dict complet avec year, manufacturer, model_info, engine, drivetrain.
+    Appelle l'API NHTSA vPIC gratuite et retourne un dict normalisé,
+    ou None si l'API est indisponible ou retourne des données vides.
     """
-    if not vin or len(vin) != 17:
-        return {"decoded": False, "error": "VIN invalide (doit faire 17 caractères)"}
+    try:
+        url = f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/{vin}?format=json"
+        resp = _requests.get(url, timeout=5)
+        resp.raise_for_status()
+        results = resp.json().get("Results", [])
+        fields = {
+            r["Variable"]: r["Value"]
+            for r in results
+            if r.get("Value") and r["Value"] not in ("Not Applicable", "null", "")
+        }
+        if not fields.get("Make"):
+            return None
 
-    vin = vin.upper()
+        # Moteur : cylindrée + configuration
+        disp = fields.get("Displacement (L)", "")
+        cfg  = fields.get("Engine Configuration", "")
+        engine_parts = []
+        if disp:
+            try:
+                engine_parts.append(f"{round(float(disp), 1)}L")
+            except ValueError:
+                engine_parts.append(disp + "L")
+        if cfg:
+            engine_parts.append(cfg)
+        engine = " ".join(engine_parts) or "N/D"
+
+        # Traction — normaliser les valeurs NHTSA
+        # NHTSA utilise "4X2" (FWD/RWD) et "4X4" (AWD/4WD)
+        _dt_raw = (fields.get("Drive Type") or "").upper()
+        if "AWD" in _dt_raw or "ALL-WHEEL" in _dt_raw or "4X4" in _dt_raw:
+            drivetrain = "AWD"
+        elif "4WD" in _dt_raw or "4-WHEEL" in _dt_raw:
+            drivetrain = "4WD"
+        elif "FWD" in _dt_raw or "FRONT" in _dt_raw or "4X2" in _dt_raw:
+            drivetrain = "FWD"
+        elif "RWD" in _dt_raw or "REAR" in _dt_raw:
+            drivetrain = "RWD"
+        else:
+            drivetrain = _dt_raw or "N/D"
+
+        transmission = fields.get("Transmission Style", "N/D")
+        year_raw = fields.get("Model Year", "")
+        try:
+            year = int(year_raw)
+        except (ValueError, TypeError):
+            year = 0
+
+        return {
+            "year":         year,
+            "manufacturer": fields.get("Make", "Inconnu").title(),
+            "country":      fields.get("Plant Country", "Inconnu").title(),
+            "model_info":   fields.get("Model", "N/D").title(),
+            "engine":       engine,
+            "drivetrain":   drivetrain,
+            "transmission": transmission,
+            "body_type":    fields.get("Body Class", "N/D"),
+            "plant":        "",
+            "decoded":      True,
+            "source":       "NHTSA",
+        }
+    except Exception as _e:
+        print(f"[vin_decoder] NHTSA timeout ou erreur - fallback manuel ({_e})")
+        return None
+
+
+def _decode_manual(vin: str) -> dict:
+    """Décodage local depuis les tables WMI/VDS (fallback hors-ligne)."""
     year = decode_year(vin)
     mfr = decode_manufacturer(vin)
     manufacturer = mfr.get("manufacturer", "Inconnu")
@@ -123,9 +188,9 @@ def decode_full(vin: str) -> dict:
     plant = vin[10]
 
     _VDS_DECODERS = {
-        "Kia":        decode_kia_vds,
-        "Hyundai":    decode_hyundai_vds,
-        "Toyota":     decode_toyota_vds,
+        "Kia":     decode_kia_vds,
+        "Hyundai": decode_hyundai_vds,
+        "Toyota":  decode_toyota_vds,
     }
     vds_info = _VDS_DECODERS.get(manufacturer, lambda v: {})(vin)
 
@@ -136,14 +201,35 @@ def decode_full(vin: str) -> dict:
         "model_info":   vds_info.get("model", "N/D"),
         "engine":       vds_info.get("engine", "N/D"),
         "drivetrain":   vds_info.get("drivetrain", "N/D"),
+        "transmission": "N/D",
+        "body_type":    "N/D",
         "plant":        plant,
         "decoded":      bool(vds_info),
+        "source":       "manuel",
     }
+
+
+def decode_full(vin: str) -> dict:
+    """
+    Décode toutes les informations depuis le VIN.
+    Essaie d'abord l'API NHTSA gratuite, puis fallback sur les tables locales.
+    """
+    if not vin or len(vin) != 17:
+        return {"decoded": False, "error": "VIN invalide (doit faire 17 caractères)"}
+
+    vin = vin.upper()
+    result = _decode_nhtsa(vin)
+    if result is None:
+        result = _decode_manual(vin)
+    if not result.get("plant"):
+        result["plant"] = vin[10]
+    return result
 
 
 def enrich_vin_report(vin_data: dict, vin: str) -> dict:
     """
     Remplace les champs N/D d'un rapport VIN existant par les données décodées.
+    La transmission est maintenant remplie quand l'API NHTSA la fournit.
     vin_data est modifié en place et retourné.
     """
     decoded = decode_full(vin)
@@ -156,7 +242,7 @@ def enrich_vin_report(vin_data: dict, vin: str) -> dict:
     if vin_data.get("traction") in (None, "N/D", ""):
         vin_data["traction"] = decoded["drivetrain"]
 
-    # La transmission (automatique/manuelle) n'est pas encodée dans le VIN standard
-    # → on ne touche pas au champ "transmission"
+    if vin_data.get("transmission") in (None, "N/D", "") and decoded.get("transmission") not in (None, "N/D", ""):
+        vin_data["transmission"] = decoded["transmission"]
 
     return vin_data
