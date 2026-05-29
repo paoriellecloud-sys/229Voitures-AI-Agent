@@ -4,6 +4,7 @@ from modules.scraper import analyze_listing, compare_listings, search_and_analyz
 from modules.vin_checker import get_vehicle_report
 from modules.formatters import format_vehicles_html_block, generate_rdv_form, generate_vin_report
 from modules.vin_decoder import decode_full as vin_decode_full, enrich_vin_report as vin_enrich_report
+from modules.theta2_alert import get_theta2_alert
 from database import log_search
 import os
 import json
@@ -1540,6 +1541,11 @@ def _generate_vehicle_alerts(vehicle: dict) -> list:
         alerts.append("💰 Éligible rabais Roulez Vert (jusqu'à 4 000$) + fédéral (jusqu'à 5 000$)")
     elif "hybride" in fuel or "hybrid" in fuel:
         alerts.append("💰 Vérifier éligibilité rabais gouvernementaux Roulez Vert")
+
+    # Alerte moteur Theta II — Kia/Hyundai 2011-2019 (recours collectif Canada)
+    _theta2 = get_theta2_alert(vehicle)
+    if _theta2:
+        alerts.append(_theta2)
 
     return alerts
 
