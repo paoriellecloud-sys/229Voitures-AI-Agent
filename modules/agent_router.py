@@ -3201,4 +3201,9 @@ INSTRUCTIONS :
     # ─── Persistance session SQLite ───
     save_session(user_id, sessions.get(user_id, {}))
 
+    # ─── Validation budget — filtre les fiches hors budget avant envoi ───
+    if _price_max and result.get("html_cards"):
+        from modules import validation_agent as _va
+        result["html_cards"] = _va.filter_cards_by_budget(result["html_cards"], _price_max)
+
     return result
