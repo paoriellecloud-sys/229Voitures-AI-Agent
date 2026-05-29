@@ -3,6 +3,7 @@ from google.genai import types
 from modules.scraper import analyze_listing, compare_listings, search_and_analyze
 from modules.vin_checker import get_vehicle_report
 from modules.formatters import format_vehicles_html_block, generate_rdv_form, generate_vin_report
+from modules.vin_decoder import decode_full as vin_decode_full, enrich_vin_report as vin_enrich_report
 from database import log_search
 import os
 import json
@@ -2329,6 +2330,11 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
                 "recommandation_texte":  _rec_texte,
                 "recommandation_niveau": _rec_niveau,
             }
+
+            # Enrichir avec vin_decoder — remplace les N/D (moteur, traction) sans API
+            _vin_decoded_local = vin_decode_full(_vin)
+            _vin_data = vin_enrich_report(_vin_data, _vin)
+            print(f"[vin_decoder] {_vin} → {_vin_decoded_local}")
 
             _vin_html    = generate_vin_report(_vin_data)
             _intro       = f"Voici le rapport VIN pour le {_year} {_make} {_model}.".strip()
