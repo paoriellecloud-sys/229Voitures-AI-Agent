@@ -1522,13 +1522,6 @@ def _generate_vehicle_alerts(vehicle: dict) -> list:
 def smart_chat(message: str, user_id: str = "default") -> dict:
     session = get_session(user_id)
 
-    # Memory agent — charger price_max depuis session en premier
-    from modules.memory_agent import load_session as _load_session
-    _saved = _load_session(user_id)
-    if not session.get("context", {}).get("price_max") and _saved.get("context", {}).get("price_max"):
-        session["context"]["price_max"] = _saved["context"]["price_max"]
-        print(f"[memory_agent] price_max restauré depuis SQLite: {session['context']['price_max']}$")
-
     # ─── PART 3 : Extraction user_data stricte (uniquement ce que l'user a dit) ───
     msg_lower = message.lower()
     ud = session["user_data"]
