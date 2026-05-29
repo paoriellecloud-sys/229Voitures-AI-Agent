@@ -2038,33 +2038,6 @@ RÈGLES :
             result = {"intent": "FOLLOWUP", "response": _prop_resp.text, "_html_cards": ""}
             print(f"[smart_chat] Proposition {_prop_num} détectée → réponse directe")
 
-    # ─── Comparaison côte à côte — intercept avant la chaîne d'intent ───
-    if not result:
-        from modules.comparator_agent import detect_compare_request as _dcr, build_comparison as _bc, generate_comparison_html as _gch
-        _cmp_indices = _dcr(message)
-        _cmp_last = session["context"].get("last_results", [])
-        _cmp_msg = message.lower()
-        _cmp_explicit = (
-            "compar" in _cmp_msg
-            or ("proposition" in _cmp_msg and re.search(r'\d', _cmp_msg))
-        )
-        _cmp_valid = (
-            len(_cmp_indices) in (2, 3)
-            and _cmp_explicit
-            and len(_cmp_last) >= 2
-            and len(message.split()) >= 5
-        )
-        if _cmp_valid:
-            _cmp_pm = session["context"].get("price_max")
-            _cmp_data = _bc(_cmp_last, _cmp_indices, price_max=_cmp_pm)
-            _cmp_html = _gch(_cmp_data)
-            result = {
-                "intent": "COMPARAISON",
-                "response": f"Voici la comparaison entre les propositions {' et '.join(map(str, _cmp_indices))} :",
-                "_html_cards": _cmp_html,
-                "source": "comparator_agent",
-            }
-            print(f"[comparator_agent] Comparaison {_cmp_indices} → {_cmp_data.get('recommandation')}")
     if not result and intent == "CREATE_ALERT":
         criteria = {}
         _brands = ["toyota", "honda", "bmw", "audi", "mercedes", "hyundai", "kia",
