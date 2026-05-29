@@ -246,3 +246,121 @@ def enrich_vin_report(vin_data: dict, vin: str) -> dict:
         vin_data["transmission"] = decoded["transmission"]
 
     return vin_data
+
+
+# ── Recours collectifs et rappels connus au Canada ──────────────────────────
+
+_KNOWN_ISSUES = [
+    {
+        "make":    "Kia",
+        "years":   set(range(2011, 2020)),
+        "models":  {"sportage", "sorento", "optima", "soul", "stinger"},
+        "niveau":  "warning",
+        "titre":   "Moteur Theta II — Recours collectif Canada",
+        "description": (
+            "Ce véhicule Kia est potentiellement visé par le recours collectif "
+            "relatif au moteur Theta II (calage, panne moteur). "
+            "Remplacement gratuit possible."
+        ),
+        "action": "Vérifiez votre NIV sur le site du règlement",
+        "url":    "https://www.kiacanadathetaenginesettlement.ca/fr/vin-check",
+    },
+    {
+        "make":    "Hyundai",
+        "years":   set(range(2011, 2020)),
+        "models":  {"tucson", "santa fe", "santa fe sport", "sonata", "elantra"},
+        "niveau":  "warning",
+        "titre":   "Moteur Theta II — Recours collectif Canada",
+        "description": (
+            "Ce véhicule Hyundai est potentiellement visé par le recours collectif "
+            "relatif au moteur Theta II. Vérifiez votre admissibilité."
+        ),
+        "action": "Vérifiez votre admissibilité",
+        "url":    "https://recall.hyundaicanada.com/fr",
+    },
+    {
+        "make":    "Toyota",
+        "years":   {2022, 2023},
+        "models":  {"tundra", "lx 600", "lx"},
+        "niveau":  "warning",
+        "titre":   "Rappel moteur biturbo 3.4L — Transports Canada",
+        "description": (
+            "Débris métalliques possibles dans le moteur. "
+            "Remplacement du moteur requis selon Transports Canada (Rappel 2024304)."
+        ),
+        "action": "Contacter un concessionnaire Toyota autorisé",
+        "url": (
+            "https://recalls-rappels.canada.ca/fr/avis-rappel/"
+            "numero-rappel-transports-canada-2024304-toyota"
+        ),
+    },
+    {
+        "make":    "Lexus",
+        "years":   {2022, 2023},
+        "models":  {"lx 600", "lx"},
+        "niveau":  "warning",
+        "titre":   "Rappel moteur biturbo 3.4L — Transports Canada",
+        "description": (
+            "Débris métalliques possibles dans le moteur. "
+            "Remplacement du moteur requis selon Transports Canada (Rappel 2024304)."
+        ),
+        "action": "Contacter un concessionnaire Lexus autorisé",
+        "url": (
+            "https://recalls-rappels.canada.ca/fr/avis-rappel/"
+            "numero-rappel-transports-canada-2024304-toyota"
+        ),
+    },
+]
+
+
+def check_known_issues(
+    vin: str, year: int, make: str, model: str
+) -> list[dict]:
+    """
+    Vérifie si le véhicule est potentiellement visé par un recours collectif
+    ou un rappel connu au Canada.
+
+    Retourne une liste de dicts avec : niveau, titre, description, action, url.
+    Inclut toujours une entrée info pour la vérification Transports Canada.
+    """
+    issues: list[dict] = []
+    make_l  = (make  or "").strip().lower()
+    model_l = (model or "").strip().lower()
+
+    try:
+        yr = int(year)
+    except (ValueError, TypeError):
+        yr = 0
+
+    for rule in _KNOWN_ISSUES:
+        if rule["make"].lower() != make_l:
+            continue
+        if yr not in rule["years"]:
+            continue
+        # Correspondance partielle sur le modèle (ex: "santa fe" dans "santa fe sport")
+        if not any(m in model_l or model_l in m for m in rule["models"]):
+            continue
+        issues.append({
+            "niveau":      rule["niveau"],
+            "titre":       rule["titre"],
+            "description": rule["description"],
+            "action":      rule["action"],
+            "url":         rule["url"],
+        })
+
+    # Vérification générale Transports Canada — toujours présente
+    tc_url = (
+        f"https://wwwapps.tc.gc.ca/Saf-Sec-Sur/7/VRDB-BDRV/"
+        f"search-recherche/s.aspx?vins={vin.upper()}&lang=fr"
+        if vin and len(vin) == 17
+        else "https://tc.canada.ca/fr/securite-automobile/rappels-securite-vehicules"
+    )
+    issues.append({
+        "niveau":      "info",
+        "titre":       "Vérifier les rappels Transports Canada",
+        "description": "Consultez la base officielle pour tout rappel actif sur ce véhicule.",
+        "action":      "Rechercher par NIV sur le site de Transports Canada",
+        "url":         tc_url,
+    })
+
+    return issues
