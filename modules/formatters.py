@@ -248,6 +248,7 @@ def generate_vin_report(data: dict) -> str:
     plaintes     = data.get("plaintes", "Peu de plaintes enregistr\u00e9es")
     plaintes_ok  = data.get("plaintes_ok", True)
     points       = data.get("points_surveiller", [])
+    known_issues = data.get("known_issues", [])
     prix_min     = data.get("prix_min", "N/D")
     prix_max     = data.get("prix_max", "N/D")
     prix_moyen   = data.get("prix_moyen", "N/D")
@@ -282,6 +283,37 @@ def generate_vin_report(data: dict) -> str:
     else:
         points_html = '<div style="display:flex;align-items:center;gap:8px;background:rgba(99,153,34,0.15);border:1px solid rgba(99,153,34,0.30);border-radius:8px;padding:10px 12px;"><span style="font-size:15px;">&#9989;</span><span style="font-size:13px;color:#97C459;font-weight:500;">Aucun point critique identifi\u00e9</span></div>'
 
+    known_issues_html = ""
+    if isinstance(known_issues, list):
+        for issue in known_issues:
+            if not isinstance(issue, dict):
+                continue
+            niveau      = issue.get("niveau", "info")
+            titre       = str(issue.get("titre", ""))
+            description = str(issue.get("description", ""))
+            url         = str(issue.get("url", ""))
+            action      = str(issue.get("action", "Vérifier"))
+            couleur     = "#ff6b35" if niveau == "warning" else "#4a9eff"
+            icone       = "⚠️" if niveau == "warning" else "ℹ️"
+            known_issues_html += (
+                f'<div style="border-left:3px solid {couleur};'
+                f'padding:8px 12px;margin:8px 0;">'
+                f'<div style="color:{couleur};font-weight:700">'
+                f'{icone} {titre}</div>'
+                f'<div style="font-size:12px;margin-top:4px">'
+                f'{description}</div>'
+                f'<a href="{url}" target="_blank" '
+                f'style="color:{couleur};font-size:11px">'
+                f'→ {action}</a></div>'
+            )
+
+    _known_issues_section = (
+        '<div style="padding:12px 16px;border-top:1px solid rgba(255,255,255,0.08);">'
+        '<div style="font-size:11px;font-weight:700;color:#888;'
+        'text-transform:uppercase;margin-bottom:8px;">⚠️ Rappels &amp; recours Canada</div>'
+        + known_issues_html
+        + '</div>'
+    ) if known_issues_html else ""
     # Carte sur une seule ligne — évite que formatText convertisse \n en <br> dans le HTML
     return (
         '<div style="border-radius:10px;border:1px solid rgba(255,255,255,0.10);overflow:hidden;'
@@ -316,6 +348,7 @@ def generate_vin_report(data: dict) -> str:
         '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#128295; Points \u00e0 surveiller</p>'
         f'{points_html}'
         '</div>'
+        f'{_known_issues_section}'
         # Valeur marché
         '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
         '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#128181; Valeur march\u00e9 Canada</p>'
