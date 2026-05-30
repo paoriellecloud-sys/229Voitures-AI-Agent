@@ -42,17 +42,17 @@ _WMI_MAP = {
 }
 
 _KIA_VDS = {
-    "PM3": {"model": "Sportage", "engine": "2.4L",  "drivetrain": "AWD"},
-    "PM2": {"model": "Sportage", "engine": "2.4L",  "drivetrain": "FWD"},
-    "PC3": {"model": "Sportage", "engine": "1.6T",  "drivetrain": "AWD"},
-    "E2C": {"model": "Seltos",   "engine": "2.0L",        "drivetrain": "AWD"},
-    "E2B": {"model": "Seltos",   "engine": "2.0L",        "drivetrain": "FWD"},
-    "E3C": {"model": "Seltos",   "engine": "1.6T",        "drivetrain": "AWD"},
-    "EPC": {"model": "Seltos",   "engine": "2.0L CVT",    "drivetrain": "FWD"},
-    "EPD": {"model": "Seltos",   "engine": "2.0L CVT",    "drivetrain": "AWD"},
-    "C2C": {"model": "Sorento",  "engine": "2.4L",  "drivetrain": "AWD"},
-    "C3C": {"model": "Sorento",  "engine": "2.0T",  "drivetrain": "AWD"},
-    "U4C": {"model": "Telluride","engine": "3.8L",  "drivetrain": "AWD"},
+    "PM3": {"model": "Sportage", "engine": "2.4L",       "drivetrain": "AWD"},
+    "PM2": {"model": "Sportage", "engine": "2.4L",       "drivetrain": "FWD"},
+    "PC3": {"model": "Sportage", "engine": "1.6T",       "drivetrain": "AWD"},
+    "E2C": {"model": "Seltos",   "engine": "2.0L",       "drivetrain": "AWD"},
+    "E2B": {"model": "Seltos",   "engine": "2.0L",       "drivetrain": "FWD"},
+    "E3C": {"model": "Seltos",   "engine": "1.6T",       "drivetrain": "AWD"},
+    "EPC": {"model": "Seltos",   "engine": "2.0L CVT",   "drivetrain": "FWD"},
+    "EPD": {"model": "Seltos",   "engine": "2.0L CVT",   "drivetrain": "AWD"},
+    "C2C": {"model": "Sorento",  "engine": "2.4L",       "drivetrain": "AWD"},
+    "C3C": {"model": "Sorento",  "engine": "2.0T",       "drivetrain": "AWD"},
+    "U4C": {"model": "Telluride","engine": "3.8L",       "drivetrain": "AWD"},
 }
 
 _HYUNDAI_VDS = {
@@ -63,57 +63,46 @@ _HYUNDAI_VDS = {
 }
 
 _TOYOTA_VDS = {
-    "RFR":  {"model": "RAV4",       "engine": "2.5L",         "drivetrain": "AWD"},
-    "BJR":  {"model": "RAV4 Hybrid","engine": "2.5L Hybrid",  "drivetrain": "AWD"},
-    "BJ3":  {"model": "RAV4 Prime", "engine": "2.5L PHEV",    "drivetrain": "AWD"},
-    "DFW":  {"model": "Corolla",    "engine": "1.8L",         "drivetrain": "FWD"},
-    "BFJR": {"model": "Highlander", "engine": "3.5L",         "drivetrain": "AWD"},
+    "RFR":  {"model": "RAV4",        "engine": "2.5L",        "drivetrain": "AWD"},
+    "BJR":  {"model": "RAV4 Hybrid", "engine": "2.5L Hybrid", "drivetrain": "AWD"},
+    "BJ3":  {"model": "RAV4 Prime",  "engine": "2.5L PHEV",   "drivetrain": "AWD"},
+    "DFW":  {"model": "Corolla",     "engine": "1.8L",        "drivetrain": "FWD"},
+    "BFJR": {"model": "Highlander",  "engine": "3.5L",        "drivetrain": "AWD"},
 }
 
 
 # ── Fonctions de décodage ────────────────────────────────────────────────────
 
 def decode_year(vin: str) -> int:
-    """Retourne l'année modèle depuis la position 10 du VIN (index 9)."""
     if not vin or len(vin) < 10:
         return 0
     return _YEAR_MAP.get(vin[9].upper(), 0)
 
 
 def decode_manufacturer(vin: str) -> dict:
-    """Retourne marque et pays depuis les 3 premiers caractères du VIN (WMI)."""
     if not vin or len(vin) < 3:
         return {}
     return _WMI_MAP.get(vin[:3].upper(), {})
 
 
 def _lookup_vds(vin: str, table: dict) -> dict:
-    """Cherche une clé VDS (3 ou 4 chars) dans la table fournie."""
     vds = vin[3:8].upper()
-    # Essayer 4 caractères d'abord, puis 3
     return table.get(vds[:4]) or table.get(vds[:3]) or {}
 
 
 def decode_kia_vds(vin: str) -> dict:
-    """Décode le VDS d'un VIN Kia (KND ou KMH)."""
     return _lookup_vds(vin, _KIA_VDS)
 
 
 def decode_hyundai_vds(vin: str) -> dict:
-    """Décode le VDS d'un VIN Hyundai (5NP ou KMH)."""
     return _lookup_vds(vin, _HYUNDAI_VDS)
 
 
 def decode_toyota_vds(vin: str) -> dict:
-    """Décode le VDS d'un VIN Toyota (JTM, JTD, 2T3)."""
     return _lookup_vds(vin, _TOYOTA_VDS)
 
 
 def _decode_nhtsa(vin: str) -> dict | None:
-    """
-    Appelle l'API NHTSA vPIC gratuite et retourne un dict normalisé,
-    ou None si l'API est indisponible ou retourne des données vides.
-    """
     try:
         url = f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/{vin}?format=json"
         resp = _requests.get(url, timeout=5)
@@ -127,7 +116,6 @@ def _decode_nhtsa(vin: str) -> dict | None:
         if not fields.get("Make"):
             return None
 
-        # Moteur : cylindrée + configuration
         disp = fields.get("Displacement (L)", "")
         cfg  = fields.get("Engine Configuration", "")
         engine_parts = []
@@ -140,8 +128,6 @@ def _decode_nhtsa(vin: str) -> dict | None:
             engine_parts.append(cfg)
         engine = " ".join(engine_parts) or "N/D"
 
-        # Traction — normaliser les valeurs NHTSA
-        # NHTSA utilise "4X2" (FWD/RWD) et "4X4" (AWD/4WD)
         _dt_raw = (fields.get("Drive Type") or "").upper()
         if "AWD" in _dt_raw or "ALL-WHEEL" in _dt_raw or "4X4" in _dt_raw:
             drivetrain = "AWD"
@@ -180,7 +166,6 @@ def _decode_nhtsa(vin: str) -> dict | None:
 
 
 def _decode_manual(vin: str) -> dict:
-    """Décodage local depuis les tables WMI/VDS (fallback hors-ligne)."""
     year = decode_year(vin)
     mfr = decode_manufacturer(vin)
     manufacturer = mfr.get("manufacturer", "Inconnu")
@@ -210,13 +195,8 @@ def _decode_manual(vin: str) -> dict:
 
 
 def decode_full(vin: str) -> dict:
-    """
-    Décode toutes les informations depuis le VIN.
-    Essaie d'abord l'API NHTSA gratuite, puis fallback sur les tables locales.
-    """
     if not vin or len(vin) != 17:
         return {"decoded": False, "error": "VIN invalide (doit faire 17 caractères)"}
-
     vin = vin.upper()
     result = _decode_nhtsa(vin)
     if result is None:
@@ -229,21 +209,27 @@ def decode_full(vin: str) -> dict:
 def enrich_vin_report(vin_data: dict, vin: str) -> dict:
     """
     Remplace les champs N/D d'un rapport VIN existant par les données décodées.
-    La transmission est maintenant remplie quand l'API NHTSA la fournit.
-    vin_data est modifié en place et retourné.
+    Ajoute aussi les known_issues (recours collectifs, rappels).
     """
     decoded = decode_full(vin)
+
     if not decoded.get("decoded"):
+        vin_data["known_issues"] = check_known_issues(vin, 0, "", "")
         return vin_data
 
     if vin_data.get("moteur") in (None, "N/D", ""):
-        vin_data["moteur"] = decoded["engine"]
+        vin_data["moteur"] = decoded.get("engine", "N/D")
 
     if vin_data.get("traction") in (None, "N/D", ""):
-        vin_data["traction"] = decoded["drivetrain"]
+        vin_data["traction"] = decoded.get("drivetrain", "N/D")
 
     if vin_data.get("transmission") in (None, "N/D", "") and decoded.get("transmission") not in (None, "N/D", ""):
         vin_data["transmission"] = decoded["transmission"]
+
+    year = int(decoded.get("year") or 0)
+    make = decoded.get("manufacturer", "")
+    model = decoded.get("model_info", "")
+    vin_data["known_issues"] = check_known_issues(vin, year, make, model)
 
     return vin_data
 
@@ -252,11 +238,11 @@ def enrich_vin_report(vin_data: dict, vin: str) -> dict:
 
 _KNOWN_ISSUES = [
     {
-        "make":    "Kia",
-        "years":   set(range(2011, 2020)),
-        "models":  {"sportage", "sorento", "optima", "soul", "stinger"},
-        "niveau":  "warning",
-        "titre":   "Moteur Theta II — Recours collectif Canada",
+        "make":   "Kia",
+        "years":  set(range(2011, 2020)),
+        "models": {"sportage", "sorento", "optima", "soul", "stinger"},
+        "niveau": "warning",
+        "titre":  "Moteur Theta II — Recours collectif Canada",
         "description": (
             "Ce véhicule Kia est potentiellement visé par le recours collectif "
             "relatif au moteur Theta II (calage, panne moteur). "
@@ -266,11 +252,11 @@ _KNOWN_ISSUES = [
         "url":    "https://www.kiacanadathetaenginesettlement.ca/fr/vin-check",
     },
     {
-        "make":    "Hyundai",
-        "years":   set(range(2011, 2020)),
-        "models":  {"tucson", "santa fe", "santa fe sport", "sonata", "elantra"},
-        "niveau":  "warning",
-        "titre":   "Moteur Theta II — Recours collectif Canada",
+        "make":   "Hyundai",
+        "years":  set(range(2011, 2020)),
+        "models": {"tucson", "santa fe", "santa fe sport", "sonata", "elantra"},
+        "niveau": "warning",
+        "titre":  "Moteur Theta II — Recours collectif Canada",
         "description": (
             "Ce véhicule Hyundai est potentiellement visé par le recours collectif "
             "relatif au moteur Theta II. Vérifiez votre admissibilité."
@@ -279,11 +265,11 @@ _KNOWN_ISSUES = [
         "url":    "https://recall.hyundaicanada.com/fr",
     },
     {
-        "make":    "Toyota",
-        "years":   {2022, 2023},
-        "models":  {"tundra", "lx 600", "lx"},
-        "niveau":  "warning",
-        "titre":   "Rappel moteur biturbo 3.4L — Transports Canada",
+        "make":   "Toyota",
+        "years":  {2022, 2023},
+        "models": {"tundra", "lx 600", "lx"},
+        "niveau": "warning",
+        "titre":  "Rappel moteur biturbo 3.4L — Transports Canada",
         "description": (
             "Débris métalliques possibles dans le moteur. "
             "Remplacement du moteur requis selon Transports Canada (Rappel 2024304)."
@@ -295,11 +281,11 @@ _KNOWN_ISSUES = [
         ),
     },
     {
-        "make":    "Lexus",
-        "years":   {2022, 2023},
-        "models":  {"lx 600", "lx"},
-        "niveau":  "warning",
-        "titre":   "Rappel moteur biturbo 3.4L — Transports Canada",
+        "make":   "Lexus",
+        "years":  {2022, 2023},
+        "models": {"lx 600", "lx"},
+        "niveau": "warning",
+        "titre":  "Rappel moteur biturbo 3.4L — Transports Canada",
         "description": (
             "Débris métalliques possibles dans le moteur. "
             "Remplacement du moteur requis selon Transports Canada (Rappel 2024304)."
@@ -313,17 +299,8 @@ _KNOWN_ISSUES = [
 ]
 
 
-def check_known_issues(
-    vin: str, year: int, make: str, model: str
-) -> list[dict]:
-    """
-    Vérifie si le véhicule est potentiellement visé par un recours collectif
-    ou un rappel connu au Canada.
-
-    Retourne une liste de dicts avec : niveau, titre, description, action, url.
-    Inclut toujours une entrée info pour la vérification Transports Canada.
-    """
-    issues: list[dict] = []
+def check_known_issues(vin: str, year: int, make: str, model: str) -> list:
+    issues = []
     make_l  = (make  or "").strip().lower()
     model_l = (model or "").strip().lower()
 
@@ -337,7 +314,6 @@ def check_known_issues(
             continue
         if yr not in rule["years"]:
             continue
-        # Correspondance partielle sur le modèle (ex: "santa fe" dans "santa fe sport")
         if not any(m in model_l or model_l in m for m in rule["models"]):
             continue
         issues.append({
@@ -348,7 +324,6 @@ def check_known_issues(
             "url":         rule["url"],
         })
 
-    # Vérification générale Transports Canada — toujours présente
     tc_url = (
         f"https://wwwapps.tc.gc.ca/Saf-Sec-Sur/7/VRDB-BDRV/"
         f"search-recherche/s.aspx?vins={vin.upper()}&lang=fr"
