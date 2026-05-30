@@ -248,7 +248,6 @@ def generate_vin_report(data: dict) -> str:
     plaintes     = data.get("plaintes", "Peu de plaintes enregistr\u00e9es")
     plaintes_ok  = data.get("plaintes_ok", True)
     points       = data.get("points_surveiller", [])
-    known_issues = data.get("known_issues", [])
     prix_min     = data.get("prix_min", "N/D")
     prix_max     = data.get("prix_max", "N/D")
     prix_moyen   = data.get("prix_moyen", "N/D")
@@ -282,32 +281,6 @@ def generate_vin_report(data: dict) -> str:
         points_html = f'<div style="display:flex;flex-direction:column;gap:6px;">{points_items}</div>'
     else:
         points_html = '<div style="display:flex;align-items:center;gap:8px;background:rgba(99,153,34,0.15);border:1px solid rgba(99,153,34,0.30);border-radius:8px;padding:10px 12px;"><span style="font-size:15px;">&#9989;</span><span style="font-size:13px;color:#97C459;font-weight:500;">Aucun point critique identifi\u00e9</span></div>'
-
-    if known_issues:
-        _ki_items = []
-        for issue in known_issues:
-            _niv    = issue.get('niveau', 'info')
-            _titre  = issue.get('titre', '')
-            _desc   = issue.get('description', '')
-            _url    = issue.get('url', '')
-            _action = issue.get('action', 'Vérifier')
-            if _niv == 'warning':
-                _couleur, _couleur_rgb, _icone = '#ff6b35', '255,107,53', '&#9888;'
-            else:
-                _couleur, _couleur_rgb, _icone = '#4a9eff', '74,158,255', '&#8505;'
-            _ki_items.append(
-                f'<div style="border-left:3px solid {_couleur};padding:8px 12px;margin:4px 0;'
-                f'background:rgba({_couleur_rgb},0.10);border-radius:0 6px 6px 0;">'
-                f'<div style="color:{_couleur};font-weight:700;font-size:12px;">{_icone} {_titre}</div>'
-                f'<div style="font-size:11px;color:#c0c0c0;margin-top:3px;line-height:1.5;">{_desc}</div>'
-                f'<a href="{_url}" target="_blank" rel="noopener" '
-                f'style="color:{_couleur};font-size:11px;text-decoration:none;">'
-                f'&#8594; {_action}</a>'
-                f'</div>'
-            )
-        known_issues_html = f'<div style="display:flex;flex-direction:column;gap:4px;">{"".join(_ki_items)}</div>'
-    else:
-        known_issues_html = ''
 
     # Carte sur une seule ligne — évite que formatText convertisse \n en <br> dans le HTML
     return (
@@ -343,11 +316,6 @@ def generate_vin_report(data: dict) -> str:
         '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#128295; Points \u00e0 surveiller</p>'
         f'{points_html}'
         '</div>'
-        # Alertes recours collectifs / rappels Canada
-        *(['<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
-           '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#9888; Rappels &amp; recours Canada</p>'
-           f'{known_issues_html}'
-           '</div>'] if known_issues_html else []),
         # Valeur marché
         '<div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.06);">'
         '<p style="font-size:10px;color:#FAC775;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.06em;">&#128181; Valeur march\u00e9 Canada</p>'
