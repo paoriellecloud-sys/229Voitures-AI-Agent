@@ -4,7 +4,6 @@ from modules.scraper import analyze_listing, compare_listings, search_and_analyz
 from modules.vin_checker import get_vehicle_report
 from modules.formatters import format_vehicles_html_block, generate_rdv_form, generate_vin_report
 from modules.vin_decoder import decode_full as vin_decode_full, enrich_vin_report as vin_enrich_report
-from modules.theta2_alert import get_theta2_alert
 from database import log_search
 import os
 import json
@@ -19,30 +18,6 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 DB_PATH = os.environ.get("DB_PATH", "/home/ubuntu/data/229voitures.db")
 
 sessions = {}
-
-_SPORT_EXCLUDE = ['mustang', 'camaro', 'challenger', 'corvette', 'supra', 'brz', 'gr86']
-
-_VUS_KEYWORDS = [
-    'vus', 'suv', 'sorento', 'sportage', 'escape', 'rav4', 'tucson',
-    'rogue', 'seltos', 'kona', 'cr-v', 'tiguan', 'cx-5', 'outlander',
-    'equinox', 'palisade', 'telluride', 'traverse', 'pilot', 'highlander',
-]
-
-
-def _filter_sport(results: list, query: str) -> list:
-    """Exclut les modèles sport des résultats quand la recherche est dans un contexte VUS."""
-    if not results:
-        return results
-    query_lower = (query or '').lower()
-    if not any(w in query_lower for w in _VUS_KEYWORDS):
-        return results
-    return [
-        r for r in results
-        if not any(
-            s in (r.get('model', '') or r.get('modele', '') or '').lower()
-            for s in _SPORT_EXCLUDE
-        )
-    ]
 
 
 # =============================
@@ -1542,11 +1517,6 @@ def _generate_vehicle_alerts(vehicle: dict) -> list:
     elif "hybride" in fuel or "hybrid" in fuel:
         alerts.append("💰 Vérifier éligibilité rabais gouvernementaux Roulez Vert")
 
-    # Alerte moteur Theta II — Kia/Hyundai 2011-2019 (recours collectif Canada)
-    _theta2 = get_theta2_alert(vehicle)
-    if _theta2:
-        alerts.append(_theta2)
-
     return alerts
 
 
@@ -2576,7 +2546,14 @@ QUESTION : {message}
                                                    fuel_filter=_fuel_filter, year_filter=_year_filter,
                                                    price_max=_price_max, mileage_max=_mileage_max,
                                                    drivetrain_filter=_drivetrain_filter)
-            cache_results = _filter_sport(cache_results, query)
+            _SPORT_EXCLUDE = ['mustang', 'camaro', 'challenger', 'corvette', 'supra', 'brz', 'gr86']
+            _vus_requested = any(w in (query or '').lower() for w in
+                                 ['vus', 'suv', 'rogue', 'kona', 'escape', 'tucson',
+                                  'rav4', 'cr-v', 'seltos', 'sportage'])
+            if _vus_requested:
+                cache_results = [r for r in cache_results if not any(
+                    s in (r.get('model', '') or r.get('modele', '')).lower()
+                    for s in _SPORT_EXCLUDE)]
 
         if cache_results:
             vehicles_3 = cache_results[:3]
@@ -2775,7 +2752,6 @@ QUESTION UTILISATEUR : {message}
                 _kw_limit = 4 if _category_detected else 2
                 for kw in keywords_alt[:_kw_limit]:
                     alt_results = search_inventory_cache(kw, limit=3)
-                    alt_results = _filter_sport(alt_results, query)
                     if alt_results:
                         print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
                         break
@@ -2859,7 +2835,6 @@ QUESTION UTILISATEUR : {message}
                                 if _lt_fallback in _cat_models:
                                     _cat_q = " ".join(_cat_models[:4])
                                     alt_results = search_inventory_cache(_cat_q, limit=3)
-                                    alt_results = _filter_sport(alt_results, _cat_q)
                                     if alt_results:
                                         print(f"[smart_chat] last_topic '{_lt_fallback}' → catégorie {_cat_name} → {len(alt_results)} alternatives")
                                         _lt_alt_text = format_cache_results_for_prompt(alt_results)
@@ -3034,7 +3009,6 @@ INSTRUCTIONS :
             if chat_vehicle_query:
                 print(f"[smart_chat/CHAT] Véhicule détecté: '{chat_vehicle_query}' → recherche inventaire")
                 chat_cache = search_inventory_cache(chat_vehicle_query, limit=3)
-                chat_cache = _filter_sport(chat_cache, chat_vehicle_query)
                 if chat_cache:
                     chat_inventory_text = "\n\n" + format_cache_results_for_prompt(chat_cache)
                     # Mettre à jour last_results si pas encore de résultats dans la session
