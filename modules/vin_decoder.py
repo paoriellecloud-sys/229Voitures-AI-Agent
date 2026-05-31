@@ -249,7 +249,7 @@ _KNOWN_ISSUES = [
             "Remplacement gratuit possible."
         ),
         "action": "Vérifiez votre NIV sur le site du règlement",
-        "url":    "https://www.kiacanadathetaenginesettlement.ca/fr/vin-check",
+        "url":    "https://www.kia.ca/kia-recall",
     },
     {
         "make":   "Hyundai",
@@ -262,7 +262,7 @@ _KNOWN_ISSUES = [
             "relatif au moteur Theta II. Vérifiez votre admissibilité."
         ),
         "action": "Vérifiez votre admissibilité",
-        "url":    "https://recall.hyundaicanada.com/fr",
+        "url":    "https://www.hyundaicanada.com/fr/owners-section/recalls",
     },
     {
         "make":   "Toyota",
