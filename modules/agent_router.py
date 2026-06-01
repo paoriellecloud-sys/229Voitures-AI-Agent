@@ -4,6 +4,7 @@ from modules.scraper import analyze_listing, compare_listings, search_and_analyz
 from modules.vin_checker import get_vehicle_report
 from modules.formatters import format_vehicles_html_block, generate_rdv_form, generate_vin_report
 from modules.vin_decoder import decode_full as vin_decode_full, enrich_vin_report as vin_enrich_report
+from modules.handlers.budget_handler import extract_price_max, enforce_budget, budget_unavailable_response
 from database import log_search
 import os
 import json
@@ -2407,45 +2408,7 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
         _year_match = _re.search(r'\b(20\d{2})\b', vehicle_filter or '')
         _year_filter = _year_match.group(1) if _year_match else None
 
-        # Extraire price_max du message : "sous 20000", "budget est de 400$/mois", "400$/mois"
-        _price_match = _re.search(
-            r'(?:sous|moins de|budget|max|maximum)[^0-9]{0,30}'
-            r'(\d[\d\s]{1,})\s*(?:\$|dollars?)?',
-            message.lower()
-        )
-        if not _price_match:
-            _price_match = _re.search(
-                r'(\d[\d\s]{1,})\s*\$?\s*(?:/mois|par mois)',
-                message.lower()
-            )
-        _price_max = int(_price_match.group(1).replace(' ', '')) if _price_match else None
-
-        # Convertir budget mensuel en prix total si nécessaire
-        _monthly_keywords = ['/mois', 'par mois', 'mensuel', 'mensuellement', 'par semaine']
-        _is_monthly = any(kw in message.lower() for kw in _monthly_keywords)
-        if _is_monthly and _price_max and _price_max < 2000:
-            _r = 0.0799 / 12
-            _n = 72
-            _price_total = _price_max * (1 - (1 + _r) ** -_n) / _r
-            _price_max = round(_price_total / 1.14975)
-            print(f"[smart_chat] Budget mensuel {_price_match.group(1).strip()}$/mois → prix total estimé {_price_max}$")
-
-        # Convertir budget "tout inclus" → prix avant taxes
-        _tout_inclus_keywords = ['tout inclus', 'taxes incluses', 'taxes comprises', 'toutes taxes', 'ttc', 'tout compris']
-        if any(kw in message.lower() for kw in _tout_inclus_keywords):
-            if _price_max:
-                _price_max = round(_price_max / 1.14975)
-                print(f"[smart_chat] Budget tout inclus → prix avant taxes estimé {_price_max}$")
-
-        # ÉTAPE 2 — Récupérer price_max depuis session si absent du message courant
-        if not _price_max:
-            _price_max = session.get("context", {}).get("price_max")
-            if _price_max:
-                print(f"[smart_chat] price_max récupéré depuis session: {_price_max}$")
-
-        # ÉTAPE 1 — Sauvegarder price_max en session pour les messages suivants
-        if _price_max:
-            session["context"]["price_max"] = _price_max
+        _price_max = extract_price_max(message, session)
 
         # Extraire mileage_max du message : "moins de 80 000 km", "sous 100000 km"
         _mileage_match = _re.search(
@@ -2546,14 +2509,7 @@ QUESTION : {message}
                                                    fuel_filter=_fuel_filter, year_filter=_year_filter,
                                                    price_max=_price_max, mileage_max=_mileage_max,
                                                    drivetrain_filter=_drivetrain_filter)
-            _SPORT_EXCLUDE = ['mustang', 'camaro', 'challenger', 'corvette', 'supra', 'brz', 'gr86']
-            _vus_requested = any(w in (query or '').lower() for w in
-                                 ['vus', 'suv', 'rogue', 'kona', 'escape', 'tucson',
-                                  'rav4', 'cr-v', 'seltos', 'sportage'])
-            if _vus_requested:
-                cache_results = [r for r in cache_results if not any(
-                    s in (r.get('model', '') or r.get('modele', '')).lower()
-                    for s in _SPORT_EXCLUDE)]
+            cache_results = enforce_budget(cache_results, _price_max, query)
 
         if cache_results:
             vehicles_3 = cache_results[:3]
@@ -2812,7 +2768,7 @@ QUESTION UTILISATEUR : {message}
                 else:
                     # Réponse spécifique 7 places hors budget
                     if _is_7places and _price_max:
-                        result = {
+                        result = budget_unavailable_response("véhicule 7 places", _price_max) or {
                             "intent": "SEARCH",
                             "response": (
                                 f"Je n'ai pas de vehicule 7 places dans ton budget de {_price_max:,}$ en ce moment. "
