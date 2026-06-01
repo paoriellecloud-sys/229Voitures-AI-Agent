@@ -5,6 +5,7 @@ from modules.vin_checker import get_vehicle_report
 from modules.formatters import format_vehicles_html_block, generate_rdv_form, generate_vin_report
 from modules.vin_decoder import decode_full as vin_decode_full, enrich_vin_report as vin_enrich_report
 from modules.handlers.budget_handler import extract_price_max, enforce_budget, budget_unavailable_response
+from modules.handlers.search_handler import build_search_query, get_alternatives, SPORT_MODELS, FAMILY_KEYWORDS
 from database import log_search
 import os
 import json
@@ -2432,19 +2433,8 @@ INSTRUCTIONS : Utilise le FORMAT RÉPONSE GARANTIES (🧠/💡/⚠️/💰/🎯)
                 _drivetrain_filter = _val
                 break
 
-        # Détection famille nombreuse → forcer query 7 places
-        _family_keywords = [
-            'famille', 'enfants', 'enfant',
-            '4 enfants', '5 enfants', '6 enfants',
-            '7 places', '8 places', 'minivan',
-            'fourgonnette', '3e rangee', 'troisieme rangee',
-            'grand format',
-        ]
-        _is_7places = any(kw in _msg_lower for kw in _family_keywords)
-        if _is_7places:
-            if not query or not any(m in (query or '').lower() for m in ['sorento', 'telluride', 'palisade', 'sienna', 'traverse', 'pilot', 'carnival', 'odyssey']):
-                query = "sorento telluride palisade traverse sienna carnival pilot odyssey"
-                print(f"[smart_chat] Famille détectée → query 7 places forcée")
+        _is_7places = any(kw in _msg_lower for kw in FAMILY_KEYWORDS)
+        query = build_search_query(message, session, query)
 
         # Vérification luxury AVANT la recherche DB
         LUXURY_BRANDS = {
@@ -2496,12 +2486,6 @@ QUESTION : {message}
                     "scraped_count": 0,
                     "source": "luxury_encyclopediste",
                 }
-
-        # Query vague + budget défini → élargir aux modèles connus du segment
-        _vague_vus = ['vus', 'suv', 'crossover', 'vehicule', 'véhicule', 'auto', 'voiture']
-        if _price_max and not result and any(w in (query or '').lower() for w in _vague_vus):
-            query = "rogue kona escape tucson seltos cx-5 crv rav4 forester qashqai soul niro ioniq"
-            print(f"[smart_chat] Query vague + budget → élargi aux modèles VUS courants")
 
         cache_results = []
         if not result:
@@ -2663,66 +2647,7 @@ QUESTION UTILISATEUR : {message}
                     "source": "inventory_cache_no_luxury",
                 }
             else:
-                # ── Détection catégorie pour alternatives pertinentes (B2) ──
-                _VUS_MODELS = [
-                    'rogue', 'kona', 'escape', 'tucson',
-                    'seltos', 'sportage', 'rav4', 'cr-v',
-                    'forester', 'cx-5', 'qashqai', 'sorento',
-                    'santa fe', 'tiguan', 'trax', 'encore'
-                ]
-                _BERLINE_MODELS = [
-                    'civic', 'corolla', 'elantra', 'accord',
-                    'camry', 'mazda3', 'legacy', 'impreza',
-                    'sentra', 'jetta', 'golf'
-                ]
-                _SPORT_MODELS = [
-                    'mustang', 'camaro', 'challenger',
-                    'corvette', 'supra', 'brz', 'gr86'
-                ]
-                query_lower = (query or '').lower()
-                msg_lower = message.lower()
-                is_vus = any(w in query_lower or w in msg_lower
-                             for w in _VUS_MODELS + ['vus', 'suv'])
-                is_berline = any(w in query_lower or w in msg_lower
-                                 for w in _BERLINE_MODELS + ['berline'])
-                is_sport = any(w in query_lower or w in msg_lower
-                               for w in _SPORT_MODELS + ['sport'])
-                if is_vus:
-                    alt_query = " ".join(_VUS_MODELS[:8])
-                    _category_detected = True
-                elif is_berline:
-                    alt_query = " ".join(_BERLINE_MODELS[:8])
-                    _category_detected = True
-                elif is_sport:
-                    alt_query = " ".join(_SPORT_MODELS[:5])
-                    _category_detected = True
-                else:
-                    alt_query = query
-                    _category_detected = False
-
-                # Chercher des alternatives dans l'inventaire (mots-clés élargis)
-                alt_results = []
-                keywords_alt = [k.strip() for k in alt_query.lower().split() if len(k.strip()) > 2
-                                and k.strip() not in {s.lower() for s in STOPWORDS_FR}
-                                and not k.strip().isdigit()]
-                _kw_limit = 4 if _category_detected else 2
-                for kw in keywords_alt[:_kw_limit]:
-                    alt_results = search_inventory_cache(kw, limit=3)
-                    if alt_results:
-                        print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
-                        break
-
-                # Supprimer les alternatives si aucune n'est de la marque demandée
-                # (uniquement hors catégorie — en mode catégorie, les alternatives sont intentionnelles)
-                if alt_results and keywords_alt and not _category_detected:
-                    requested_kw = keywords_alt[0].lower()
-                    brand_present = any(
-                        requested_kw in ((r.get("make") or "") + " " + (r.get("title") or "")).lower()
-                        for r in alt_results
-                    )
-                    if not brand_present:
-                        print(f"[smart_chat] Alt results ({len(alt_results)}) ignorés — '{requested_kw}' absent")
-                        alt_results = []
+                alt_results = get_alternatives(query, _price_max, vehicle_filter, message=message)
 
                 if alt_results:
                     session["context"]["last_listings"] = [r["url"] for r in alt_results]
