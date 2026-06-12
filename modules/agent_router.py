@@ -2885,9 +2885,17 @@ INSTRUCTIONS :
             elif model_found:
                 chat_vehicle_query = model_found
 
+            _CALCUL_KEYWORDS = [
+                'combien par mois', 'par mois', 'mensuel', 'mensualité',
+                'paiement mensuel', 'paiements mensuels', '/mois',
+            ]
+            _is_calcul_mensuel = any(kw in msg_lower for kw in _CALCUL_KEYWORDS)
+            if _is_calcul_mensuel:
+                print(f"[smart_chat/CHAT] Calcul mensuel détecté → pas de recherche inventaire")
+
             chat_inventory_text = ""
             chat_cache = []
-            if chat_vehicle_query:
+            if chat_vehicle_query and not _is_calcul_mensuel:
                 print(f"[smart_chat/CHAT] Véhicule détecté: '{chat_vehicle_query}' → recherche inventaire")
                 chat_cache = search_inventory_cache(chat_vehicle_query, limit=3)
                 if chat_cache:
