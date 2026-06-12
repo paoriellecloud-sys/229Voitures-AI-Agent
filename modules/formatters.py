@@ -1,6 +1,11 @@
 """Formatters pour les fiches véhicules HTML."""
 import re
 
+_PREMIUM_DEALERS = {
+    "honda donnacona", "kia québec",
+    "kia val-bélair", "kia ste-foy", "ford donnacona",
+}
+
 
 def build_fo_url(v: dict) -> str:
     """Construit l'URL Force Occasion au format /occasion/Marque-Modele-Annee-id{id}.html"""
@@ -93,6 +98,8 @@ def format_vehicle_card(v: dict) -> str:
     modele       = v.get("model") or v.get("modele") or ""
     version      = v.get("trim") or ""
     concess      = v.get("dealer_name") or v.get("dealer") or v.get("concessionnaire") or "N/D"
+    _badge_premium = (' <span style="font-size:10px;color:#FAC775;font-weight:600;">&#11088; Partenaire</span>'
+                      if concess.lower() in _PREMIUM_DEALERS else '')
     ville        = v.get("city") or v.get("ville") or "Québec"
     couleur      = v.get("color") or v.get("couleur") or ""
     moteur_raw   = v.get("engine") or v.get("moteur") or ""
@@ -168,9 +175,9 @@ def format_vehicle_card(v: dict) -> str:
         '<p style="font-size:10px;color:#666;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.06em;">V\u00e9hicule d\'occasion</p>'
         '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
         f'<p style="font-size:18px;font-weight:600;margin:0;color:#f0f0f0;">{titre}</p>'
-        f'<a href="{url_fiche}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#FAC775;background:rgba(250,199,117,0.12);border:1px solid rgba(250,199,117,0.25);padding:4px 10px;border-radius:20px;text-decoration:none;white-space:nowrap;">&#9733; Force Occasion &#8594;</a>'
+        f'<a href="{url_fiche}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#FAC775;background:rgba(250,199,117,0.12);border:1px solid rgba(250,199,117,0.25);padding:4px 10px;border-radius:20px;text-decoration:none;white-space:nowrap;">Voir l\'auto &#8594;</a>'
         '</div>'
-        f'<p style="font-size:12px;color:#666;margin:4px 0 0;">{concess} &nbsp;\u00b7&nbsp; {ville}</p>'
+        f'<p style="font-size:12px;color:#666;margin:4px 0 0;">{concess}{_badge_premium} &nbsp;\u00b7&nbsp; {ville}</p>'
         '</div>'
         # Lignes de données
         '<div>'
@@ -227,6 +234,13 @@ def format_vehicle_card(v: dict) -> str:
         '<span style="font-size:13px;color:#888;font-style:italic;">Prix sur demande — contactez le concessionnaire</span>'
         '</div>'
         )
+        + '<div style="padding:10px 18px 14px;background:rgba(255,255,255,0.02);">'
+          '<button onclick="sendSuggestion(\'Je veux prendre rendez-vous pour ce véhicule\')" '
+          'style="width:100%;background:#FAC775;color:#1a1a1a;border:none;border-radius:8px;'
+          'padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;" '
+          'onmouseover="this.style.background=\'#f0b84d\'" onmouseout="this.style.background=\'#FAC775\'">'
+          '&#128197; Prendre rendez-vous</button>'
+          '</div>'
         + '</div>'
     )
 
