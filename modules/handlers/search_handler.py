@@ -13,10 +13,10 @@ _7PLACES_MODELS = ['sorento', 'telluride', 'palisade', 'sienna', 'traverse', 'pi
 _VAGUE_VUS = ['vus', 'suv', 'crossover', 'vehicule', 'véhicule', 'auto', 'voiture']
 
 _VUS_MODELS = [
-    'rogue', 'kona', 'escape', 'tucson',
-    'seltos', 'sportage', 'rav4', 'cr-v',
-    'forester', 'cx-5', 'qashqai', 'sorento',
-    'santa fe', 'tiguan', 'trax', 'encore'
+    'sportage', 'sorento', 'rogue', 'rav4',
+    'tucson', 'escape', 'kona', 'seltos',
+    'cr-v', 'qashqai', 'murano', 'santa fe',
+    'cx-5', 'tiguan', 'outlander', 'equinox'
 ]
 
 _BERLINE_MODELS = [
@@ -110,5 +110,27 @@ def get_alternatives(query: str, price_max: int = None,
             ex.lower() in (r.get('model', '') or r.get('modele', '')).lower()
             for ex in exclude_models
         )]
+
+    # Filtre sport : si contexte VUS, exclure systématiquement les modèles sport
+    if is_vus and alt_results:
+        before = len(alt_results)
+        alt_results = [r for r in alt_results if not any(
+            sport in (
+                (r.get('make', '') or '') + ' ' +
+                (r.get('model', '') or r.get('modele', '') or '') + ' ' +
+                (r.get('title', '') or '')
+            ).lower()
+            for sport in SPORT_MODELS
+        )]
+        if len(alt_results) < before:
+            print(f"[smart_chat] Filtre sport VUS: {before - len(alt_results)} résultat(s) exclus")
+
+    # Filtre budget : appliquer price_max sur les alternatives
+    if price_max and alt_results:
+        before = len(alt_results)
+        alt_results = [r for r in alt_results
+                       if (r.get('price') or r.get('prix') or 0) <= price_max]
+        if len(alt_results) < before:
+            print(f"[smart_chat] Filtre budget {price_max}$: {before - len(alt_results)} résultat(s) exclus")
 
     return alt_results
