@@ -306,6 +306,26 @@ async def admin_stats(authorized: bool = Depends(verify_admin)):
         conn.close()
 
 
+@app.get("/admin/bugs")
+async def admin_bugs(authorized: bool = Depends(verify_admin)):
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT id, question, response, intent, user_id, created_at "
+            "FROM bad_responses ORDER BY created_at DESC LIMIT 100"
+        ).fetchall()
+        cols = ["id", "question", "response", "intent", "user_id", "created_at"]
+        return {"total": len(rows), "bugs": [dict(zip(cols, r)) for r in rows]}
+    finally:
+        conn.close()
+
+
+@app.get("/admin/bugs/view", response_class=HTMLResponse)
+async def admin_bugs_view():
+    with open("dashboard_bugs.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+
 # =============================
 # ALERTES
 # =============================
