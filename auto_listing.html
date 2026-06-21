@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>229Voitures — Fiche véhicule</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #000;
+    --surface: #0a0a0a;
+    --surface2: #141414;
+    --surface3: #1a1a1a;
+    --border: #222;
+    --border2: #2a2a2a;
+    --accent: #FFD700;
+    --accent-dim: rgba(255,215,0,0.12);
+    --accent-border: rgba(255,215,0,0.25);
+    --text: #e8e8e8;
+    --text-muted: #666;
+    --text-dim: #aaa;
+    --success: #4ade80;
+    --warning: #fb923c;
+    --error: #f87171;
+    --gold: #FAC775;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: var(--bg);
+    border-bottom: 2px solid var(--accent);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-text { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: 0.04em; }
+
+  main { max-width: 700px; margin: 0 auto; padding: 24px 16px 60px; }
+
+  /* ── Fiche véhicule ── */
+  .card {
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: rgba(255,255,255,0.04);
+    margin-bottom: 24px;
+  }
+  .card-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .card-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .card-title { font-size: 22px; font-weight: 600; color: #f0f0f0; }
+  .badge-premium {
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: 600;
+    background: rgba(250,199,117,0.12);
+    border: 1px solid rgba(250,199,117,0.25);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .card-dealer { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  .card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .card-row-label { font-size: 13px; color: #888; }
+  .card-row-val { font-size: 13px; font-weight: 600; color: #f0f0f0; }
+
+  .price-alert-banner {
+    background: rgba(251,146,60,0.15);
+    border: 1px solid rgba(251,146,60,0.35);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin: 12px 20px;
+    font-size: 13px;
+    color: #fb923c;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-footer {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.03);
+  }
+  .taxes-label { font-size: 12px; color: var(--text-muted); }
+  .total-price { font-size: 20px; font-weight: 700; color: #f0f0f0; }
+
+  .badge-market {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  /* ── Photos ── */
+  .photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .photos-grid img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  /* ── Formulaire RDV ── */
+  .rdv-card {
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: rgba(255,215,0,0.03);
+    margin-bottom: 24px;
+  }
+  .rdv-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--accent-border);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .rdv-body { padding: 16px 20px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; }
+  .field input, .field textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 70px; }
+
+  .btn-rdv {
+    width: 100%;
+    background: var(--gold);
+    color: #1a1a1a;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s;
+  }
+  .btn-rdv:hover { background: #f0b84d; }
+  .btn-rdv:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .form-msg { margin-top: 10px; font-size: 13px; text-align: center; }
+  .form-msg.success { color: var(--success); }
+  .form-msg.error { color: var(--error); }
+
+  /* ── Alternatives ── */
+  .alt-title { font-size: 16px; font-weight: 600; color: var(--text-dim); margin-bottom: 14px; }
+  .alt-card {
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    background: var(--surface);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .alt-info {}
+  .alt-name { font-size: 15px; font-weight: 600; color: #f0f0f0; }
+  .alt-detail { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .alt-price { font-size: 16px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+
+  /* ── Vendu banner ── */
+  .sold-banner {
+    text-align: center;
+    padding: 40px 20px 20px;
+  }
+  .sold-icon { font-size: 48px; margin-bottom: 12px; }
+  .sold-title { font-size: 22px; font-weight: 600; color: var(--text-dim); margin-bottom: 8px; }
+  .sold-sub { font-size: 14px; color: var(--text-muted); }
+
+  /* ── Loader ── */
+  .loader {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  /* ── Chat link ── */
+  .chat-link {
+    display: block;
+    text-align: center;
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .chat-link a { color: var(--text-muted); text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+      <rect width="40" height="40" rx="8" fill="#FFD700" fill-opacity="0.15"/>
+      <path d="M8 28 L14 16 L20 24 L26 12 L32 28" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <circle cx="20" cy="24" r="2.5" fill="#FFD700"/>
+    </svg>
+    <span class="logo-text">229Voitures</span>
+  </div>
+  <span style="font-size:12px;color:var(--text-muted);">Véhicules d'occasion · Québec</span>
+</header>
+
+<main>
+  <div id="content">
+    <div class="loader">Chargement de la fiche…</div>
+  </div>
+</main>
+
+<script>
+(function () {
+  // ── Utilitaires ──────────────────────────────────────────────
+  const fmt = n => n ? new Intl.NumberFormat('fr-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0}).format(n) : '–';
+  const fmtKm = n => n ? new Intl.NumberFormat('fr-CA').format(n) + ' km' : '–';
+
+  const PREMIUM_DEALERS = ['honda donnacona','kia québec','kia val-bélair','kia ste-foy','ford donnacona'];
+
+  function badgeMarket(status) {
+    const map = {
+      'Bon prix':              {bg:'rgba(99,153,34,0.18)',color:'#97C459',border:'rgba(99,153,34,0.3)'},
+      'Prix dans la moyenne':  {bg:'rgba(186,117,23,0.18)',color:'#FAC775',border:'rgba(186,117,23,0.3)'},
+      'Prix élevé':            {bg:'rgba(226,75,74,0.15)',color:'#F09595',border:'rgba(226,75,74,0.3)'},
+    };
+    const s = map[status] || {bg:'rgba(136,135,128,0.18)',color:'#888780',border:'rgba(136,135,128,0.3)'};
+    return `<span class="badge-market" style="background:${s.bg};color:${s.color};border:1px solid ${s.border}">◯ ${status || 'Prix non comparé'}</span>`;
+  }
+
+  // ── Parse VIN depuis l'URL ───────────────────────────────────
+  const parts = window.location.pathname.split('/');
+  const vin = parts[parts.length - 1] || parts[parts.length - 2];
+
+  // ── Parse UTM params ─────────────────────────────────────────
+  const urlParams = new URLSearchParams(window.location.search);
+  const utmSource   = urlParams.get('utm_source')   || '';
+  const utmMedium   = urlParams.get('utm_medium')   || '';
+  const utmCampaign = urlParams.get('utm_campaign') || '';
+
+  // ── Rendu fiche principale ───────────────────────────────────
+  function renderVehicle(data) {
+    const v = data.vehicle;
+    const drift = data.drift || {};
+    const isPremium = PREMIUM_DEALERS.includes((v.dealer_name||'').toLowerCase());
+
+    const title = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
+    const displayPrice = drift.display_price || v.price;
+    const hasAlert = drift.has_alert;
+
+    // TPS + TVQ
+    const tps = displayPrice ? (displayPrice * 0.05) : 0;
+    const tvq = displayPrice ? (displayPrice * 0.09975) : 0;
+    const total = displayPrice ? (displayPrice + tps + tvq) : 0;
+
+    // Photos
+    let photosHtml = '';
+    try {
+      const photos = JSON.parse(v.photos || '[]');
+      if (photos.length) {
+        photosHtml = `<div class="photos-grid">${photos.slice(0,6).map(p =>
+          `<img src="${p}" alt="${title}" loading="lazy" onclick="window.open('${p}','_blank')">`
+        ).join('')}</div>`;
+      }
+    } catch(_) {}
+
+    // Alerte prix Marketplace
+    const alertHtml = hasAlert
+      ? `<div class="price-alert-banner">⚠️ Prix ajusté depuis la publication Marketplace — prix affiché : ${fmt(displayPrice)}</div>`
+      : '';
+
+    document.getElementById('content').innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-label">Véhicule d'occasion</div>
+          <div class="card-title-row">
+            <div class="card-title">${title}</div>
+            ${isPremium ? '<span class="badge-premium">⭐ Partenaire</span>' : ''}
+          </div>
+          <div class="card-dealer">${v.dealer_name || ''} · ${v.city || 'Québec'}</div>
+        </div>
+
+        ${photosHtml}
+        ${alertHtml}
+
+        <div class="card-row">
+          <span class="card-row-label">Prix demandé</span>
+          <span class="card-row-val">${fmt(displayPrice)}</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-label">Positionnement marché</span>
+          ${badgeMarket(v.price_status)}
+        </div>
+        <div class="card-row">
+          <span class="card-row-label">Kilométrage</span>
+          <span class="card-row-val">${fmtKm(v.mileage)}</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-label">Année</span>
+          <span class="card-row-val">${v.year || '–'}</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-label">Transmission</span>
+          <span class="card-row-val">${v.transmission || '–'}</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-label">Carburant</span>
+          <span class="card-row-val">${v.fuel_type || '–'}</span>
+        </div>
+        <div class="card-row">
+          <span class="card-row-label">Couleur</span>
+          <span class="card-row-val">${v.color || '–'}</span>
+        </div>
+        ${v.engine ? `<div class="card-row"><span class="card-row-label">Moteur</span><span class="card-row-val">${v.engine}</span></div>` : ''}
+        ${v.drivetrain ? `<div class="card-row"><span class="card-row-label">Traction</span><span class="card-row-val">${v.drivetrain}</span></div>` : ''}
+        ${v.url ? `<div class="card-row"><span class="card-row-label">Annonce originale</span><a href="${v.url}" target="_blank" rel="noopener" style="font-size:12px;color:var(--gold);text-decoration:none;">Voir chez le concessionnaire →</a></div>` : ''}
+
+        <div class="card-footer">
+          <span class="taxes-label">TPS ${fmt(tps)} + TVQ ${fmt(tvq)}</span>
+          <span class="total-price">Total ${fmt(total)}</span>
+        </div>
+      </div>
+
+      ${renderRdvForm(v, displayPrice)}
+      <div class="chat-link">Des questions? <a href="/index.html">Jaser avec notre assistant</a></div>
+    `;
+  }
+
+  // ── Rendu formulaire RDV ─────────────────────────────────────
+  function renderRdvForm(v, displayPrice) {
+    const vehicleTitle = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
+    return `
+      <div class="rdv-card">
+        <div class="rdv-header">📅 Prendre rendez-vous</div>
+        <div class="rdv-body">
+          <div class="field"><label>Prénom *</label><input id="f-name" type="text" placeholder="Votre prénom" autocomplete="given-name"></div>
+          <div class="field"><label>Téléphone *</label><input id="f-phone" type="tel" placeholder="514-555-0000" autocomplete="tel"></div>
+          <div class="field"><label>Courriel *</label><input id="f-email" type="email" placeholder="vous@exemple.com" autocomplete="email"></div>
+          <div class="field"><label>Message (optionnel)</label><textarea id="f-msg" placeholder="Questions, disponibilités…"></textarea></div>
+          <button class="btn-rdv" id="btn-send" onclick="submitRdv('${vehicleTitle}', ${displayPrice||0}, '${v.dealer_name||''}', '${v.url||''}')">Envoyer ma demande</button>
+          <div class="form-msg" id="form-msg"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Soumission RDV ────────────────────────────────────────────
+  window.submitRdv = async function(vehicleTitle, vehiclePrice, dealerName, vehicleUrl) {
+    const name    = document.getElementById('f-name').value.trim();
+    const phone   = document.getElementById('f-phone').value.trim();
+    const email   = document.getElementById('f-email').value.trim();
+    const message = document.getElementById('f-msg').value.trim();
+    const msgEl   = document.getElementById('form-msg');
+    const btn     = document.getElementById('btn-send');
+
+    if (!name || !phone || !email) {
+      msgEl.className = 'form-msg error';
+      msgEl.textContent = 'Veuillez remplir les champs obligatoires.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Envoi…';
+    msgEl.textContent = '';
+
+    const payload = {
+      user_id: 'marketplace',
+      name, phone, email, message,
+      vehicle_title: vehicleTitle,
+      vehicle_price: vehiclePrice,
+      vehicle_url: vehicleUrl,
+      dealer_name: dealerName,
+      utm_source: utmSource,
+      utm_medium: utmMedium,
+      utm_campaign: utmCampaign,
+    };
+
+    try {
+      const res = await fetch('/leads/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        msgEl.className = 'form-msg success';
+        msgEl.textContent = '✅ Demande envoyée! Nous vous contacterons sous peu.';
+        btn.textContent = 'Envoyé ✓';
+      } else {
+        throw new Error(data.detail || 'Erreur');
+      }
+    } catch (e) {
+      msgEl.className = 'form-msg error';
+      msgEl.textContent = 'Erreur lors de l\'envoi. Réessayez ou appelez-nous directement.';
+      btn.disabled = false;
+      btn.textContent = 'Envoyer ma demande';
+    }
+  };
+
+  // ── Rendu "vendu" + alternatives ─────────────────────────────
+  function renderSold(alts) {
+    let altsHtml = '';
+    if (alts && alts.length) {
+      altsHtml = `
+        <div class="alt-title">Véhicules similaires disponibles</div>
+        ${alts.map(a => {
+          const t = [a.year, a.make, a.model].filter(Boolean).join(' ');
+          const detail = [a.city, a.dealer_name].filter(Boolean).join(' · ');
+          return `<div class="alt-card">
+            <div class="alt-info">
+              <div class="alt-name">${t}</div>
+              <div class="alt-detail">${detail || ''}</div>
+            </div>
+            <div class="alt-price">${fmt(a.price)}</div>
+          </div>`;
+        }).join('')}
+      `;
+    }
+    document.getElementById('content').innerHTML = `
+      <div class="sold-banner">
+        <div class="sold-icon">🚗</div>
+        <div class="sold-title">Ce véhicule a été réservé ou vendu</div>
+        <div class="sold-sub">Voici d'autres options qui pourraient vous intéresser.</div>
+      </div>
+      ${altsHtml}
+      <div class="chat-link">Des questions? <a href="/index.html">Jaser avec notre assistant</a></div>
+    `;
+  }
+
+  // ── Fetch principal ───────────────────────────────────────────
+  async function loadVehicle() {
+    if (!vin || vin.length < 5) {
+      document.getElementById('content').innerHTML = '<div class="loader">VIN invalide.</div>';
+      return;
+    }
+    try {
+      const res = await fetch(`/api/vehicle/${encodeURIComponent(vin)}`);
+      const data = await res.json();
+
+      if (data.sold) {
+        renderSold(data.alternatives || []);
+      } else {
+        renderVehicle(data);
+      }
+    } catch (e) {
+      document.getElementById('content').innerHTML = '<div class="loader">Erreur de chargement. Veuillez réessayer.</div>';
+    }
+  }
+
+  loadVehicle();
+})();
+</script>
+</body>
+</html>

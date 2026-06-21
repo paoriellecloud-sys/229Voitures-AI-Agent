@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 
 from database import *
@@ -349,10 +349,57 @@ async def list_alerts_endpoint(current_user: dict = Depends(get_current_user)):
 
 @app.post("/leads/create")
 async def create_lead_endpoint(data: dict):
+    # Champs UTM optionnels — injectés dans le message si présents
+    utm_parts = []
+    for key in ("utm_source", "utm_medium", "utm_campaign"):
+        val = data.get(key)
+        if val:
+            utm_parts.append(f"{key}={val}")
+    if utm_parts:
+        existing_msg = data.get("message", "") or ""
+        utm_str = " | ".join(utm_parts)
+        data = {**data, "message": f"{existing_msg} [{utm_str}]".strip()}
+
     success = create_lead(data)
     if success:
         return {"status": "success", "message": "Lead envoyé"}
     raise HTTPException(status_code=500, detail="Erreur création lead")
+
+
+# =============================
+# MARKETPLACE — FICHE /auto/{vin}
+# =============================
+
+@app.get("/auto/{vin}", response_class=HTMLResponse)
+async def auto_listing_page(vin: str):
+    with open("auto_listing.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@app.get("/api/vehicle/{vin}")
+async def get_vehicle_api(vin: str):
+    from modules.marketplace_handler import get_vehicle_by_vin, check_price_drift, find_similar_vehicles
+    vehicle = get_vehicle_by_vin(vin)
+    if not vehicle:
+        alts = find_similar_vehicles({"vin": vin})
+        return {"sold": True, "alternatives": alts}
+    drift = check_price_drift(vin)
+    return {"sold": False, "vehicle": vehicle, "drift": drift}
+
+
+class MarketplaceListingRequest(BaseModel):
+    vin: str
+    price: float
+
+
+@app.post("/api/marketplace/create-listing")
+async def create_marketplace_listing(
+    request: MarketplaceListingRequest,
+    authorized: bool = Depends(verify_admin),
+):
+    from modules.marketplace_handler import mark_marketplace_listing
+    link = mark_marketplace_listing(request.vin, request.price)
+    return {"status": "success", "link": link}
 
 
 # =============================
