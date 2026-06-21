@@ -482,8 +482,9 @@ def search_inventory_cache(query: str, limit: int = 5, vehicle_filter: str = Non
 
         # Remplacer la query si c'est une catégorie connue
         query_lower = (vehicle_filter or query).lower().strip()
+        import re as _re_cat
         for category, models in CATEGORY_MAP.items():
-            if category in query_lower:
+            if _re_cat.search(r'\b' + _re_cat.escape(category) + r'\b', query_lower):
                 vehicle_filter = models
                 break
 
