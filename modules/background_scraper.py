@@ -2,6 +2,7 @@ import asyncio
 import sqlite3
 import os
 import json
+import re
 import time
 from datetime import datetime
 
@@ -103,6 +104,57 @@ def check_and_refresh_fo_ids():
 
 
 # =============================
+# CLEAN SOLD VEHICLES
+# =============================
+
+def clean_sold_vehicles():
+    """Supprime du cache les véhicules Force Occasion dont l'ID n'est plus dans fo_vehicle_ids.json."""
+    if not os.path.exists(IDS_FILE):
+        print("[clean_sold] fo_vehicle_ids.json absent — nettoyage ignoré")
+        return 0
+
+    with open(IDS_FILE, "r") as f:
+        active_ids = set(json.load(f))
+
+    if not active_ids:
+        print("[clean_sold] fo_vehicle_ids.json vide — nettoyage ignoré")
+        return 0
+
+    print(f"[clean_sold] {len(active_ids)} IDs actifs chargés")
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        rows = conn.execute(
+            "SELECT id, vehicle_id, url FROM inventory_cache WHERE url LIKE '%forceoccasion%'"
+        ).fetchall()
+    except Exception as e:
+        print(f"[clean_sold] Erreur lecture DB: {e}")
+        conn.close()
+        return 0
+
+    to_delete = []
+    for row_id, vehicle_id, url in rows:
+        fo_id = str(vehicle_id or "").strip()
+        if not fo_id:
+            m = re.search(r'-id(\d+)', url or "")
+            if m:
+                fo_id = m.group(1)
+        if fo_id and fo_id not in active_ids:
+            to_delete.append(row_id)
+
+    if to_delete:
+        conn.execute(
+            f"DELETE FROM inventory_cache WHERE id IN ({','.join('?' * len(to_delete))})",
+            to_delete
+        )
+        conn.commit()
+
+    conn.close()
+    print(f"[clean_sold] ✅ {len(to_delete)} véhicule(s) vendu(s) supprimé(s) ({len(rows)} FO vérifiés)")
+    return len(to_delete)
+
+
+# =============================
 # BACKGROUND SCRAPE JOB
 # =============================
 
@@ -142,6 +194,10 @@ async def run_scrape_job():
     # 0. Refresh des IDs Force Occasion si nécessaire (> 24h ou absent)
     print(f"\n[{datetime.now()}] === Vérification fo_vehicle_ids.json ===")
     check_and_refresh_fo_ids()
+
+    # 0b. Nettoyage des véhicules vendus (IDs absents de fo_vehicle_ids.json)
+    print(f"\n[{datetime.now()}] === Nettoyage véhicules vendus ===")
+    clean_sold_vehicles()
 
     # 1. Force Occasion en premier — Playwright infinite scroll
     print(f"\n[{datetime.now()}] === Force Occasion Scraper (Playwright) ===")
