@@ -2889,6 +2889,7 @@ INSTRUCTIONS :
             _CALCUL_KEYWORDS = [
                 'combien par mois', 'par mois', 'mensuel', 'mensualité',
                 'paiement mensuel', 'paiements mensuels', '/mois',
+                'aux deux semaines', 'au 2 semaines', 'bi-hebdomadaire',
             ]
             _is_calcul_mensuel = any(kw in msg_lower for kw in _CALCUL_KEYWORDS)
             if _is_calcul_mensuel:
@@ -2909,6 +2910,21 @@ INSTRUCTIONS :
                             for r in chat_cache
                         ]
                     print(f"[smart_chat/CHAT] {len(chat_cache)} véhicule(s) trouvé(s) dans inventaire → injecté dans prompt")
+
+            # Fallback suivi : aucun véhicule mentionné dans le message
+            # mais la session a des véhicules déjà présentés → injecter comme contexte
+            _is_followup = False
+            if not chat_vehicle_query and not chat_inventory_text:
+                _vsh_fb = session.get("vehicle_shown", {})
+                _lr_fb  = session["context"].get("last_results", [])
+                _fb_vehicles = list(_vsh_fb.values())[:3] if _vsh_fb else _lr_fb[:3]
+                if _fb_vehicles:
+                    chat_inventory_text = (
+                        "\n\nVÉHICULE(S) PRÉSENTÉS PRÉCÉDEMMENT (contexte de suivi) :\n"
+                        + format_cache_results_for_prompt(_fb_vehicles)
+                    )
+                    _is_followup = True
+                    print(f"[smart_chat/CHAT] Suivi → injecte {len(_fb_vehicles)} véhicule(s) depuis session")
 
             # ─── PART 4 : Contexte utilisateur confirmé ───
             confirmed_context = "\n\nCONTEXTE UTILISATEUR CONFIRMÉ (uniquement ce que l'utilisateur a explicitement dit) :\n"
@@ -2971,7 +2987,7 @@ INSTRUCTIONS :
             # GoogleSearch activé seulement pour les conseils généraux (fiabilité, prix marché)
             # DÉSACTIVÉ quand un véhicule est mentionné pour éviter l'hallucination d'annonces inventées
             _chat_has_vehicle_data = bool(chat_inventory_text)
-            _chat_needs_search = not chat_vehicle_query  # pas de marque/modèle détecté → conseil général
+            _chat_needs_search = not chat_vehicle_query and not _is_followup
 
             _vehicle_instructions = ""
             if chat_vehicle_query and _chat_has_vehicle_data:
@@ -2985,6 +3001,12 @@ INSTRUCTIONS :
                     "- NE PAS présenter de fiche véhicule inventée ou trouvée sur internet\n"
                     "- Tu peux donner des informations générales sur la fiabilité/valeur de ce modèle\n"
                     "- Propose de lancer une recherche dans notre inventaire ou de créer une alerte\n"
+                )
+            elif _is_followup:
+                _vehicle_instructions = (
+                    "- L'utilisateur pose une question de SUIVI sur le ou les véhicule(s) déjà présentés\n"
+                    "- Utilise les données ci-dessus pour répondre directement\n"
+                    "- NE PAS dire 'je n'ai pas l'info' — toutes les données sont dans ce prompt\n"
                 )
 
             # ─── Propositions actives depuis vehicle_shown ───
