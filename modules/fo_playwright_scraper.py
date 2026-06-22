@@ -85,6 +85,28 @@ async def get_vehicle_details_batch(vehicle_ids: list, batch_size: int = 10) -> 
     return vehicles
 
 
+async def _extract_stock_from_html(session: aiohttp.ClientSession, vehicle_id: str) -> str:
+    """Fallback : extrait le # de stock depuis la page HTML de la fiche véhicule.
+
+    Cherche '# de stock' dans les éléments li/td/span, split sur ':' et strip.
+    Ex: '# de stock : D3139' → 'D3139'
+    """
+    url = f"https://www.forceoccasion.ca/fiche/{vehicle_id}"
+    try:
+        async with session.get(url, headers=HEADERS, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status == 200:
+                text = await resp.text()
+                m = re.search(
+                    r'#\s*de\s*stock\s*[:\-]?\s*([A-Z0-9\-]+)',
+                    text, re.IGNORECASE
+                )
+                if m:
+                    return m.group(1).strip()
+    except Exception:
+        pass
+    return ""
+
+
 async def fetch_vehicle_json(session: aiohttp.ClientSession, vehicle_id: str) -> dict:
     """Récupère le JSON d'un véhicule par son ID."""
     url = FO_JSON_API.format(vehicle_id=vehicle_id)
@@ -100,6 +122,11 @@ async def fetch_vehicle_json(session: aiohttp.ClientSession, vehicle_id: str) ->
                 if data and isinstance(data, dict):
                     data['_vehicle_id'] = vehicle_id
                     data['_scraped_at'] = datetime.now().isoformat()
+                    # Fallback HTML si le JSON ne fournit pas le # de stock
+                    if not (data.get('no_stock') or data.get('real_stock_no')):
+                        stock = await _extract_stock_from_html(session, vehicle_id)
+                        if stock:
+                            data['no_stock'] = stock
                     return data
     except Exception as e:
         logger.debug(f"Erreur JSON {vehicle_id}: {e}")

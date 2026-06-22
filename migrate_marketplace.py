@@ -5,9 +5,10 @@ import os
 DB_PATH = os.environ.get("DB_PATH", "/home/ubuntu/data/229voitures.db")
 
 COLUMNS = [
-    ("marketplace_price", "ALTER TABLE inventory_cache ADD COLUMN marketplace_price REAL"),
-    ("marketplace_posted_at", "ALTER TABLE inventory_cache ADD COLUMN marketplace_posted_at TEXT"),
-    ("price_alert", "ALTER TABLE inventory_cache ADD COLUMN price_alert INTEGER DEFAULT 0"),
+    ("marketplace_price",    "ALTER TABLE inventory_cache ADD COLUMN marketplace_price REAL"),
+    ("marketplace_posted_at","ALTER TABLE inventory_cache ADD COLUMN marketplace_posted_at TEXT"),
+    ("price_alert",          "ALTER TABLE inventory_cache ADD COLUMN price_alert INTEGER DEFAULT 0"),
+    ("stock_number",         "ALTER TABLE inventory_cache ADD COLUMN stock_number TEXT"),
 ]
 
 

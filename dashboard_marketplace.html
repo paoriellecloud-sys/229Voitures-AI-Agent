@@ -292,7 +292,10 @@
         <div class="vehicle-info">
           <div class="vehicle-title">${esc(title)}</div>
           ${meta ? `<div class="vehicle-meta">${esc(meta)}</div>` : ''}
-          ${v.vin ? `<div class="vehicle-vin">VIN : ${esc(v.vin)}</div>` : ''}
+          <div class="vehicle-vin">
+            ${v.stock_number ? `<span style="color:var(--gold);font-weight:600;">Stock #${esc(v.stock_number)}</span> &nbsp;·&nbsp; ` : ''}
+            ${v.vin ? `VIN : ${esc(v.vin)}` : ''}
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <span class="vehicle-price">${price}</span>
