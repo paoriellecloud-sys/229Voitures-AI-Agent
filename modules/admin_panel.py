@@ -99,13 +99,21 @@ def api_leads(token: str = ""):
 
 
 @router.get("/admin/api/marketplace-items")
-def api_marketplace_items(token: str = ""):
+def api_marketplace_items(token: str = "", q: str = ""):
     _verify(token)
-    rows = _inv_fetch(
-        "SELECT vin, title, price, marketplace_posted_at "
-        "FROM inventory_cache WHERE marketplace_posted_at IS NOT NULL "
-        "ORDER BY marketplace_posted_at DESC LIMIT 10"
+    base_cols = (
+        "SELECT vehicle_id, vin, title, price, marketplace_posted_at "
+        "FROM inventory_cache WHERE marketplace_posted_at IS NOT NULL"
     )
+    if q.strip():
+        pattern = f"%{q.strip()}%"
+        rows = _inv_fetch(
+            base_cols + " AND (title LIKE ? OR vin LIKE ? OR CAST(vehicle_id AS TEXT) LIKE ?)"
+            " ORDER BY marketplace_posted_at DESC LIMIT 50",
+            (pattern, pattern, pattern),
+        )
+    else:
+        rows = _inv_fetch(base_cols + " ORDER BY marketplace_posted_at DESC LIMIT 100")
     return {"items": rows}
 
 
@@ -398,33 +406,59 @@ function renderLeads(d, pane) {
     '</table></div>';
 }
 
+let _mktItems = [];
+
 function renderMarketplace(d, pane) {
   const mktUrl = '/admin/marketplace?token=' + encodeURIComponent(TOKEN);
-  let tableHtml = '';
-  if (d.items && d.items.length) {
-    let rows = d.items.map(i =>
-      '<tr>' +
-        '<td class="mono">' + esc(i.vin) + '</td>' +
-        '<td class="trunc" title="' + esc(i.title) + '">' + esc(i.title) + '</td>' +
-        '<td class="nowrap">' + fmt(i.price) + '</td>' +
-        '<td class="nowrap">' + dt(i.marketplace_posted_at) + '</td>' +
-      '</tr>'
-    ).join('');
-    tableHtml =
-      '<div class="section-header" style="margin-top:28px">Dernières annonces <span class="badge">' + d.items.length + '</span></div>' +
-      '<div class="table-wrap"><table>' +
-        '<thead><tr><th>VIN</th><th>Titre</th><th>Prix</th><th>Posté le</th></tr></thead>' +
-        '<tbody>' + rows + '</tbody>' +
-      '</table></div>';
-  } else {
-    tableHtml = '<div class="empty" style="margin-top:20px">Aucune annonce Marketplace active.</div>';
-  }
+  _mktItems = d.items || [];
+
   pane.innerHTML =
     '<div class="mkt-cta">' +
       '<div><div class="mkt-cta-title">Générer un lien Marketplace Facebook</div>' +
       '<div class="mkt-cta-sub">Cherchez par modèle ou VIN, générez et copiez le lien en 2 clics.</div></div>' +
-      '<a href="' + mktUrl + '" class="btn-accent" target="_blank">Ouvrir le générateur →</a>' +
-    '</div>' + tableHtml;
+      '<a href="' + mktUrl + '" class="btn-accent" target="_blank">Ouvrir le générateur &#8594;</a>' +
+    '</div>' +
+    '<div style="margin:20px 0 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' +
+      '<div class="section-header" style="margin:0">Annonces actives <span class="badge" id="mkt-count">' + _mktItems.length + '</span></div>' +
+      '<input id="mkt-search" type="text" placeholder="Chercher par stock, VIN ou modèle..."' +
+        ' oninput="filterMkt(this.value)"' +
+        ' style="flex:1;min-width:220px;max-width:360px;background:#1a1d27;border:1px solid #2d3748;' +
+        'border-radius:8px;color:#e2e8f0;font-family:inherit;font-size:13px;padding:8px 14px;outline:none;">' +
+    '</div>' +
+    '<div class="table-wrap"><table>' +
+      '<thead><tr><th>Stock #</th><th>VIN</th><th>Titre</th><th>Prix</th><th>Posté le</th></tr></thead>' +
+      '<tbody id="mkt-tbody">' + _mktRows(_mktItems) + '</tbody>' +
+    '</table></div>';
+
+  const inp = document.getElementById('mkt-search');
+  inp.addEventListener('focus', () => inp.style.borderColor = '#3b82f6');
+  inp.addEventListener('blur',  () => inp.style.borderColor = '#2d3748');
+}
+
+function _mktRows(items) {
+  if (!items.length) return '<tr><td colspan="5" style="text-align:center;padding:32px;color:#64748b">Aucun résultat.</td></tr>';
+  return items.map(i =>
+    '<tr>' +
+      '<td class="mono">' + esc(i.vehicle_id || '–') + '</td>' +
+      '<td class="mono">' + esc(i.vin) + '</td>' +
+      '<td class="trunc" title="' + esc(i.title) + '">' + esc(i.title) + '</td>' +
+      '<td class="nowrap">' + fmt(i.price) + '</td>' +
+      '<td class="nowrap">' + dt(i.marketplace_posted_at) + '</td>' +
+    '</tr>'
+  ).join('');
+}
+
+function filterMkt(q) {
+  const lower = q.toLowerCase().trim();
+  const filtered = lower
+    ? _mktItems.filter(i =>
+        (i.title      || '').toLowerCase().includes(lower) ||
+        (i.vin        || '').toLowerCase().includes(lower) ||
+        String(i.vehicle_id || '').toLowerCase().includes(lower)
+      )
+    : _mktItems;
+  document.getElementById('mkt-tbody').innerHTML = _mktRows(filtered);
+  document.getElementById('mkt-count').textContent = filtered.length;
 }
 
 function renderPartners(d, pane) {
