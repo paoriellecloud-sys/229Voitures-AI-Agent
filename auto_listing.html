@@ -2,6 +2,14 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B815TWV93K"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-B815TWV93K');
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>229Voitures — Fiche véhicule</title>
 <style>
@@ -375,6 +383,13 @@
       ${renderRdvForm(v, displayPrice)}
       <div class="chat-link">Des questions? <a href="/index.html">Jaser avec notre assistant</a></div>
     `;
+
+    gtag('event', 'vehicle_viewed', {
+      'vehicle_vin':   vin,
+      'vehicle_title': title,
+      'dealer_name':   v.dealer_name || '',
+      'price':         displayPrice || 0,
+    });
   }
 
   // ── Rendu formulaire RDV ─────────────────────────────────────
@@ -437,6 +452,12 @@
         msgEl.className = 'form-msg success';
         msgEl.textContent = '✅ Demande envoyée! Nous vous contacterons sous peu.';
         btn.textContent = 'Envoyé ✓';
+        gtag('event', 'rdv_submitted', {
+          'vehicle_vin':   vin,
+          'vehicle_title': vehicleTitle,
+          'dealer_name':   dealerName,
+          'price':         vehiclePrice,
+        });
       } else {
         throw new Error(data.detail || 'Erreur');
       }
