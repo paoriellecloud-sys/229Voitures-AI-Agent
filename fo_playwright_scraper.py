@@ -174,7 +174,12 @@ def normalize_vehicle(raw: dict) -> dict:
         'city_consumption': safe('cityConsumption'),
         'photos': json.dumps(raw.get('photos', [])),
         'similars': json.dumps(raw.get('similars', [])),
-        'url': f"https://www.forceoccasion.ca/fiche/{vehicle_id}",
+        'url': (
+            f"https://www.forceoccasion.ca/occasion/"
+            f"{(safe('make') or 'Vehicule').replace(' ', '-')}-"
+            f"{(safe('model') or '').replace(' ', '-')}-"
+            f"{safe_int('year') or ''}-id{vehicle_id}.html"
+        ),
         'json_url': FO_JSON_API.format(vehicle_id=vehicle_id),
         'scraped_at': safe('_scraped_at'),
     }
