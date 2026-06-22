@@ -30,6 +30,7 @@ load_dotenv()
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin229voitures2026")
 
 from fastapi.middleware.cors import CORSMiddleware
+from modules.admin_panel import router as admin_router
 
 app = FastAPI()
 
@@ -40,6 +41,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(admin_router)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 

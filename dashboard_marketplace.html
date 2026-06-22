@@ -376,8 +376,14 @@
 
   // Enter sur le token input
   document.getElementById('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
-  // Enter sur le champ de recherche (une fois déverrouillé)
   document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+
+  // Auto-unlock si token présent dans l'URL (ex: lien depuis /admin)
+  const _urlToken = new URLSearchParams(location.search).get('token');
+  if (_urlToken) {
+    document.getElementById('tokenInput').value = _urlToken;
+    unlock();
+  }
 </script>
 
 </body>
