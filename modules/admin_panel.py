@@ -93,7 +93,8 @@ def api_leads(token: str = ""):
     _verify(token)
     rows = _app_fetch(
         "SELECT id, name, phone, email, vehicle_title, vehicle_price, "
-        "dealer_name, message, created_at FROM leads ORDER BY created_at DESC LIMIT 100"
+        "dealer_name, message, datetime(created_at, '-4 hours') as created_at "
+        "FROM leads ORDER BY created_at DESC LIMIT 100"
     )
     return {"leads": rows, "total": len(rows)}
 
@@ -395,7 +396,7 @@ function renderLeads(d, pane) {
       '<td class="nowrap">' + fmt(l.vehicle_price) + '</td>' +
       '<td>' + esc(l.dealer_name) + '</td>' +
       '<td class="msg">' + esc(l.message) + '</td>' +
-      '<td class="nowrap">' + dt(l.created_at) + '</td>' +
+      '<td class="nowrap">' + dt(l.created_at) + ' (HE)</td>' +
     '</tr>'
   ).join('');
   pane.innerHTML =
