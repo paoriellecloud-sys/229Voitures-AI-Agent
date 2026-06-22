@@ -425,10 +425,10 @@ async def search_vehicles(q: str = "", authorized: bool = Depends(verify_admin))
             """SELECT title, price, make, model, year, trim,
                       dealer_name, city, vin
                FROM inventory_cache
-               WHERE LOWER(title) LIKE LOWER(?) OR vin = ?
+               WHERE LOWER(title) LIKE LOWER(?) OR vin = ? OR CAST(vehicle_id AS TEXT) LIKE ?
                ORDER BY price ASC
                LIMIT 10""",
-            (pattern, q.strip()),
+            (pattern, q.strip(), pattern),
         ).fetchall()
         conn.close()
         return {"vehicles": [dict(r) for r in rows]}
