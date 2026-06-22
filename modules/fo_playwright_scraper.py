@@ -97,7 +97,7 @@ async def _extract_stock_from_html(session: aiohttp.ClientSession, vehicle_id: s
             if resp.status == 200:
                 text = await resp.text()
                 m = re.search(
-                    r'#\s*de\s*stock\s*[:\-]?\s*([A-Z0-9\-]+)',
+                    r'#\s*de\s*stock\s*[:\-]?\s*([A-Z0-9]+)',
                     text, re.IGNORECASE
                 )
                 if m:
