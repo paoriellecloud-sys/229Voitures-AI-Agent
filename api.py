@@ -402,6 +402,37 @@ async def create_marketplace_listing(
     return {"status": "success", "link": link}
 
 
+@app.get("/admin/marketplace", response_class=HTMLResponse)
+async def marketplace_dashboard():
+    with open("dashboard_marketplace.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+
+@app.get("/api/search-vehicles")
+async def search_vehicles(q: str = "", authorized: bool = Depends(verify_admin)):
+    if not q.strip():
+        return {"vehicles": []}
+    import sqlite3 as _sqlite3
+    db_path = os.environ.get("DB_PATH", "/home/ubuntu/data/229voitures.db")
+    try:
+        conn = _sqlite3.connect(db_path)
+        conn.row_factory = _sqlite3.Row
+        pattern = f"%{q.strip()}%"
+        rows = conn.execute(
+            """SELECT title, price, make, model, year, trim,
+                      dealer_name, city, vin
+               FROM inventory_cache
+               WHERE LOWER(title) LIKE LOWER(?) OR vin = ?
+               ORDER BY price ASC
+               LIMIT 10""",
+            (pattern, q.strip()),
+        ).fetchall()
+        conn.close()
+        return {"vehicles": [dict(r) for r in rows]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =============================
 # AUTH MAGIC LINK
 # =============================

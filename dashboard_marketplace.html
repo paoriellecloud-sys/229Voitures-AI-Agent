@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>229Voitures — Marketplace</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #0a0a0a;
+      --surface2: #141414;
+      --surface3: #1a1a1a;
+      --accent: #FFD700;
+      --gold: #FAC775;
+      --text: #e8e8e8;
+      --text-muted: #666666;
+      --text-dim: #aaaaaa;
+      --border: #222222;
+      --border2: #2a2a2a;
+      --success: #4ade80;
+      --danger: #ef4444;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 32px 24px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    h1 { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+    .subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 28px; }
+
+    /* ── Token form ── */
+    .token-form { display: flex; gap: 10px; margin-bottom: 28px; }
+    .token-form input {
+      flex: 1;
+      max-width: 360px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 10px 14px;
+      outline: none;
+    }
+    .token-form input:focus { border-color: var(--accent); }
+    .token-form button {
+      background: var(--accent);
+      color: #1a1a1a;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .token-form button:hover { background: #f0b84d; }
+
+    #status { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+    #status.error { color: var(--danger); }
+    #status.ok { color: var(--success); }
+
+    /* ── Search section ── */
+    #search-section { display: none; margin-bottom: 28px; }
+
+    .search-row { display: flex; gap: 10px; }
+    .search-row input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      padding: 11px 16px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .search-row input:focus { border-color: var(--gold); }
+    .search-row button {
+      background: var(--gold);
+      color: #1a1a1a;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 11px 24px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s;
+    }
+    .search-row button:hover { background: #f0b84d; }
+
+    .search-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+    /* ── Results ── */
+    #results-section { display: none; }
+    .results-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 12px;
+    }
+
+    .vehicle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      background: var(--surface);
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .vehicle-info { flex: 1; min-width: 200px; }
+    .vehicle-title { font-size: 15px; font-weight: 600; color: #f0f0f0; }
+    .vehicle-meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .vehicle-vin { font-size: 11px; color: var(--text-muted); font-family: monospace; margin-top: 2px; }
+    .vehicle-price { font-size: 16px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+
+    .btn-generate {
+      background: rgba(250,199,117,0.12);
+      border: 1px solid rgba(250,199,117,0.30);
+      color: var(--gold);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s;
+    }
+    .btn-generate:hover { background: rgba(250,199,117,0.22); }
+    .btn-generate:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Link box ── */
+    .link-box {
+      margin-top: 10px;
+      background: var(--surface2);
+      border: 1px solid rgba(250,199,117,0.25);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: none;
+    }
+    .link-box.visible { display: block; }
+    .link-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+    .link-url {
+      font-size: 13px;
+      color: var(--gold);
+      word-break: break-all;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .btn-copy {
+      background: var(--accent);
+      color: #1a1a1a;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 16px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-copy:hover { background: #f0b84d; }
+    .copy-confirm {
+      display: inline-block;
+      margin-left: 10px;
+      font-size: 12px;
+      color: var(--success);
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .copy-confirm.show { opacity: 1; }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<h1>🔗 Marketplace Facebook</h1>
+<p class="subtitle">Générez des liens de suivi pour vos annonces Marketplace en 2 clics</p>
+
+<div class="token-form">
+  <input type="password" id="tokenInput" placeholder="ADMIN_TOKEN" />
+  <button onclick="unlock()">Déverrouiller</button>
+</div>
+
+<div id="status">Entrez le token admin pour accéder au dashboard.</div>
+
+<div id="search-section">
+  <div class="search-row">
+    <input type="text" id="searchInput" placeholder="Modèle (ex: Sportage) ou VIN complet" />
+    <button onclick="search()">Chercher</button>
+  </div>
+  <p class="search-hint">Recherche dans le titre et le VIN · Max 10 résultats</p>
+</div>
+
+<div id="results-section">
+  <div class="results-label" id="results-label"></div>
+  <div id="results-list"></div>
+</div>
+
+<script>
+  let adminToken = '';
+
+  // ── Auth ────────────────────────────────────────────────────
+  async function unlock() {
+    const token = document.getElementById('tokenInput').value.trim();
+    const statusEl = document.getElementById('status');
+    if (!token) { setStatus('Token requis.', 'error'); return; }
+
+    setStatus('Vérification…', '');
+    // Vérification via /admin/stats (endpoint existant protégé par admin)
+    try {
+      const res = await fetch('/admin/stats', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.status === 401) { setStatus('Token invalide.', 'error'); return; }
+      adminToken = token;
+      setStatus('✓ Connecté — entrez un modèle ou un VIN pour commencer.', 'ok');
+      document.getElementById('search-section').style.display = 'block';
+      document.getElementById('tokenInput').closest('.token-form').style.opacity = '.4';
+    } catch (e) {
+      setStatus('Erreur réseau : ' + e.message, 'error');
+    }
+  }
+
+  // ── Search ──────────────────────────────────────────────────
+  async function search() {
+    const q = document.getElementById('searchInput').value.trim();
+    if (!q) return;
+    setStatus('Recherche…', '');
+
+    try {
+      const res = await fetch('/api/search-vehicles?q=' + encodeURIComponent(q), {
+        headers: { 'Authorization': 'Bearer ' + adminToken }
+      });
+      if (res.status === 401) { setStatus('Session expirée — rechargez la page.', 'error'); return; }
+      const data = await res.json();
+      renderResults(data.vehicles || [], q);
+      setStatus(`${(data.vehicles || []).length} résultat(s) pour "${q}".`, '');
+    } catch (e) {
+      setStatus('Erreur : ' + e.message, 'error');
+    }
+  }
+
+  // ── Render results ──────────────────────────────────────────
+  function renderResults(vehicles, q) {
+    const section = document.getElementById('results-section');
+    const list = document.getElementById('results-list');
+    const label = document.getElementById('results-label');
+
+    section.style.display = 'block';
+    label.textContent = `Résultats pour "${q}"`;
+    list.innerHTML = '';
+
+    if (!vehicles.length) {
+      list.innerHTML = '<div class="empty">Aucun véhicule trouvé.</div>';
+      return;
+    }
+
+    vehicles.forEach((v, i) => {
+      const title = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ');
+      const price = v.price ? new Intl.NumberFormat('fr-CA', {style:'currency',currency:'CAD',maximumFractionDigits:0}).format(v.price) : '–';
+      const meta = [v.dealer_name, v.city].filter(Boolean).join(' · ');
+      const rowId = `row-${i}`;
+      const linkBoxId = `link-${i}`;
+      const btnId = `btn-${i}`;
+
+      const el = document.createElement('div');
+      el.className = 'vehicle-row';
+      el.id = rowId;
+      el.innerHTML = `
+        <div class="vehicle-info">
+          <div class="vehicle-title">${esc(title)}</div>
+          ${meta ? `<div class="vehicle-meta">${esc(meta)}</div>` : ''}
+          ${v.vin ? `<div class="vehicle-vin">VIN : ${esc(v.vin)}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span class="vehicle-price">${price}</span>
+          <button class="btn-generate" id="${btnId}" onclick="generateLink('${esc(v.vin)}', ${v.price||0}, '${btnId}', '${linkBoxId}')">
+            🔗 Générer lien
+          </button>
+        </div>
+        <div class="link-box" id="${linkBoxId}" style="width:100%;flex-basis:100%;"></div>
+      `;
+      list.appendChild(el);
+    });
+  }
+
+  // ── Generate link ───────────────────────────────────────────
+  async function generateLink(vin, price, btnId, linkBoxId) {
+    if (!vin) { alert('VIN manquant pour ce véhicule.'); return; }
+
+    const btn = document.getElementById(btnId);
+    btn.disabled = true;
+    btn.textContent = '⏳ Génération…';
+
+    try {
+      const res = await fetch('/api/marketplace/create-listing', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + adminToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ vin, price }),
+      });
+
+      if (res.status === 401) { setStatus('Token expiré — rechargez.', 'error'); return; }
+      const data = await res.json();
+      const link = data.link || '';
+
+      showLinkBox(linkBoxId, link);
+      btn.textContent = '✓ Lien créé';
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = '🔗 Générer lien';
+      setStatus('Erreur : ' + e.message, 'error');
+    }
+  }
+
+  function showLinkBox(id, link) {
+    const box = document.getElementById(id);
+    box.innerHTML = `
+      <div class="link-label">Lien Marketplace Facebook</div>
+      <div class="link-url" id="url-${id}">${esc(link)}</div>
+      <button class="btn-copy" onclick="copyLink('${id}', '${esc(link)}')">Copier le lien</button>
+      <span class="copy-confirm" id="confirm-${id}">✅ Lien copié!</span>
+    `;
+    box.classList.add('visible');
+  }
+
+  function copyLink(id, link) {
+    navigator.clipboard.writeText(link).then(() => {
+      const confirm = document.getElementById('confirm-' + id);
+      confirm.classList.add('show');
+      setTimeout(() => confirm.classList.remove('show'), 2500);
+    }).catch(() => {
+      // fallback pour navigateurs sans clipboard API
+      const el = document.getElementById('url-' + id);
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    });
+  }
+
+  // ── Utils ───────────────────────────────────────────────────
+  function setStatus(msg, cls) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = cls || '';
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // Enter sur le token input
+  document.getElementById('tokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+  // Enter sur le champ de recherche (une fois déverrouillé)
+  document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+</script>
+
+</body>
+</html>
