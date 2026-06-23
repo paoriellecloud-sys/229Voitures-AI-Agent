@@ -409,7 +409,7 @@ async def get_vehicle_api(vin: str):
                    FROM inventory_cache
                    WHERE price IS NOT NULL AND vin != ?
                      AND (make = ? OR model = ?)
-                   ORDER BY price ASC LIMIT 3""",
+                   ORDER BY RANDOM() LIMIT 3""",
                 (vin, make or "", model or ""),
             ).fetchall()
         else:
@@ -418,7 +418,7 @@ async def get_vehicle_api(vin: str):
                           dealer_name, city, vin
                    FROM inventory_cache
                    WHERE price IS NOT NULL
-                   ORDER BY price ASC LIMIT 3""",
+                   ORDER BY RANDOM() LIMIT 3""",
             ).fetchall()
 
         conn.close()
