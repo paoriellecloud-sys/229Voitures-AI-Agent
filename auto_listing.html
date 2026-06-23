@@ -203,23 +203,46 @@
   .form-msg.success { color: var(--success); }
   .form-msg.error { color: var(--error); }
 
-  /* ── Alternatives ── */
-  .alt-title { font-size: 16px; font-weight: 600; color: var(--text-dim); margin-bottom: 14px; }
-  .alt-card {
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
-    padding: 14px 18px;
-    margin-bottom: 12px;
-    background: var(--surface);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
+  /* ── Page vendu ── */
+  .sold-hero { text-align: center; padding: 48px 20px 32px; }
+  .sold-icon-big { font-size: 64px; margin-bottom: 18px; }
+  .sold-heading { font-size: 28px; font-weight: 700; color: #f0f0f0; margin-bottom: 10px; }
+  .sold-subheading { font-size: 16px; color: var(--text-muted); margin-bottom: 0; }
+
+  .similar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 32px;
   }
-  .alt-info {}
-  .alt-name { font-size: 15px; font-weight: 600; color: #f0f0f0; }
-  .alt-detail { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
-  .alt-price { font-size: 16px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+  .similar-card {
+    background: var(--surface);
+    border: 1px solid rgba(255,215,0,0.18);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .similar-title { font-size: 15px; font-weight: 600; color: #f0f0f0; line-height: 1.3; }
+  .similar-price { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .similar-meta { font-size: 12px; color: var(--text-muted); }
+  .btn-voir {
+    display: block;
+    margin-top: 10px;
+    background: var(--accent);
+    color: #111;
+    border: none;
+    border-radius: 7px;
+    padding: 9px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-voir:hover { background: #e6c200; }
 
   /* ── Vendu banner ── */
   .sold-banner {
@@ -469,33 +492,34 @@
     }
   };
 
-  // ── Rendu "vendu" + alternatives ─────────────────────────────
-  function renderSold(alts) {
-    let altsHtml = '';
-    if (alts && alts.length) {
-      altsHtml = `
-        <div class="alt-title">Véhicules similaires disponibles</div>
-        ${alts.map(a => {
+  // ── Rendu page "vendu" ───────────────────────────────────────
+  function renderSold(similar) {
+    const cardsHtml = (similar && similar.length)
+      ? similar.map(a => {
           const t = [a.year, a.make, a.model].filter(Boolean).join(' ');
-          const detail = [a.city, a.dealer_name].filter(Boolean).join(' · ');
-          return `<div class="alt-card">
-            <div class="alt-info">
-              <div class="alt-name">${t}</div>
-              <div class="alt-detail">${detail || ''}</div>
-            </div>
-            <div class="alt-price">${fmt(a.price)}</div>
+          const km = a.mileage ? new Intl.NumberFormat('fr-CA').format(a.mileage) + ' km' : '';
+          const meta = [km, a.dealer_name, a.city].filter(Boolean).join(' · ');
+          const dest = a.vin ? `/auto/${encodeURIComponent(a.vin)}` : '#';
+          return `<div class="similar-card">
+            <div class="similar-title">${t}</div>
+            <div class="similar-price">${fmt(a.price)}</div>
+            <div class="similar-meta">${meta}</div>
+            <a href="${dest}" class="btn-voir">Voir ce véhicule</a>
           </div>`;
-        }).join('')}
-      `;
-    }
+        }).join('')
+      : '';
+
     document.getElementById('content').innerHTML = `
-      <div class="sold-banner">
-        <div class="sold-icon">🚗</div>
-        <div class="sold-title">Ce véhicule a été réservé ou vendu</div>
-        <div class="sold-sub">Voici d'autres options qui pourraient vous intéresser.</div>
+      <div class="sold-hero">
+        <div class="sold-icon-big">🚗</div>
+        <div class="sold-heading">Ce véhicule a été vendu</div>
+        <div class="sold-subheading">Mais voici des véhicules similaires disponibles</div>
       </div>
-      ${altsHtml}
-      <div class="chat-link">Des questions? <a href="/index.html">Jaser avec notre assistant</a></div>
+      ${cardsHtml ? `<div class="similar-grid">${cardsHtml}</div>` : ''}
+      <div class="chat-link" style="margin-top:8px;">
+        Des questions?&nbsp;
+        <a href="https://229voitures.ca">Jaser avec notre assistant →</a>
+      </div>
     `;
   }
 
@@ -510,7 +534,7 @@
       const data = await res.json();
 
       if (data.sold) {
-        renderSold(data.alternatives || []);
+        renderSold(data.similar || []);
       } else {
         renderVehicle(data);
       }

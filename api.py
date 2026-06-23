@@ -381,13 +381,52 @@ async def auto_listing_page(vin: str):
 
 @app.get("/api/vehicle/{vin}")
 async def get_vehicle_api(vin: str):
-    from modules.marketplace_handler import get_vehicle_by_vin, check_price_drift, find_similar_vehicles
-    vehicle = get_vehicle_by_vin(vin)
-    if not vehicle:
-        alts = find_similar_vehicles({"vin": vin})
-        return {"sold": True, "alternatives": alts}
-    drift = check_price_drift(vin)
-    return {"sold": False, "vehicle": vehicle, "drift": drift}
+    from modules.marketplace_handler import check_price_drift
+    import sqlite3 as _sq3
+    db_path = os.environ.get("DB_PATH", "/home/ubuntu/data/229voitures.db")
+
+    conn = _sq3.connect(db_path)
+    conn.row_factory = _sq3.Row
+    try:
+        row = conn.execute(
+            "SELECT * FROM inventory_cache WHERE vin = ? LIMIT 1", (vin,)
+        ).fetchone()
+
+        if row and row["price"] is not None:
+            vehicle = dict(row)
+            conn.close()
+            drift = check_price_drift(vin)
+            return {"sold": False, "vehicle": vehicle, "drift": drift}
+
+        # Véhicule vendu ou introuvable — chercher des similaires
+        make  = row["make"]  if row else None
+        model = row["model"] if row else None
+
+        if make or model:
+            similar_rows = conn.execute(
+                """SELECT title, price, mileage, year, make, model,
+                          dealer_name, city, vin
+                   FROM inventory_cache
+                   WHERE price IS NOT NULL AND vin != ?
+                     AND (make = ? OR model = ?)
+                   ORDER BY price ASC LIMIT 3""",
+                (vin, make or "", model or ""),
+            ).fetchall()
+        else:
+            similar_rows = conn.execute(
+                """SELECT title, price, mileage, year, make, model,
+                          dealer_name, city, vin
+                   FROM inventory_cache
+                   WHERE price IS NOT NULL
+                   ORDER BY price ASC LIMIT 3""",
+            ).fetchall()
+
+        conn.close()
+        return {"sold": True, "vehicle": None, "similar": [dict(r) for r in similar_rows]}
+
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class MarketplaceListingRequest(BaseModel):
