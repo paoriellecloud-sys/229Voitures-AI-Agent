@@ -334,10 +334,6 @@ document.querySelectorAll('.tab').forEach(btn => {
   });
 });
 
-// Load first tab immediately
-loaded['overview'] = true;
-loadTab('overview');
-
 // ── Fetch helper ─────────────────────────────────────────────
 function api(path) {
   return fetch(path + '?token=' + encodeURIComponent(TOKEN))
@@ -358,6 +354,10 @@ function loadTab(name) {
     .then(data => RENDERS[name](data, pane))
     .catch(e => { pane.innerHTML = '<div class="err">Erreur : ' + e.message + '</div>'; });
 }
+
+// Load first tab immediately
+loaded['overview'] = true;
+loadTab('overview');
 
 // ── Formatters ───────────────────────────────────────────────
 const fmt = n => n != null
