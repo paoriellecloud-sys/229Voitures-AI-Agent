@@ -80,14 +80,16 @@ def get_alternatives(query: str, price_max: int = None,
         _category_detected = False
 
     # Chercher des alternatives dans l'inventaire (mots-clés élargis)
+    # B2 : si VUS, chercher plus (limit=6) pour avoir du buffer après exclusion SPORT_MODELS
     alt_results = []
     keywords_alt = [k.strip() for k in (alt_query or '').lower().split()
                     if len(k.strip()) > 2
                     and k.strip() not in {s.lower() for s in _STOPWORDS_FR}
                     and not k.strip().isdigit()]
     _kw_limit = 4 if _category_detected else 2
+    _search_limit = 6 if is_vus else 3
     for kw in keywords_alt[:_kw_limit]:
-        alt_results = _router.search_inventory_cache(kw, limit=3)
+        alt_results = _router.search_inventory_cache(kw, limit=_search_limit)
         if alt_results:
             print(f"[smart_chat] Alternatives trouvées pour '{kw}': {len(alt_results)}")
             break

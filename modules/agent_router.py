@@ -1428,13 +1428,13 @@ def _needs_clarification(message: str, session: dict) -> bool:
     import re as _re_nc
     msg = message.lower()
 
-    # Si le message contient déjà un budget → pas besoin de clarification
-    has_budget = bool(_re_nc.search(
-        r'\d+\s*\$?\s*(?:/mois|par mois|mensuel|comptant)',
-        msg
-    ))
+    # B1 : budget présent dans message OU session → has_budget=True
+    # extract_price_max est canonique (mensualité, budget de X, sous X$, etc.)
+    _pm_nc = extract_price_max(message, session)
+    _ud_budget_nc = session.get("user_data", {}).get("budget")
+    has_budget = (_pm_nc is not None or _ud_budget_nc is not None)
 
-    # ─── Court-circuit en tout premier : budget + type de véhicule → jamais de clarification ───
+    # ─── Court-circuit : budget connu + type de véhicule → jamais de clarification ───
     HAS_VEHICLE_TYPE = ['vus', 'suv', 'berline', 'famille', 'familial',
                         'camion', 'pickup', 'électrique', 'hybride',
                         'compact', 'minifourgonnette', 'sport']
@@ -1458,20 +1458,18 @@ def _needs_clarification(message: str, session: dict) -> bool:
     if session.get("context", {}).get("clarification_asked"):
         return False
 
-    user_data = session.get("user_data", {})
-
-    # Si l'utilisateur mentionne un échange → clarifier
+    # Si l'utilisateur mentionne un échange → clarifier (logique indépendante du budget)
     if any(w in msg for w in ['échanger', 'echange', 'trade', 'reprendre']):
         return True
 
-    # Recherche vague sans budget connu → clarifier
+    # Recherche vague → clarifier UNIQUEMENT s'il n'y a aucun budget connu
     vague_patterns = [
         'je cherche un vus', 'je veux un vus',
         'je cherche une auto', 'je cherche une voiture',
         'je veux une voiture', 'je me cherche', 'je magasine',
     ]
     if any(p in msg for p in vague_patterns):
-        if not user_data.get('budget'):
+        if not has_budget:  # couvre message + session (B1)
             return True
 
     return False
@@ -2752,6 +2750,7 @@ QUESTION UTILISATEUR : {message}
                                 if _lt_fallback in _cat_models:
                                     _cat_q = " ".join(_cat_models[:4])
                                     alt_results = search_inventory_cache(_cat_q, limit=3)
+                                    alt_results = enforce_budget(alt_results, _price_max, _cat_q)
                                     if alt_results:
                                         print(f"[smart_chat] last_topic '{_lt_fallback}' → catégorie {_cat_name} → {len(alt_results)} alternatives")
                                         _lt_alt_text = format_cache_results_for_prompt(alt_results)
@@ -2932,9 +2931,14 @@ INSTRUCTIONS :
 
             chat_inventory_text = ""
             chat_cache = []
+            # B3 : récupérer price_max depuis session pour enforce_budget
+            _chat_pm = (session.get("context", {}).get("price_max")
+                        or session.get("user_data", {}).get("budget"))
             if chat_vehicle_query and not _is_calcul_mensuel:
                 print(f"[smart_chat/CHAT] Véhicule détecté: '{chat_vehicle_query}' → recherche inventaire")
                 chat_cache = search_inventory_cache(chat_vehicle_query, limit=3)
+                if _chat_pm:
+                    chat_cache = enforce_budget(chat_cache, int(_chat_pm), chat_vehicle_query)
                 if chat_cache:
                     chat_inventory_text = "\n\n" + format_cache_results_for_prompt(chat_cache)
                     # Mettre à jour last_results si pas encore de résultats dans la session
