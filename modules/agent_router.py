@@ -1434,6 +1434,13 @@ def _needs_clarification(message: str, session: dict) -> bool:
         msg
     ))
 
+    # ─── Court-circuit en tout premier : budget + type de véhicule → jamais de clarification ───
+    HAS_VEHICLE_TYPE = ['vus', 'suv', 'berline', 'famille', 'familial',
+                        'camion', 'pickup', 'électrique', 'hybride',
+                        'compact', 'minifourgonnette', 'sport']
+    if has_budget and any(w in msg for w in HAS_VEHICLE_TYPE):
+        return False
+
     # Si le message contient déjà un modèle ou type de véhicule précis
     has_vehicle = any(w in msg for w in [
         'vus', 'suv', 'berline', 'camion',
@@ -1899,7 +1906,22 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
                 intent_data = {"intent": "CHAT", "query": None, "urls": [], "vin": None,
                                "site": None, "count": 3, "followup_action": None, "vehicle_filter": None}
             else:
-                intent_data = detect_intent(message, context_summary)
+                # ─── Budget + type de véhicule → SEARCH direct, zéro appel Gemini ───
+                _HAS_VTYPE = ['vus', 'suv', 'berline', 'famille', 'familial',
+                              'camion', 'pickup', 'électrique', 'hybride',
+                              'compact', 'minifourgonnette', 'sport']
+                _msg_sc = message.lower()
+                _has_budget_sc = bool(re.search(r'\b\d{2,}\b', message)) and any(
+                    k in _msg_sc for k in ["par mois", "/mois", "mensuel", "budget", "comptant", "financement"]
+                )
+                _vtype_sc = next((w for w in _HAS_VTYPE if w in _msg_sc), None)
+                if _has_budget_sc and _vtype_sc:
+                    intent_data = {"intent": "SEARCH", "urls": [], "vin": None,
+                                   "query": _vtype_sc, "vehicle_filter": _vtype_sc,
+                                   "site": None, "count": 3, "followup_action": None}
+                    print(f"[smart_chat] budget+type_véhicule('{_vtype_sc}') → SEARCH direct sans Gemini")
+                else:
+                    intent_data = detect_intent(message, context_summary)
     intent = intent_data.get("intent", "CHAT")
     # ─── Injecter last_topic si SEARCH sans query précise ───
     if intent == "SEARCH":
