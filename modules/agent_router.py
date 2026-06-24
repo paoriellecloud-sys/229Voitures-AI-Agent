@@ -1126,6 +1126,17 @@ def detect_intent(message: str, context_summary: str) -> dict:
         return {"intent": "GARANTIES", "urls": [], "vin": None, "query": message,
                 "site": None, "count": 3, "followup_action": None}
 
+    # ─── Budget/mensualité sans marque → SEARCH (anti-hallucination) ───────
+    # Sans cette règle, Gemini classe "500$/mois" en INFO et invente des véhicules.
+    import re as _re_budget
+    _BUDGET_KW = ["par mois", "/mois", "mensuel", "mensualité", "comptant", "budget"]
+    _has_budget = any(k in msg_lower for k in _BUDGET_KW)
+    _has_amount = bool(_re_budget.search(r'\b\d{2,}\b', message))
+    if _has_budget and _has_amount and not has_vehicle:
+        return {"intent": "SEARCH", "urls": [], "vin": None,
+                "query": "civic rogue escape elantra sportage forte",
+                "site": None, "count": 3, "followup_action": None}
+
     prompt = INTENT_PROMPT.format(message=message, context=context_summary)
     response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
     try:
@@ -2543,7 +2554,9 @@ QUESTION : {message}
 Tu es un analyste automobile.
 Tu dois commenter exactement ces véhicules.
 
-RÈGLES ABSOLUES :
+RÈGLE ABSOLUE : Tu ne peux présenter QUE les véhicules listés ci-dessous provenant de l'inventaire réel. N'invente aucun véhicule, aucun prix, aucun kilométrage, aucun modèle (Toyota Corolla, Honda Civic, etc.) qui ne figurerait pas dans les données. Si l'inventaire est vide, dis-le clairement.
+
+RÈGLES DE PRÉSENTATION :
 - Utilise UNIQUEMENT les données fournies ci-dessous
 - N'invente AUCUN prix, kilométrage ou donnée
 - Chaque commentaire = 2-3 phrases maximum
