@@ -204,7 +204,7 @@ def normalize_vehicle(raw: dict) -> dict:
         except (ValueError, TypeError):
             return default
 
-    vehicle_id = safe('_vehicle_id')
+    vehicle_id = safe('_vehicle_id') or safe('id')
     title = f"{safe('year')} {safe('make')} {safe('model')}".strip()
     if not title or title == "  ":
         return {}
