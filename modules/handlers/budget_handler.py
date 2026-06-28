@@ -36,7 +36,22 @@ def extract_price_max(message: str, session: dict) -> int | None:
     if not _price_max:
         _price_max = session.get("context", {}).get("price_max")
         if _price_max:
-            print(f"[smart_chat] price_max récupéré depuis session: {_price_max}$")
+            print(f"[smart_chat] price_max récupéré depuis session context: {_price_max}$")
+
+    # Fix B3 : fallback sur user_data.budget converti (budget mensuel sauvegardé tour précédent)
+    if not _price_max:
+        _ud_budget = session.get("user_data", {}).get("budget")
+        if _ud_budget:
+            _ud_budget = float(_ud_budget)
+            if _ud_budget < 2000:
+                _r = 0.0799 / 12
+                _n = 72
+                _price_total = _ud_budget * (1 - (1 + _r) ** -_n) / _r
+                _price_max = round(_price_total / 1.14975)
+                print(f"[budget] price_max depuis user_data.budget {_ud_budget}$/mois → {_price_max}$")
+            else:
+                _price_max = int(_ud_budget)
+                print(f"[budget] price_max depuis user_data.budget (comptant) → {_price_max}$")
 
     if _price_max:
         session["context"]["price_max"] = _price_max

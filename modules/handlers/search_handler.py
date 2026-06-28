@@ -127,6 +127,18 @@ def get_alternatives(query: str, price_max: int = None,
         if len(alt_results) < before:
             print(f"[smart_chat] Filtre sport VUS: {before - len(alt_results)} résultat(s) exclus")
 
+    # Filtre berline : si contexte VUS, exclure les berlines compactes/intermédiaires
+    BERLINE_EXCLUDE = ['corolla', 'civic', 'elantra', 'sentra', 'forte', 'accent',
+                       'camry', 'altima', 'mazda3', 'jetta', 'golf', 'impreza', 'legacy']
+    if is_vus and alt_results:
+        before = len(alt_results)
+        alt_results = [r for r in alt_results if not any(
+            b in (r.get('model', '') or r.get('title', '')).lower()
+            for b in BERLINE_EXCLUDE
+        )]
+        if len(alt_results) < before:
+            print(f"[smart_chat] Filtre berline VUS: {before - len(alt_results)} résultat(s) exclus")
+
     # Filtre budget : appliquer price_max sur les alternatives
     if price_max and alt_results:
         before = len(alt_results)
