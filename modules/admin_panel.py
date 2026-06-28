@@ -15,6 +15,17 @@ _PARTNERS = [
     "Honda Donnacona", "Kia Québec", "Kia Val-Bélair", "Kia Ste-Foy", "Ford Donnacona",
 ]
 
+# Aliases FO : le champ dealername du JSON peut différer du nom canonique.
+# "Separated" volontairement absent — trop générique, matcherait d'autres concessionnaires.
+# La vraie source de vérité est le sitemap par partenaire (voir fo_playwright_scraper.py).
+DEALER_ALIASES = {
+    "Honda Donnacona": ["Honda Donnacona", "Donnacona Honda"],
+    "Kia Québec":      ["Kia Québec", "Kia Quebec"],
+    "Kia Val-Bélair":  ["Kia Val-Bélair", "Kia Val Belair", "Val-Bélair Kia"],
+    "Kia Ste-Foy":     ["Kia Ste-Foy", "Kia Sainte-Foy", "Ste-Foy Kia"],
+    "Ford Donnacona":  ["Ford Donnacona", "Donnacona Ford"],
+}
+
 
 # ── DB helpers ──────────────────────────────────────────────────
 
@@ -122,13 +133,16 @@ def api_marketplace_items(token: str = "", q: str = ""):
 def api_partners(token: str = ""):
     _verify(token)
     last_scrape = _inv_scalar("SELECT MAX(scraped_at) FROM inventory_cache", default=None)
+    def _count_partner(canonical: str) -> int:
+        aliases = DEALER_ALIASES.get(canonical, [canonical])
+        conditions = " OR ".join(["LOWER(dealer_name) LIKE ?" for _ in aliases])
+        params = tuple(f"%{a.lower()}%" for a in aliases)
+        return _inv_scalar(
+            f"SELECT COUNT(*) FROM inventory_cache WHERE {conditions}", params
+        )
+
     partners = [
-        {
-            "dealer": p,
-            "count": _inv_scalar(
-                "SELECT COUNT(*) FROM inventory_cache WHERE LOWER(dealer_name) = LOWER(?)", (p,)
-            ),
-        }
+        {"dealer": p, "count": _count_partner(p)}
         for p in _PARTNERS
     ]
     return {"partners": partners, "last_scrape": last_scrape}

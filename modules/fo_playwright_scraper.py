@@ -22,11 +22,71 @@ SITEMAP_URLS = [
     "https://www.forceoccasion.ca/fr/sitemap_demo.xml",
 ]
 
+# Sitemaps spécifiques par partenaire — source de vérité pour dealer_name.
+# Un vehicle_id trouvé dans le sitemap d'un partenaire reçoit automatiquement
+# le nom canonique de ce partenaire, indépendamment du champ dealername du JSON.
+# TODO : vérifier/compléter les URLs exactes avec l'équipe partenaires.
+PARTNER_SITEMAPS = {
+    "Honda Donnacona": [
+        "https://www.forceoccasion.ca/fr/sitemap.xml?dealer=honda-donnacona",
+    ],
+    "Kia Val-Bélair": [
+        "https://www.forceoccasion.ca/fr/sitemap.xml?dealer=kia-val-belair",
+    ],
+    "Kia Québec": [
+        "https://www.forceoccasion.ca/fr/sitemap.xml?dealer=kia-quebec",
+    ],
+    "Kia Ste-Foy": [
+        "https://www.forceoccasion.ca/fr/sitemap.xml?dealer=kia-ste-foy",
+    ],
+    "Ford Donnacona": [
+        "https://www.forceoccasion.ca/fr/sitemap.xml?dealer=ford-donnacona",
+    ],
+}
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "application/xml,text/xml,*/*;q=0.8",
 }
+
+
+async def fetch_partner_vehicle_ids() -> dict:
+    """
+    Fetche les sitemaps de chaque partenaire et retourne un mapping
+    {vehicle_id: canonical_dealer_name}.
+    Permet d'assigner le dealer_name selon la source du sitemap,
+    indépendamment du champ dealername du JSON (souvent "Separated" ou incorrect).
+    Retourne {} si tous les sitemaps échouent (dégradation silencieuse).
+    """
+    partner_map: dict[str, str] = {}
+
+    async def _fetch_one(session: aiohttp.ClientSession, dealer: str, url: str):
+        try:
+            async with session.get(url, headers=HEADERS,
+                                   timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                if resp.status != 200:
+                    logger.debug(f"[partner_sitemap] {dealer} → HTTP {resp.status} pour {url}")
+                    return
+                text = await resp.text()
+                ids = re.findall(r'-id(\d+)(?:-brochure|-pdf)?\.html', text)
+                for vid in ids:
+                    if vid not in partner_map:
+                        partner_map[vid] = dealer
+                logger.info(f"[partner_sitemap] {dealer} → {len(ids)} IDs depuis {url}")
+        except Exception as e:
+            logger.debug(f"[partner_sitemap] {dealer} erreur {url}: {e}")
+
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            _fetch_one(session, dealer, url)
+            for dealer, urls in PARTNER_SITEMAPS.items()
+            for url in urls
+        ]
+        await asyncio.gather(*tasks)
+
+    logger.info(f"[partner_sitemap] Total IDs partenaires identifiés : {len(partner_map)}")
+    return partner_map
 
 
 async def fetch_ids_from_sitemaps() -> list:
@@ -239,12 +299,25 @@ async def scrape_forceoccasion_full() -> list:
 
     logger.info(f"🔗 {len(vehicle_ids)} IDs collectés, récupération des détails JSON...")
 
+    # Construire le mapping partenaire en parallèle du fetch JSON
+    partner_map = await fetch_partner_vehicle_ids()
+
     raw_vehicles = await get_vehicle_details_batch(vehicle_ids, batch_size=15)
 
     vehicles = []
     for raw in raw_vehicles:
         normalized = normalize_vehicle(raw)
         if normalized:
+            # Override dealer_name si le vehicle_id appartient à un partenaire connu
+            vid = str(normalized.get("vehicle_id", ""))
+            if vid in partner_map:
+                canonical = partner_map[vid]
+                if normalized.get("dealer_name") != canonical:
+                    logger.debug(
+                        f"[partner_map] {vid} : '{normalized['dealer_name']}'"
+                        f" → '{canonical}'"
+                    )
+                normalized["dealer_name"] = canonical
             vehicles.append(normalized)
 
     logger.info(f"🏁 Scraping terminé: {len(vehicles)} véhicules prêts")
