@@ -249,7 +249,7 @@ def normalize_vehicle(raw: dict) -> dict:
         'vin': safe('NIV') or safe('vin'),
         'city': safe('city'),
         'province': safe('state') or 'QC',
-        'dealer_name': safe('dealername'),
+        'dealer_name': safe('dealername') or safe('dealer_name'),
         'dealer_phone': safe('agentphone'),
         'tps': tps,
         'tvq': tvq,
@@ -395,6 +395,7 @@ async def scrape_forceoccasion_for_background(db_conn) -> int:
                     photos=excluded.photos,
                     raw_content=excluded.raw_content,
                     stock_number=excluded.stock_number,
+                    dealer_name=excluded.dealer_name,
                     scraped_at=excluded.scraped_at
             """, (
                 v['source'], v['vehicle_id'], v['title'], v['price'], v['mileage'],
