@@ -166,7 +166,7 @@
     color: var(--accent);
   }
   .rdv-body { padding: 16px 20px; }
-  .field { margin-bottom: 14px; }
+  .field { margin-bottom: 20px; }
   .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; }
   .field input, .field textarea {
     width: 100%;
@@ -182,9 +182,25 @@
   }
   .field input:focus, .field textarea:focus { border-color: var(--accent); }
   .field textarea { resize: vertical; min-height: 70px; }
-  .radio-group { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
-  .radio-group label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--text); margin-bottom: 0; }
-  .radio-group input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .pill-group { margin-top: 4px; }
+  .pill-group input[type="radio"] { display: none; }
+  .pill-group label.pill {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    border: 1px solid #333;
+    margin: 4px;
+    background: #1a1a1a;
+    color: #aaa;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .pill-group input[type="radio"]:checked + label.pill {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
 
   .btn-rdv {
     width: 100%;
@@ -426,51 +442,52 @@
         <div class="rdv-header">📅 Prendre rendez-vous</div>
         <div class="rdv-body">
           <div class="field"><label>Prénom *</label><input id="f-name" type="text" placeholder="Votre prénom" autocomplete="given-name"></div>
+          <div class="field"><label>Nom *</label><input id="f-lastname" type="text" placeholder="Votre nom" autocomplete="family-name"></div>
           <div class="field"><label>Téléphone *</label><input id="f-phone" type="tel" placeholder="514-555-0000" autocomplete="tel"></div>
           <div class="field"><label>Courriel *</label><input id="f-email" type="email" placeholder="vous@exemple.com" autocomplete="email"></div>
 
           <div class="field">
             <label>Préférence de contact *</label>
-            <div class="radio-group">
-              <label><input type="radio" name="contact_pref" value="Téléphone" required> 📞 Téléphone</label>
-              <label><input type="radio" name="contact_pref" value="Courriel"> ✉️ Courriel</label>
-              <label><input type="radio" name="contact_pref" value="Les deux"> Les deux</label>
+            <div class="pill-group">
+              <input type="radio" name="contact_pref" value="Téléphone" id="cp-tel" required><label for="cp-tel" class="pill">Téléphone</label>
+              <input type="radio" name="contact_pref" value="Courriel" id="cp-email"><label for="cp-email" class="pill">Courriel</label>
+              <input type="radio" name="contact_pref" value="Les deux" id="cp-both"><label for="cp-both" class="pill">Les deux</label>
             </div>
           </div>
 
           <div class="field">
             <label>Disponibilité *</label>
-            <div class="radio-group">
-              <label><input type="radio" name="disponibilite" value="Matin" required> 🌅 Matin</label>
-              <label><input type="radio" name="disponibilite" value="Après-midi"> ☀️ Après-midi</label>
-              <label><input type="radio" name="disponibilite" value="Soir"> 🌙 Soir</label>
-              <label><input type="radio" name="disponibilite" value="N'importe quand"> 🕐 N'importe quand</label>
+            <div class="pill-group">
+              <input type="radio" name="disponibilite" value="Matin" id="dispo-matin" required><label for="dispo-matin" class="pill">Matin</label>
+              <input type="radio" name="disponibilite" value="Après-midi" id="dispo-pm"><label for="dispo-pm" class="pill">Après-midi</label>
+              <input type="radio" name="disponibilite" value="Soir" id="dispo-soir"><label for="dispo-soir" class="pill">Soir</label>
+              <input type="radio" name="disponibilite" value="N'importe quand" id="dispo-any"><label for="dispo-any" class="pill">N'importe quand</label>
             </div>
           </div>
 
           <div class="field">
             <label>Meilleur moment pour appeler</label>
-            <div class="radio-group">
-              <label><input type="radio" name="moment" value="Semaine"> Semaine</label>
-              <label><input type="radio" name="moment" value="Fin de semaine"> Fin de semaine</label>
-              <label><input type="radio" name="moment" value="Les deux"> Les deux</label>
+            <div class="pill-group">
+              <input type="radio" name="moment" value="Semaine" id="mom-semaine"><label for="mom-semaine" class="pill">Semaine</label>
+              <input type="radio" name="moment" value="Fin de semaine" id="mom-fds"><label for="mom-fds" class="pill">Fin de semaine</label>
+              <input type="radio" name="moment" value="Les deux" id="mom-both"><label for="mom-both" class="pill">Les deux</label>
             </div>
           </div>
 
           <div class="field">
             <label>Avez-vous un véhicule à échanger?</label>
-            <div class="radio-group">
-              <label><input type="radio" name="echange" value="Oui"> Oui</label>
-              <label><input type="radio" name="echange" value="Non"> Non</label>
+            <div class="pill-group">
+              <input type="radio" name="echange" value="Oui" id="ech-oui"><label for="ech-oui" class="pill">Oui</label>
+              <input type="radio" name="echange" value="Non" id="ech-non"><label for="ech-non" class="pill">Non</label>
             </div>
           </div>
 
           <div class="field">
             <label>Mode de financement prévu</label>
-            <div class="radio-group">
-              <label><input type="radio" name="financement" value="Comptant"> 💵 Comptant</label>
-              <label><input type="radio" name="financement" value="Financement"> 🏦 Financement</label>
-              <label><input type="radio" name="financement" value="Pas encore décidé"> 🤔 Pas encore décidé</label>
+            <div class="pill-group">
+              <input type="radio" name="financement" value="Comptant" id="fin-comptant"><label for="fin-comptant" class="pill">Comptant</label>
+              <input type="radio" name="financement" value="Financement" id="fin-financement"><label for="fin-financement" class="pill">Financement</label>
+              <input type="radio" name="financement" value="Pas encore décidé" id="fin-indecis"><label for="fin-indecis" class="pill">Pas encore décidé</label>
             </div>
           </div>
 
@@ -484,7 +501,9 @@
 
   // ── Soumission RDV ────────────────────────────────────────────
   window.submitRdv = async function(vehicleTitle, vehiclePrice, dealerName, vehicleUrl) {
-    const name    = document.getElementById('f-name').value.trim();
+    const prenom   = document.getElementById('f-name').value.trim();
+    const lastname = document.getElementById('f-lastname').value.trim();
+    const name    = `${prenom} ${lastname}`.trim();
     const phone   = document.getElementById('f-phone').value.trim();
     const email   = document.getElementById('f-email').value.trim();
     const message = document.getElementById('f-msg').value.trim();
@@ -497,7 +516,7 @@
     const echange        = document.querySelector('input[name="echange"]:checked')?.value || '';
     const financement    = document.querySelector('input[name="financement"]:checked')?.value || '';
 
-    if (!name || !phone || !email || !contact_pref || !disponibilite) {
+    if (!prenom || !lastname || !phone || !email || !contact_pref || !disponibilite) {
       msgEl.className = 'form-msg error';
       msgEl.textContent = 'Veuillez remplir les champs obligatoires.';
       return;
