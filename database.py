@@ -389,6 +389,13 @@ def create_learning_tables():
         )
     """)
 
+    # Migration: nouvelles colonnes du formulaire RDV (idempotent)
+    for col in ("contact_pref", "disponibilite", "moment_appel", "vehicule_echange", "financement"):
+        try:
+            cursor.execute(f"ALTER TABLE leads ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass  # colonne déjà existante
+
     # Magic links authentification
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS magic_links (

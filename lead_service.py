@@ -19,8 +19,9 @@ def create_lead(lead_data: dict) -> bool:
         conn.execute("""
             INSERT INTO leads
             (user_id, name, email, phone, vehicle_title, vehicle_price,
-             vehicle_url, dealer_name, dealer_email, message)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+             vehicle_url, dealer_name, dealer_email, message,
+             contact_pref, disponibilite, moment_appel, vehicule_echange, financement)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             lead_data.get("user_id", "anonymous"),
             lead_data.get("name", ""),
@@ -32,6 +33,11 @@ def create_lead(lead_data: dict) -> bool:
             lead_data.get("dealer_name", ""),
             lead_data.get("dealer_email", ADMIN_EMAIL),
             lead_data.get("message", ""),
+            lead_data.get("contact_pref", ""),
+            lead_data.get("disponibilite", ""),
+            lead_data.get("moment", ""),
+            lead_data.get("echange", ""),
+            lead_data.get("financement", ""),
         ))
         conn.commit()
         dealer_email = lead_data.get("dealer_email") or DEALER_EMAILS.get(

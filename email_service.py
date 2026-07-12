@@ -68,6 +68,11 @@ def send_lead_email(dealer_email: str, lead: dict) -> bool:
                 <tr><td style="padding:8px;border-bottom:1px solid #eee;"><strong>Prix</strong></td><td style="padding:8px;border-bottom:1px solid #eee;">{str(lead.get('vehicle_price','')).rstrip('$ ').strip()} $</td></tr>
                 <tr style="border-bottom: 1px solid #eee;"><td style="padding: 10px 0; color: #666; width: 120px;">N° Stock</td><td style="padding: 10px 0; font-weight: bold; color: #1a1a1a;">{lead.get('stock_number', 'N/D')}</td></tr>
                 <tr style="border-bottom: 1px solid #eee;"><td style="padding: 10px 0; color: #666; width: 120px;">VIN</td><td style="padding: 10px 0; font-family: monospace; color: #1a1a1a;">{lead.get('vin', 'N/D')}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;"><strong>Préférence contact</strong></td><td style="padding:8px;border-bottom:1px solid #eee;">{lead.get('contact_pref','N/D')}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;"><strong>Disponibilité</strong></td><td style="padding:8px;border-bottom:1px solid #eee;">{lead.get('disponibilite','N/D')}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;"><strong>Moment pour appeler</strong></td><td style="padding:8px;border-bottom:1px solid #eee;">{lead.get('moment','N/D')}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;"><strong>Véhicule à échanger</strong></td><td style="padding:8px;border-bottom:1px solid #eee;">{lead.get('echange','N/D')}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;"><strong>Financement</strong></td><td style="padding:8px;border-bottom:1px solid #eee;">{lead.get('financement','N/D')}</td></tr>
                 <tr><td style="padding:8px;"><strong>Message</strong></td><td style="padding:8px;">{lead.get('message','Aucun message')}</td></tr>
             </table>
             <p style="color:#888;font-size:12px;margin-top:20px;">Lead généré par 229Voitures AI Agent</p>

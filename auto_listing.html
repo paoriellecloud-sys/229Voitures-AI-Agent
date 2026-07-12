@@ -182,6 +182,9 @@
   }
   .field input:focus, .field textarea:focus { border-color: var(--accent); }
   .field textarea { resize: vertical; min-height: 70px; }
+  .radio-group { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+  .radio-group label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--text); margin-bottom: 0; }
+  .radio-group input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; }
 
   .btn-rdv {
     width: 100%;
@@ -425,6 +428,52 @@
           <div class="field"><label>Prénom *</label><input id="f-name" type="text" placeholder="Votre prénom" autocomplete="given-name"></div>
           <div class="field"><label>Téléphone *</label><input id="f-phone" type="tel" placeholder="514-555-0000" autocomplete="tel"></div>
           <div class="field"><label>Courriel *</label><input id="f-email" type="email" placeholder="vous@exemple.com" autocomplete="email"></div>
+
+          <div class="field">
+            <label>Préférence de contact *</label>
+            <div class="radio-group">
+              <label><input type="radio" name="contact_pref" value="Téléphone" required> 📞 Téléphone</label>
+              <label><input type="radio" name="contact_pref" value="Courriel"> ✉️ Courriel</label>
+              <label><input type="radio" name="contact_pref" value="Les deux"> Les deux</label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Disponibilité *</label>
+            <div class="radio-group">
+              <label><input type="radio" name="disponibilite" value="Matin" required> 🌅 Matin</label>
+              <label><input type="radio" name="disponibilite" value="Après-midi"> ☀️ Après-midi</label>
+              <label><input type="radio" name="disponibilite" value="Soir"> 🌙 Soir</label>
+              <label><input type="radio" name="disponibilite" value="N'importe quand"> 🕐 N'importe quand</label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Meilleur moment pour appeler</label>
+            <div class="radio-group">
+              <label><input type="radio" name="moment" value="Semaine"> Semaine</label>
+              <label><input type="radio" name="moment" value="Fin de semaine"> Fin de semaine</label>
+              <label><input type="radio" name="moment" value="Les deux"> Les deux</label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Avez-vous un véhicule à échanger?</label>
+            <div class="radio-group">
+              <label><input type="radio" name="echange" value="Oui"> Oui</label>
+              <label><input type="radio" name="echange" value="Non"> Non</label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Mode de financement prévu</label>
+            <div class="radio-group">
+              <label><input type="radio" name="financement" value="Comptant"> 💵 Comptant</label>
+              <label><input type="radio" name="financement" value="Financement"> 🏦 Financement</label>
+              <label><input type="radio" name="financement" value="Pas encore décidé"> 🤔 Pas encore décidé</label>
+            </div>
+          </div>
+
           <div class="field"><label>Message (optionnel)</label><textarea id="f-msg" placeholder="Questions, disponibilités…"></textarea></div>
           <button class="btn-rdv" id="btn-send" onclick="submitRdv('${vehicleTitle}', ${displayPrice||0}, '${v.dealer_name||''}', '${v.url||''}')">Envoyer ma demande</button>
           <div class="form-msg" id="form-msg"></div>
@@ -442,7 +491,13 @@
     const msgEl   = document.getElementById('form-msg');
     const btn     = document.getElementById('btn-send');
 
-    if (!name || !phone || !email) {
+    const contact_pref   = document.querySelector('input[name="contact_pref"]:checked')?.value || '';
+    const disponibilite  = document.querySelector('input[name="disponibilite"]:checked')?.value || '';
+    const moment         = document.querySelector('input[name="moment"]:checked')?.value || '';
+    const echange        = document.querySelector('input[name="echange"]:checked')?.value || '';
+    const financement    = document.querySelector('input[name="financement"]:checked')?.value || '';
+
+    if (!name || !phone || !email || !contact_pref || !disponibilite) {
       msgEl.className = 'form-msg error';
       msgEl.textContent = 'Veuillez remplir les champs obligatoires.';
       return;
@@ -455,6 +510,7 @@
     const payload = {
       user_id: 'marketplace',
       name, phone, email, message,
+      contact_pref, disponibilite, moment, echange, financement,
       vehicle_title: vehicleTitle,
       vehicle_price: vehiclePrice,
       vehicle_url: vehicleUrl,
