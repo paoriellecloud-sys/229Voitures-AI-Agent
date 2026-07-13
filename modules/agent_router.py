@@ -1545,6 +1545,9 @@ def smart_chat(message: str, user_id: str = "default") -> dict:
     # ─── PART 3 : Extraction user_data stricte (uniquement ce que l'user a dit) ───
     msg_lower = message.lower()
     ud = session["user_data"]
+    # Snapshot AVANT parsing du message courant — distingue budget déjà connu
+    # (tour précédent) vs budget qui vient tout juste d'être dit dans ce message
+    _budget_already_known = ud.get("budget")
     _budget_patterns = [
         r'(?:mon budget est|budget de|je veux dépenser|maximum)\s*(\d[\d\s,]*)\s*\$',
         r'(\d[\d\s,]*)\s*\$\s*(?:de budget|max|maximum)',
@@ -2682,6 +2685,12 @@ QUESTION UTILISATEUR : {message}
                 }
             else:
                 alt_results = get_alternatives(query, _price_max, vehicle_filter, message=message)
+                # B3 : n'applique le filtre budget ici que si le budget était
+                # déjà connu AVANT ce message (tour précédent) — sinon on risque
+                # de sur-filtrer une clarification de budget qui vient d'arriver
+                # dans le message courant (régression B1 constatée sur c7e5098)
+                if _budget_already_known:
+                    alt_results = enforce_budget(alt_results, _price_max, query)
 
                 if alt_results:
                     session["context"]["last_listings"] = [r["url"] for r in alt_results]
