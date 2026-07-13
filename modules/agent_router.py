@@ -2682,6 +2682,7 @@ QUESTION UTILISATEUR : {message}
                 }
             else:
                 alt_results = get_alternatives(query, _price_max, vehicle_filter, message=message)
+                alt_results = enforce_budget(alt_results, _price_max, query)
 
                 if alt_results:
                     session["context"]["last_listings"] = [r["url"] for r in alt_results]
